@@ -50,83 +50,32 @@ QVO
 Salesman Performance
 Target, Achievement and % Achievement by category
 Target from Monthly Target File
-
-<table class="table">
-  <thead>
-    <tr>
-      <th>Rank</th>
-      <th>Salesman</th>
-      <th>Total Sales</th>
-      <th>Device</th>
-      <th>Macbook</th>
-      <th>Accessories</th>
-      <th>BO</th>
-      <th>QVO</th>
-      <th>Status</th>
-    </tr>
-  </thead>
-
-  <tbody>
-    {% for r in table %}
-    <tr>
-      <td>{{ r.rank }}</td>
-
-      <td>
-        <strong>{{ r.salesman }}</strong>
-      </td>
-
-      <td>
-        <strong>{{ r.total|rupiah_short }}</strong><br>
-        <small>Target {{ r.target_total|rupiah_short }}</small>
-      </td>
-
-      <td>
-        {{ r.device|rupiah_short }}<br>
-        <small>Target {{ r.device_target|rupiah_short }}</small><br>
-        <small>{{ "%.1f"|format(r.device_pct) }}%</small>
-      </td>
-
-      <td>
-        {{ r.macbook|rupiah_short }}<br>
-        <small>Target {{ r.macbook_target|rupiah_short }}</small><br>
-        <small>{{ "%.1f"|format(r.macbook_pct) }}%</small>
-      </td>
-
-      <td>
-        {{ r.acc|rupiah_short }}<br>
-        <small>Target {{ r.acc_target|rupiah_short }}</small><br>
-        <small>{{ "%.1f"|format(r.acc_pct) }}%</small>
-      </td>
-
-      <td>
-        <strong>{{ r.bo }} / {{ r.bo_target }}</strong><br>
-        <small>{{ "%.1f"|format(r.bo_pct) }}%</small>
-      </td>
-
-      <td>
-        {{ r.qvo }} / {{ r.qvo_target }}
-      </td>
-
-      <td>
-        {% if r.health == 'Green' %}
-          <span class="badge bg-success">On Track</span>
-        {% elif r.health == 'Amber' %}
-          <span class="badge bg-warning">Watch</span>
-        {% else %}
-          <span class="badge bg-danger">Need Push</span>
-        {% endif %}
-      </td>
-    </tr>
-
-    {% else %}
-    <tr>
-      <td colspan="9" style="text-align:center;">
-        Belum ada target/billing untuk periode ini.
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+{% for r in table %}{% else %}{% endfor %}
+Rank
+Salesman
+Device
+Macbook
+Accessories
+BO
+QVO
+Status
+{{r.rank}}
+{{r.salesman}}
+Total {{r.total|rupiah_short}} / {{r.target_total|rupiah_short}}
+{{r.device|rupiah_short}}
+Target {{r.device_target|rupiah_short}}
+{{'%.1f'|format(r.device_pct)}}%
+{{r.macbook|rupiah_short}}
+Target {{r.macbook_target|rupiah_short}}
+{{'%.1f'|format(r.macbook_pct)}}%
+{{r.acc|rupiah_short}}
+Target {{r.acc_target|rupiah_short}}
+{{'%.1f'|format(r.acc_pct)}}%
+{{r.bo}} / {{r.bo_target}}
+{{'%.1f'|format(r.bo_pct)}}%
+{{r.qvo}} / {{r.qvo_target}}
+{% if r.health=='Green' %}On Track{% elif r.health=='Amber' %}Watch{% else %}Need Push{% endif %}
+Belum ada target/billing untuk periode ini.
 Leaderboard
 BO + SKU + Sales
 Top
