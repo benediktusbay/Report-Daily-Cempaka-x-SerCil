@@ -645,6 +645,32 @@ def business_round(value):
 
 
 def weekly_targets(bo_target):
+    """
+    Dashboard Speed Distribution target:
+    use round-up (ceil), so with monthly BO target 25:
+      Week 1 = 19
+      Week 2 = 23
+      Week 3 = 25
+      Week 4 = 25
+    """
+    return {
+        w: int(math.ceil((bo_target or 0) * WEEK_PCTS[w]))
+        for w in range(1, 5)
+    }
+
+
+def incentive_weekly_targets(bo_target):
+    """
+    Incentive Speed Distribution target:
+    keep the agreed company rounding rule:
+      0.00-0.59 down, 0.60-0.99 up.
+
+    With monthly BO target 25:
+      Cycle 1 = 19
+      Cycle 2 = 22
+      Cycle 3 = 25
+      Cycle 4 = 25
+    """
     return {
         w: business_round((bo_target or 0) * WEEK_PCTS[w])
         for w in range(1, 5)
@@ -766,7 +792,7 @@ def build_incentive_metrics(month, member_salesmen):
     )
 
     # Speed Distribution: cumulative unique BO by cycle cut-off.
-    speed_targets = weekly_targets(bo_target)
+    speed_targets = incentive_weekly_targets(bo_target)
     speed_actual = {}
     speed_active = {}
 
