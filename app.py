@@ -3,6 +3,7 @@ import re
 import math
 import hashlib
 from datetime import datetime
+import datetime as dt
 from functools import wraps
 
 import pandas as pd
@@ -31,6 +32,58 @@ WEEK_PCTS = {1: 0.75, 2: 0.90, 3: 1.00, 4: 1.00}
 WEEK_END_DAY = {1: 7, 2: 14, 3: 21, 4: 31}
 WEEK_START_DAY = {1: 1, 2: 8, 3: 15, 4: 22}
 SKU_TARGETS = {'2-3': 13, '4-6': 6, '7-10': 5, '>10': 2}
+
+
+# Indonesia national public holidays for 2026.
+# Time Gone rule requested: Sunday and national public holidays are not working days.
+# Cuti bersama is intentionally NOT excluded unless you later decide to treat it as a non-working day.
+NATIONAL_HOLIDAYS_2026 = {
+    '2026-01-01',  # New Year
+    '2026-01-16',  # Isra Mikraj
+    '2026-02-17',  # Chinese New Year
+    '2026-03-19',  # Nyepi
+    '2026-03-21',  # Idul Fitri
+    '2026-03-22',  # Idul Fitri (Sunday anyway)
+    '2026-04-03',  # Good Friday
+    '2026-04-05',  # Easter (Sunday anyway)
+    '2026-05-01',  # Labour Day
+    '2026-05-14',  # Ascension Day
+    '2026-05-27',  # Idul Adha
+    '2026-05-31',  # Vesak (Sunday anyway)
+    '2026-06-01',  # Pancasila Day
+    '2026-06-16',  # Islamic New Year
+    '2026-08-17',  # Independence Day
+    '2026-08-25',  # Prophet Muhammad's Birthday
+    '2026-12-25',  # Christmas
+}
+
+
+def is_working_day(day):
+    """Working day = Monday-Saturday, excluding national public holidays."""
+    if day.weekday() == 6:  # Sunday
+        return False
+    return day.isoformat() not in NATIONAL_HOLIDAYS_2026
+
+
+def working_day_progress(start, end, as_of):
+    """
+    Returns elapsed working days, total working days, and Time Gone %.
+    as_of is normally latest billing date in the active filter scope.
+    """
+    total = 0
+    elapsed = 0
+    cur = start
+    capped = min(max(as_of or start, start), end)
+
+    while cur <= end:
+        if is_working_day(cur):
+            total += 1
+            if cur <= capped:
+                elapsed += 1
+        cur += dt.timedelta(days=1)
+
+    pct = (elapsed / total * 100) if total else 0
+    return elapsed, total, pct
 
 # Canonical display names and aliases from Billing Detail.
 SALESMAN_ALIASES = {
@@ -62,7 +115,21 @@ SALESMAN_DEPO_FALLBACK = {
 COLOR_WORDS = {
     'black','white','blue','green','red','yellow','purple','pink','orange','gray','grey','silver','gold','starlight',
     'midnight','natural','titanium','desert','graphite','space','rose','coral','teal','ultramarine','indigo','lavender',
-    'navy','beige','brown','cream','mint','cyan','magenta','violet','jetblack','cosmic','sky','light','dark'
+    'navy','beige','brown','cream','mint','cyan','magenta','violet','jetblack','cosmic','sky','light','dark',
+    'sage','mist','deep','stone'
+}
+
+# Colour abbreviations that appear in Billing Detail article descriptions.
+TABLET_COLOR_CODES = {'SB', 'SIL'}
+MAC_COLOR_CODES = {'MDN', 'STL', 'SLV', 'SKY', 'SB', 'SL', 'BLS', 'CIT', 'IND'}
+WATCH_COLOR_CODES = {'JB', 'SG', 'ST', 'MI', 'BK'}
+
+# Multi-word marketing colour names found in accessories.
+ACC_COLOR_PHRASES = {
+    'RAPID RED',
+    'BOLT BLACK',
+    'SURGE STONE',
+    'NITRO NAVY',
 }
 
 
@@ -250,55 +317,109 @@ def classify(item_group):
     return 'Other'
 
 
+def _normalize_storage_token(token):
+    """Normalize 512 GB -> 512GB and 1 tb -> 1TB."""
+    m = re.fullmatch(r'(\d+(?:\.\d+)?)\s*(GB|TB)', normalize_text(token), flags=re.I)
+    if not m:
+        return normalize_text(token)
+    return f'{m.group(1)}{m.group(2).upper()}'
+
+
+def _strip_colour_tokens(text, colour_codes=None):
+    """Remove colour words/codes while keeping product/model information."""
+    colour_codes = {str(x).upper() for x in (colour_codes or set())}
+    tokens = re.split(r'\s+', re.sub(r'[/,_]+', ' ', normalize_text(text)))
+    cleaned = []
+
+    for token in tokens:
+        bare = token.strip('()[]{}.,')
+        if bare.lower() in COLOR_WORDS:
+            continue
+        if bare.upper() in colour_codes:
+            continue
+        cleaned.append(_normalize_storage_token(token))
+
+    return re.sub(r'\s+', ' ', ' '.join(cleaned)).strip()
+
+
 def sku_from_article(article, item_group):
     """
-    Device SKU = model/type + storage.
-    Everything after the FIRST storage token (GB/TB) is ignored.
+    KPI SKU applies to Device + Macbook + ACC.
 
-    Examples:
-      iPhone 17 Pro 1TB Silver        -> IPHONE 17 PRO 1TB
-      iPhone 17 Pro 1TB Cosmic Orange -> IPHONE 17 PRO 1TB
-      iPhone 17 Pro 256GB Deep Blue   -> IPHONE 17 PRO 256GB
-      iPad Air 11 (M4) Wifi 128GB Blue -> IPAD AIR 11 (M4) WIFI 128GB
+    Main rule:
+      SKU = model/type + storage; colour differences are ignored.
 
-    This deliberately does not depend on a colour dictionary, so new colour
-    names cannot accidentally create duplicate SKUs.
+    Category handling:
+    - Mobile Phones / Tablet:
+      Keep the model/specification and storage, remove colour names/codes.
+      This preserves model markers such as M4/M5 that can appear after storage.
+    - Computer / Macbook:
+      SKU is Mac family + screen/model size + chip + primary storage.
+      RAM/GPU and colour variations do not create another SKU.
+    - ACC:
+      Keep the product/model description and storage when present,
+      while removing colour names/codes. For accessories without storage,
+      the colour-free model description itself is the SKU.
     """
-    if normalize_text(item_group).lower() not in DEVICE_GROUPS:
-        return None
-
+    group = normalize_text(item_group).lower()
     s = normalize_text(article)
+
     if not s or s.lower() in ('nan', 'none'):
         return None
 
-    # Normalize separators/spaces but keep meaningful model punctuation such as (M4).
-    s = re.sub(r'[/,_]+', ' ', s)
-    s = re.sub(r'\s+', ' ', s).strip()
+    # DEVICE: Mobile Phones + Tablet.
+    if group in DEVICE_GROUPS:
+        colour_codes = TABLET_COLOR_CODES if group == 'tablet' else set()
+        base = _strip_colour_tokens(s, colour_codes)
+        return base.upper() if base else None
 
-    # The SKU identity ends at the first storage token.
-    storage_match = re.search(r'\b\d+(?:\.\d+)?\s*(?:GB|TB)\b', s, flags=re.I)
-    if storage_match:
-        base = s[:storage_match.end()]
-        base = re.sub(
-            r'\b(\d+(?:\.\d+)?)\s*(GB|TB)\b',
-            lambda m: f"{m.group(1)}{m.group(2).upper()}",
-            base,
-            count=1,
-            flags=re.I
-        )
-        return re.sub(r'\s+', ' ', base).strip().upper()
+    # MACBOOK / COMPUTER.
+    if group in MAC_GROUPS:
+        normalized = re.sub(r'\s+', ' ', re.sub(r'[/,_]+', ' ', s)).strip()
+        upper = normalized.upper()
 
-    # Defensive fallback for an unusual Device article without storage.
-    # Strip known colour words, but normal Device SKU rows should use the path above.
-    tokens = re.split(r'\s+', re.sub(r'[-]+', ' ', s))
-    cleaned = []
-    for token in tokens:
-        bare = token.lower().strip('()[]{}.,')
-        if bare in COLOR_WORDS:
-            continue
-        cleaned.append(token)
-    base = re.sub(r'\s+', ' ', ' '.join(cleaned)).strip()
-    return base.upper() if base else None
+        # In Billing Detail the final GB/TB capacity is the primary SSD/storage.
+        capacities = re.findall(r'\b\d+(?:\.\d+)?\s*(?:GB|TB)\b', normalized, flags=re.I)
+        storage = _normalize_storage_token(capacities[-1]) if capacities else ''
+
+        # Model family and display/model size.
+        if upper.startswith('MB NEO'):
+            model_match = re.match(r'\bMB\s+NEO\s+([0-9.]+)', upper)
+            model = f"MB NEO {model_match.group(1)}" if model_match else 'MB NEO'
+            chip = ''
+        else:
+            model_match = re.match(r'\b(MBA|MBP)\s+([0-9.]+)', upper)
+            model = (
+                f"{model_match.group(1)} {model_match.group(2)}"
+                if model_match else upper.split()[0]
+            )
+
+            # Examples: M3, M5, M5 Pro, M5 Max.
+            chip_match = re.search(r'\bM\d+\b(?:\s+(?:PRO|MAX))?', upper)
+            chip = chip_match.group(0) if chip_match else ''
+
+        key = ' '.join(x for x in (model, chip, storage) if x)
+        if key:
+            return re.sub(r'\s+', ' ', key).strip().upper()
+
+        # Defensive fallback.
+        fallback = _strip_colour_tokens(s, MAC_COLOR_CODES)
+        return fallback.upper() if fallback else None
+
+    # ACCESSORIES: Audio, Computer Accessories, Mobile Accessories,
+    # Tablets Accessories, Wearable.
+    if group in ACC_GROUPS:
+        cleaned = s.upper()
+
+        # Remove known multi-word accessory colour names first.
+        for phrase in ACC_COLOR_PHRASES:
+            cleaned = re.sub(r'\b' + re.escape(phrase) + r'\b', ' ', cleaned, flags=re.I)
+
+        colour_codes = WATCH_COLOR_CODES if group == 'wearable' else set()
+        cleaned = _strip_colour_tokens(cleaned, colour_codes)
+        return cleaned.upper() if cleaned else None
+
+    return None
 
 
 def row_hash(vals):
@@ -481,10 +602,11 @@ def dashboard():
         })
         if r.category in ('Device','Macbook','ACC'):
             d[r.category] += float(r.nett_amount or 0)
-        # Always recalculate Device SKU from the original Article Description.
-        # This also corrects historical billing rows whose stored sku_key was
-        # created before the latest SKU normalization rule.
-        if r.category == 'Device':
+        # Recalculate SKU from Article Description on every dashboard load.
+        # KPI SKU includes Device + Macbook + ACC. Historical stored sku_key
+        # values are intentionally ignored so the latest normalization rule
+        # automatically corrects old billing data.
+        if r.category in ('Device', 'Macbook', 'ACC'):
             current_sku = sku_from_article(r.article, r.item_group)
             if current_sku:
                 d['skus'].add(current_sku)
@@ -571,6 +693,12 @@ def dashboard():
 
     # Speed Distribution per salesman and per week, cumulative BO. Future weeks are left blank.
     latest_in_scope = max([r.billing_date for r,_,_ in scoped_billing], default=None)
+
+    # Time Gone follows the latest billing date in the active scope.
+    working_days_elapsed, working_days_total, timegone_pct = working_day_progress(
+        start, end, latest_in_scope or start
+    )
+
     speed_rows = []
     for x in table:
         wk_targets = weekly_targets(x['bo_target'])
@@ -609,6 +737,9 @@ def dashboard():
         'dealers': active_dealers, 'target_dealers':len(scoped_targets), 'salesmen':len(table)
     }
     cards['sales_pct'] = cards['sales']/cards['sales_target']*100 if cards['sales_target'] else 0
+    cards['device_pct'] = cards['device']/cards['device_target']*100 if cards['device_target'] else 0
+    cards['macbook_pct'] = cards['macbook']/cards['macbook_target']*100 if cards['macbook_target'] else 0
+    cards['acc_pct'] = cards['acc']/cards['acc_target']*100 if cards['acc_target'] else 0
     cards['bo_rate'] = cards['bo']/cards['bo_target']*100 if cards['bo_target'] else 0
     cards['qvo_rate'] = cards['qvo']/cards['qvo_target']*100 if cards['qvo_target'] else 0
 
@@ -619,7 +750,10 @@ def dashboard():
         depos=depos, salesmen=salesmen, cards=cards, table=table, leaderboard=leaderboard,
         speed_rows=speed_rows, sku_rows=sku_rows, sku_detail=sku_detail, dealer_detail=dealer_detail,
         sku_targets=SKU_TARGETS, uploads=uploads, target_uploads=target_uploads,
-        qvo_threshold=QVO_THRESHOLD, latest_in_scope=latest_in_scope
+        qvo_threshold=QVO_THRESHOLD, latest_in_scope=latest_in_scope,
+        timegone_pct=timegone_pct,
+        working_days_elapsed=working_days_elapsed,
+        working_days_total=working_days_total
     )
 
 
