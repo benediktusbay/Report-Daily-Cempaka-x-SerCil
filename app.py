@@ -677,6 +677,21 @@ def incentive_weekly_targets(bo_target):
     }
 
 
+def is_bo_amounts(device_amount=0, macbook_amount=0):
+    """
+    BO rule:
+    - Device saja = BO
+    - Macbook saja = BO
+    - Device + ACC = BO
+    - Macbook + ACC = BO
+    - Device + Macbook (+/- ACC) = BO
+    - ACC saja = bukan BO
+
+    ACC tidak menjadi syarat BO; dealer qualify selama ada Device dan/atau Macbook.
+    """
+    return (float(device_amount or 0) + float(macbook_amount or 0)) > 0
+
+
 def sku_bucket(n):
     if n == 1:
         return '1'
@@ -777,7 +792,7 @@ def build_incentive_metrics(month, member_salesmen):
             revenue_actual[cat] += d[cat]
 
         total_sales = d['Device'] + d['Macbook'] + d['ACC']
-        if (d['Device'] + d['Macbook']) > 0:
+        if is_bo_amounts(d['Device'], d['Macbook']):
             bo_actual += 1
         if total_sales >= QVO_THRESHOLD:
             qvo_actual += 1
@@ -820,7 +835,7 @@ def build_incentive_metrics(month, member_salesmen):
 
         speed_actual[cycle] = sum(
             1 for vals in bo_by_bp.values()
-            if vals['Device'] + vals['Macbook'] > 0
+            if is_bo_amounts(vals['Device'], vals['Macbook'])
         )
 
     qvo_target = business_round(bo_target * 0.50)
@@ -1093,7 +1108,9 @@ def dashboard():
             'salesman': d['salesman'], 'depo': d['depo'], 'bp': bp, 'dealer': d['dealer'],
             'device': d['Device'], 'macbook': d['Macbook'], 'acc': d['ACC'], 'total': total,
             'device_target': d['device_target'], 'macbook_target': d['macbook_target'], 'acc_target': d['acc_target'],
-            'bo': bo, 'qvo': qvo, 'sku': sku_count, 'is_target': d['is_target']
+            'bo': bo, 'qvo': qvo, 'sku': sku_count,
+            'sku_list': sorted(d['skus']),
+            'is_target': d['is_target']
         })
 
     all_people = sorted(set(salesman_target) | set(salesman_actual))
