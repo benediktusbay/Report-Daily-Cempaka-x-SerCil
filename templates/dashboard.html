@@ -268,6 +268,67 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   }
 }
 
+
+/* ===== MOBILE SALESMAN FOCUS V4 ===== */
+.mobile-salesman-focus{display:none}
+
+@media(max-width:768px){
+  /* V4 replaces horizontal KPI carousels with one selected salesman */
+  .mobile-salesman-focus{
+    display:block;
+    position:sticky;
+    top:0;
+    z-index:35;
+    margin:10px 0 14px;
+    padding:10px;
+    background:rgba(248,250,252,.96);
+    backdrop-filter:blur(8px);
+    border:1px solid #e5e7eb;
+    border-radius:12px;
+    box-shadow:0 3px 14px rgba(15,23,42,.06);
+  }
+  .mobile-salesman-focus label{
+    display:block;
+    font-size:10px;
+    font-weight:900;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:#64748b;
+    margin-bottom:6px;
+  }
+  .mobile-salesman-focus select{
+    width:100%;
+    border:1px solid #cbd5e1;
+    border-radius:9px;
+    padding:10px 11px;
+    background:#fff;
+    font-size:14px;
+    font-weight:800;
+    color:#0f172a;
+  }
+
+  .mobile-swipe{
+    display:grid !important;
+    overflow:visible !important;
+    padding:0 !important;
+  }
+  .mobile-swipe-hint{display:none !important}
+  .mobile-swipe > .mobile-kpi-card{
+    display:none;
+    max-width:none !important;
+    width:100%;
+    flex:none !important;
+  }
+  .mobile-swipe > .mobile-kpi-card.mobile-salesman-active{
+    display:block;
+  }
+
+  /* Dealer remains controlled by its existing salesman tabs */
+  .dealer-mobile-list .dealer-detail-row{
+    display:block;
+  }
+}
+
 </style>
 {% endblock %}
 
@@ -359,6 +420,18 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   <div class="card kpi-card"><div class="kpi-label">QVO</div><div class="kpi-value">{{ cards.qvo }}</div><div class="kpi-sub">Target {{ cards.qvo_target }} · {{ '%.1f'|format(cards.qvo_rate) }}%</div></div>
 </div>
 
+
+<div class="mobile-salesman-focus">
+  <label for="mobileSalesmanFocus">Salesman Dashboard</label>
+  <select id="mobileSalesmanFocus">
+    {% if table %}
+      {% for r in table %}
+      <option value="{{ r.salesman|e }}">{{ r.salesman }}</option>
+      {% endfor %}
+    {% endif %}
+  </select>
+</div>
+
 <div class="section">
   <div class="section-title">
     <h2>Sales Performance — Value</h2>
@@ -374,7 +447,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     <div class="mobile-swipe-hint">Geser ke samping <span>→</span></div>
     <div class="mobile-card-list mobile-swipe">
       {% for r in table %}
-      <div class="mobile-kpi-card">
+      <div class="mobile-kpi-card mobile-salesman-kpi" data-salesman="{{ r.salesman|e }}">
         <div class="mobile-card-head">
           <div>
             <div class="mobile-card-title">{{ r.salesman }}</div>
@@ -503,7 +576,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     <div class="mobile-card-list mobile-swipe">
       {% for r in table %}
       {% set qvo_pct = (r.qvo / r.qvo_target * 100) if r.qvo_target else 0 %}
-      <div class="mobile-kpi-card">
+      <div class="mobile-kpi-card mobile-salesman-kpi" data-salesman="{{ r.salesman|e }}">
         <div class="mobile-card-head">
           <div>
             <div class="mobile-card-title">{{ r.salesman }}</div>
@@ -609,7 +682,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     <div class="mobile-swipe-hint">Geser ke samping <span>→</span></div>
     <div class="mobile-card-list mobile-swipe">
       {% for r in speed_rows %}
-      <div class="mobile-kpi-card">
+      <div class="mobile-kpi-card mobile-salesman-kpi" data-salesman="{{ r.salesman|e }}">
         <div class="mobile-card-title">{{ r.salesman }}</div>
         {% for w in [1,2,3,4] %}
         {% set x = r.weeks[w] %}
@@ -685,7 +758,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     <div class="mobile-swipe-hint">Geser ke samping <span>→</span></div>
     <div class="mobile-card-list mobile-swipe">
       {% for r in sku_rows %}
-      <div class="mobile-kpi-card">
+      <div class="mobile-kpi-card mobile-salesman-kpi" data-salesman="{{ r.salesman|e }}">
         <div class="mobile-card-title" style="margin-bottom:10px">{{ r.salesman }}</div>
         <div class="mobile-grid-2">
           <div class="mobile-metric"><div class="mobile-metric-label">SKU 1</div><button type="button" class="sku-link" data-salesman="{{ r.salesman|e }}" data-bucket="1">{{ r['1'] }}</button></div>
