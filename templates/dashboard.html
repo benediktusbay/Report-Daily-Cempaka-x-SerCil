@@ -32,6 +32,9 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 .sku-link:hover{background:#eff6ff;border-color:#93c5fd}
 .badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:10px;font-weight:900}
 .badge-target{background:#dcfce7;color:#166534}.badge-nontarget{background:#fee2e2;color:#991b1b}
+.dealer-salesman-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.dealer-salesman-tab{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:999px;padding:7px 11px;font-size:11px;font-weight:800;cursor:pointer}
+.dealer-salesman-tab:hover{background:#f8fafc}.dealer-salesman-tab.active{background:#0b2545;color:#fff;border-color:#0b2545}
 .modal-backdrop-custom{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;padding:24px;overflow:auto}
 .modal-card-custom{width:min(1100px,100%);margin:30px auto;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(15,23,42,.25);overflow:hidden}
 .modal-head-custom{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;padding:18px 20px;border-bottom:1px solid #e5e7eb}
@@ -61,13 +64,13 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     </div>
 
     <div class="field">
-      <label>Depo</label>
-      <select name="depo">
-        <option value="">All Depo</option>
+      <label>Depo <span style="font-weight:400;color:#94a3b8">(multi-select)</span></label>
+      <select name="depo" multiple size="4" style="min-width:220px">
         {% for d in depos %}
-        <option value="{{ d }}" {% if depo_filter == d %}selected{% endif %}>{{ d }}</option>
+        <option value="{{ d }}" {% if d in depo_filters %}selected{% endif %}>{{ d }}</option>
         {% endfor %}
       </select>
+      <div style="margin-top:5px;font-size:10px;color:#94a3b8">Mac: tahan ⌘ · Windows: tahan Ctrl saat memilih.</div>
     </div>
 
     <div class="field">
@@ -368,7 +371,13 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 <div class="section">
   <div class="section-title">
     <h2>Dealer Detail</h2>
-    <p>Semua dealer target dan dealer yang bertransaksi. Dealer yang tidak ada di target diberi status Non Target.</p>
+    <p>Semua dealer target dan dealer yang bertransaksi. Klik salesman untuk melihat dealer salesman tersebut saja.</p>
+    <div class="dealer-salesman-tabs">
+      <button type="button" class="dealer-salesman-tab active" data-salesman-filter="__ALL__">All Salesman</button>
+      {% for s in salesmen %}
+      <button type="button" class="dealer-salesman-tab" data-salesman-filter="{{ s|e }}">{{ s }}</button>
+      {% endfor %}
+    </div>
   </div>
 
   <div class="card table-card"><div class="table-wrap">
@@ -393,7 +402,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 
       <tbody>
         {% for d in dealer_detail %}
-        <tr>
+        <tr class="dealer-detail-row" data-salesman="{{ d.salesman|e }}">
           <td>{{ d.depo }}</td>
           <td>{{ d.salesman }}</td>
           <td>{{ d.bp }}</td>
@@ -587,6 +596,24 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   dealerCloseBtn.addEventListener('click',closeDealerTargetModal);
   dealerModal.addEventListener('click',function(e){
     if(e.target===dealerModal) closeDealerTargetModal();
+  });
+
+  const dealerTabs=document.querySelectorAll('.dealer-salesman-tab');
+  const dealerRows=document.querySelectorAll('.dealer-detail-row');
+
+  function filterDealerDetail(salesman){
+    dealerRows.forEach(function(row){
+      row.style.display=(salesman==='__ALL__' || row.dataset.salesman===salesman)?'':'none';
+    });
+    dealerTabs.forEach(function(tab){
+      tab.classList.toggle('active',tab.dataset.salesmanFilter===salesman);
+    });
+  }
+
+  dealerTabs.forEach(function(tab){
+    tab.addEventListener('click',function(){
+      filterDealerDetail(tab.dataset.salesmanFilter);
+    });
   });
 
   let skuDetail=[];
