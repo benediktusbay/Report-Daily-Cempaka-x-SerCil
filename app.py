@@ -38,6 +38,102 @@ SKU_TARGETS = {'2-3': 13, '4-6': 6, '7-10': 5, '>10': 2}
 VIEWER_ALLOWED_DEPOS = ['Cempaka', 'Serang', 'Cilegon']
 
 
+# Incentive organization structure.
+INCENTIVE_ORG = {
+    'SC': {
+        'Zefanya Septania Simorangkir': ['Zefanya Septania Simorangkir'],
+        'Rafhyski Alhasan': ['Rafhyski Alhasan'],
+        # Ikmah's incentive combines Serang + Cilegon because both depots belong
+        # to the same SC coverage.
+        'Ikmah Novtianingrum': ['Ikmah Novtianingrum'],
+        'Andy Varandy': ['Andy Varandy'],
+        'Michael Serafin Sidik': ['Michael Serafin Sidik'],
+        'Muhamad Fajri': ['Muhamad Fajri'],
+        'Edi Suyitno': ['Edi Suyitno'],
+        'Edi Purnomo': ['Edi Purnomo'],
+    },
+    'ASH': {
+        'Fanny Anggraeni Lolowang': [
+            'Zefanya Septania Simorangkir',
+            'Rafhyski Alhasan',
+        ],
+        'Isroudin': [
+            'Ikmah Novtianingrum',
+        ],
+        'Andika Polindira': [
+            'Andy Varandy',
+            'Michael Serafin Sidik',
+        ],
+        'Miyarni': [
+            'Muhamad Fajri',
+            'Edi Suyitno',
+            'Edi Purnomo',
+        ],
+    },
+    'TSH': {
+        'Benediktus Bayu Dwi Kristianto': [
+            'Zefanya Septania Simorangkir',
+            'Rafhyski Alhasan',
+            'Ikmah Novtianingrum',
+        ],
+        'Frenky Sidarta Hidayat': [
+            'Andy Varandy',
+            'Michael Serafin Sidik',
+            'Muhamad Fajri',
+            'Edi Suyitno',
+            'Edi Purnomo',
+        ],
+    },
+    'LOB': {
+        'Aditya Saputra': [
+            'Zefanya Septania Simorangkir',
+            'Rafhyski Alhasan',
+            'Ikmah Novtianingrum',
+            'Andy Varandy',
+            'Michael Serafin Sidik',
+            'Muhamad Fajri',
+            'Edi Suyitno',
+            'Edi Purnomo',
+        ],
+    },
+}
+
+INCENTIVE_SCHEME = {
+    'SC': {
+        'max': 5_000_000,
+        'speed_each': 312_500,
+        'sku_each': 250_000,
+        'qvo': 1_250_000,
+        'revenue': {'Device': 1_050_000, 'Macbook': 150_000, 'ACC': 300_000},
+    },
+    'ASH': {
+        'max': 7_000_000,
+        'speed_each': 437_500,
+        'sku_each': 350_000,
+        'qvo': 2_100_000,
+        'revenue': {'Device': 1_225_000, 'Macbook': 175_000, 'ACC': 350_000},
+    },
+    'TSH': {
+        'max': 8_500_000,
+        'speed_each': 531_250,
+        'sku_each': 425_000,
+        'qvo': 2_975_000,
+        'revenue': {'Device': 1_190_000, 'Macbook': 170_000, 'ACC': 340_000},
+    },
+    'LOB': {
+        'max': 12_000_000,
+        'speed_each': 600_000,
+        'sku_each': 750_000,
+        'qvo': 4_200_000,
+        # LOB Apple revenue incentive does not have a separate Mac parameter.
+        'revenue': {'Device': 1_800_000, 'ACC': 600_000},
+    },
+}
+
+# SKU penetration target per SC. Higher levels aggregate by number of SCs covered.
+INCENTIVE_SKU_TARGET_PER_SC = {'2-3': 13, '4-6': 6, '7-10': 5, '>10': 2}
+
+
 # Indonesia national public holidays for 2026.
 # Time Gone rule requested: Sunday and national public holidays are not working days.
 # Cuti bersama is intentionally NOT excluded unless you later decide to treat it as a non-working day.
@@ -528,8 +624,25 @@ def matches_scope(salesman, depo, salesman_filter, depo_filters):
     return True
 
 
+def business_round(value):
+    """
+    Company rounding rule:
+      fractional 0.00 - 0.59 -> round down
+      fractional 0.60 - 0.99 -> round up
+
+    Examples: 22.50 -> 22, 18.75 -> 19.
+    """
+    value = float(value or 0)
+    floor_value = math.floor(value)
+    fraction = value - floor_value
+    return floor_value + (1 if fraction >= 0.60 else 0)
+
+
 def weekly_targets(bo_target):
-    return {w: int(math.ceil((bo_target or 0) * WEEK_PCTS[w])) for w in range(1, 5)}
+    return {
+        w: business_round((bo_target or 0) * WEEK_PCTS[w])
+        for w in range(1, 5)
+    }
 
 
 def sku_bucket(n):
@@ -544,6 +657,258 @@ def sku_bucket(n):
     if n > 10:
         return '>10'
     return '0'
+
+
+def incentive_status(actual, target, active=True):
+    if not active:
+        return 'Pending'
+    if target and actual >= target:
+        return 'Achieved'
+    return 'Not Achieved'
+
+
+def incentive_pct(actual, target):
+    return (actual / target * 100) if target else 0
+
+
+def build_incentive_metrics(month, member_salesmen):
+    """
+    Aggregate target + actual by the SC names covered by one incentive recipient.
+    Dealer-based KPIs use BP as the unique dealer key.
+    """
+    start, end = month_range(month)
+    member_salesmen = {canonical_salesman(x) for x in member_salesmen}
+
+    monthly_targets, target_by_bp = target_lookup_for_month(month)
+    target_rows = [
+        t for t in monthly_targets
+        if canonical_salesman(t.salesman) in member_salesmen
+    ]
+
+    revenue_target = {'Device': 0.0, 'Macbook': 0.0, 'ACC': 0.0}
+    bo_target = 0
+    for t in target_rows:
+        revenue_target['Device'] += float(t.device_target or 0)
+        revenue_target['Macbook'] += float(t.macbook_target or 0)
+        revenue_target['ACC'] += float(t.acc_target or 0)
+        bo_target += int(t.bo_target or 0)
+
+    # Defensive fallback: if a target file has no BO rows, preserve the SC monthly
+    # default used by the dashboard.
+    if not bo_target:
+        bo_target = 25 * len(member_salesmen)
+
+    billing_rows = Billing.query.filter(
+        Billing.billing_date >= start,
+        Billing.billing_date <= end
+    ).all()
+
+    dealer = {}
+    relevant_billing = []
+
+    # Start with target dealers so BP ownership is stable even with no sales.
+    for t in target_rows:
+        bp = normalize_bp(t.bp)
+        if not bp:
+            continue
+        dealer[bp] = {
+            'Device': 0.0, 'Macbook': 0.0, 'ACC': 0.0,
+            'skus': set(),
+        }
+
+    for r in billing_rows:
+        owner, depo, dealer_name, target = resolve_billing_owner(r, target_by_bp)
+        owner = canonical_salesman(owner)
+        if owner not in member_salesmen:
+            continue
+
+        relevant_billing.append((r, owner, depo))
+        bp = normalize_bp(r.sold_to_code)
+        d = dealer.setdefault(bp, {
+            'Device': 0.0, 'Macbook': 0.0, 'ACC': 0.0,
+            'skus': set(),
+        })
+
+        if r.category in ('Device', 'Macbook', 'ACC'):
+            d[r.category] += float(r.nett_amount or 0)
+            current_sku = sku_from_article(r.article, r.item_group)
+            if current_sku:
+                d['skus'].add(current_sku)
+
+    revenue_actual = {'Device': 0.0, 'Macbook': 0.0, 'ACC': 0.0}
+    bo_actual = 0
+    qvo_actual = 0
+    sku_bins = {'1': 0, '2-3': 0, '4-6': 0, '7-10': 0, '>10': 0}
+
+    for bp, d in dealer.items():
+        for cat in revenue_actual:
+            revenue_actual[cat] += d[cat]
+
+        total_sales = d['Device'] + d['Macbook'] + d['ACC']
+        if (d['Device'] + d['Macbook']) > 0:
+            bo_actual += 1
+        if total_sales >= QVO_THRESHOLD:
+            qvo_actual += 1
+
+        bucket = sku_bucket(len(d['skus']))
+        if bucket in sku_bins:
+            sku_bins[bucket] += 1
+
+    latest_date = max(
+        [r.billing_date for r, _, _ in relevant_billing],
+        default=None
+    )
+
+    # Speed Distribution: cumulative unique BO by cycle cut-off.
+    speed_targets = weekly_targets(bo_target)
+    speed_actual = {}
+    speed_active = {}
+
+    for cycle in range(1, 5):
+        active = bool(latest_date and latest_date.day >= WEEK_START_DAY[cycle])
+        speed_active[cycle] = active
+
+        if not active:
+            speed_actual[cycle] = 0
+            continue
+
+        cutoff_day = min(WEEK_END_DAY[cycle], end.day, latest_date.day)
+        cutoff = start.replace(day=cutoff_day)
+        bo_by_bp = {}
+
+        for r, owner, depo in relevant_billing:
+            if r.billing_date > cutoff:
+                continue
+            bp = normalize_bp(r.sold_to_code)
+            vals = bo_by_bp.setdefault(bp, {'Device': 0.0, 'Macbook': 0.0})
+            if r.category == 'Device':
+                vals['Device'] += float(r.nett_amount or 0)
+            elif r.category == 'Macbook':
+                vals['Macbook'] += float(r.nett_amount or 0)
+
+        speed_actual[cycle] = sum(
+            1 for vals in bo_by_bp.values()
+            if vals['Device'] + vals['Macbook'] > 0
+        )
+
+    qvo_target = business_round(bo_target * 0.50)
+
+    sc_count = len(member_salesmen)
+    sku_targets = {
+        bucket: target * sc_count
+        for bucket, target in INCENTIVE_SKU_TARGET_PER_SC.items()
+    }
+
+    return {
+        'bo_target': bo_target,
+        'bo_actual': bo_actual,
+        'speed_targets': speed_targets,
+        'speed_actual': speed_actual,
+        'speed_active': speed_active,
+        'qvo_target': qvo_target,
+        'qvo_actual': qvo_actual,
+        'sku_targets': sku_targets,
+        'sku_actual': sku_bins,
+        'revenue_target': revenue_target,
+        'revenue_actual': revenue_actual,
+        'latest_date': latest_date,
+        'sc_count': sc_count,
+    }
+
+
+def calculate_incentive(level, person, month):
+    level = level.upper()
+    scheme = INCENTIVE_SCHEME[level]
+    members = INCENTIVE_ORG[level][person]
+    metrics = build_incentive_metrics(month, members)
+
+    detail = []
+    earned = 0
+
+    # Speed Distribution: 4 independent binary parameters.
+    for cycle in range(1, 5):
+        target = metrics['speed_targets'][cycle]
+        actual = metrics['speed_actual'][cycle]
+        active = metrics['speed_active'][cycle]
+        status = incentive_status(actual, target, active)
+        payout = scheme['speed_each'] if status == 'Achieved' else 0
+        earned += payout
+        detail.append({
+            'kpi': 'Speed Distribution',
+            'parameter': f'Cycle {cycle}',
+            'target': target,
+            'achievement': actual if active else None,
+            'pct': incentive_pct(actual, target) if active else None,
+            'status': status,
+            'payout': payout,
+            'format': 'count',
+        })
+
+    # Productivity / SKU: 4 independent binary parameters.
+    for bucket in ('2-3', '4-6', '7-10', '>10'):
+        target = metrics['sku_targets'][bucket]
+        actual = metrics['sku_actual'][bucket]
+        status = incentive_status(actual, target, True)
+        payout = scheme['sku_each'] if status == 'Achieved' else 0
+        earned += payout
+        detail.append({
+            'kpi': 'SKU Penetration',
+            'parameter': f'SKU {bucket}',
+            'target': target,
+            'achievement': actual,
+            'pct': incentive_pct(actual, target),
+            'status': status,
+            'payout': payout,
+            'format': 'count',
+        })
+
+    # QVO: Apple parameter is 50% of monthly SD/BO target for every level,
+    # including LOB.
+    qvo_target = metrics['qvo_target']
+    qvo_actual = metrics['qvo_actual']
+    qvo_status = incentive_status(qvo_actual, qvo_target, True)
+    qvo_payout = scheme['qvo'] if qvo_status == 'Achieved' else 0
+    earned += qvo_payout
+    detail.append({
+        'kpi': 'QVO',
+        'parameter': '50% of Target SD',
+        'target': qvo_target,
+        'achievement': qvo_actual,
+        'pct': incentive_pct(qvo_actual, qvo_target),
+        'status': qvo_status,
+        'payout': qvo_payout,
+        'format': 'count',
+    })
+
+    # Revenue: category parameters differ by level.
+    for category, max_payout in scheme['revenue'].items():
+        target = metrics['revenue_target'][category]
+        actual = metrics['revenue_actual'][category]
+        status = incentive_status(actual, target, True)
+        payout = max_payout if status == 'Achieved' else 0
+        earned += payout
+        detail.append({
+            'kpi': 'Revenue',
+            'parameter': category,
+            'target': target,
+            'achievement': actual,
+            'pct': incentive_pct(actual, target),
+            'status': status,
+            'payout': payout,
+            'format': 'rupiah',
+        })
+
+    return {
+        'level': level,
+        'person': person,
+        'members': members,
+        'sc_count': metrics['sc_count'],
+        'earned': earned,
+        'max_incentive': scheme['max'],
+        'earned_pct': incentive_pct(earned, scheme['max']),
+        'detail': detail,
+        'latest_date': metrics['latest_date'],
+    }
 
 
 @app.route('/')
@@ -798,6 +1163,50 @@ def dashboard():
         timegone_pct=timegone_pct,
         working_days_elapsed=working_days_elapsed,
         working_days_total=working_days_total
+    )
+
+
+@app.route('/incentive')
+@admin_required
+def incentive():
+    latest = db.session.query(db.func.max(Billing.billing_date)).scalar()
+    latest_target_month = db.session.query(db.func.max(MonthlyTarget.month)).scalar()
+    default_month = (
+        latest.strftime('%Y-%m')
+        if latest else (latest_target_month or datetime.now().strftime('%Y-%m'))
+    )
+
+    month = request.args.get('month', default_month)
+    level = request.args.get('level', 'SC').upper()
+    if level not in INCENTIVE_ORG:
+        level = 'SC'
+
+    available_people = list(INCENTIVE_ORG[level].keys())
+    person = request.args.get('name', '').strip()
+    if person not in INCENTIVE_ORG[level]:
+        person = ''
+
+    people_to_calculate = [person] if person else available_people
+    rows = [
+        calculate_incentive(level, name, month)
+        for name in people_to_calculate
+    ]
+
+    rows.sort(key=lambda x: (-x['earned'], x['person']))
+
+    grand_earned = sum(x['earned'] for x in rows)
+    grand_max = sum(x['max_incentive'] for x in rows)
+
+    return render_template(
+        'incentive.html',
+        month=month,
+        level=level,
+        person=person,
+        available_people=available_people,
+        rows=rows,
+        grand_earned=grand_earned,
+        grand_max=grand_max,
+        grand_pct=incentive_pct(grand_earned, grand_max),
     )
 
 
