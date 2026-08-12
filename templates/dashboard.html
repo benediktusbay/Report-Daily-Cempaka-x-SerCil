@@ -329,6 +329,41 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   }
 }
 
+
+/* ===== MOBILE BACK TO TOP ===== */
+.mobile-back-to-top{
+  display:none;
+}
+@media(max-width:768px){
+  .mobile-back-to-top{
+    position:fixed;
+    right:16px;
+    bottom:22px;
+    width:46px;
+    height:46px;
+    border:0;
+    border-radius:50%;
+    background:#0b2d50;
+    color:#fff;
+    font-size:24px;
+    font-weight:900;
+    line-height:46px;
+    text-align:center;
+    box-shadow:0 6px 18px rgba(15,23,42,.25);
+    z-index:999;
+    cursor:pointer;
+    opacity:0;
+    visibility:hidden;
+    transform:translateY(8px);
+    transition:opacity .2s ease, transform .2s ease, visibility .2s ease;
+  }
+  .mobile-back-to-top.show{
+    opacity:1;
+    visibility:visible;
+    transform:translateY(0);
+  }
+}
+
 </style>
 {% endblock %}
 
@@ -1245,6 +1280,32 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   if(selector.options.length){
     showSalesman(selector.value);
   }
+})();
+</script>
+
+
+<button type="button" id="mobileBackToTop" class="mobile-back-to-top" aria-label="Kembali ke atas" title="Kembali ke atas">↑</button>
+<script>
+(function(){
+  const btn = document.getElementById('mobileBackToTop');
+  if(!btn) return;
+
+  function toggleBackToTop(){
+    if(window.innerWidth <= 768 && window.scrollY > 350){
+      btn.classList.add('show');
+    } else {
+      btn.classList.remove('show');
+    }
+  }
+
+  window.addEventListener('scroll', toggleBackToTop, {passive:true});
+  window.addEventListener('resize', toggleBackToTop);
+
+  btn.addEventListener('click', function(){
+    window.scrollTo({top:0, behavior:'smooth'});
+  });
+
+  toggleBackToTop();
 })();
 </script>
 
