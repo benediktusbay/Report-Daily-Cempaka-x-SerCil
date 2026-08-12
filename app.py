@@ -33,6 +33,10 @@ WEEK_END_DAY = {1: 7, 2: 14, 3: 21, 4: 31}
 WEEK_START_DAY = {1: 1, 2: 8, 3: 15, 4: 22}
 SKU_TARGETS = {'2-3': 13, '4-6': 6, '7-10': 5, '>10': 2}
 
+# Public Viewer is intentionally limited to these depots.
+# Admin continues to see every depot available in Monthly Target / Billing.
+VIEWER_ALLOWED_DEPOS = ['Cempaka', 'Serang', 'Cilegon']
+
 
 # Indonesia national public holidays for 2026.
 # Time Gone rule requested: Sunday and national public holidays are not working days.
@@ -554,15 +558,43 @@ def dashboard():
     latest_target_month = db.session.query(db.func.max(MonthlyTarget.month)).scalar()
     default_month = latest.strftime('%Y-%m') if latest else (latest_target_month or datetime.now().strftime('%Y-%m'))
     month = request.args.get('month', default_month)
-    depo_filters = [normalize_text(x) for x in request.args.getlist('depo') if normalize_text(x)]
+
+    # Multi-select Depo.
+    # IMPORTANT: Viewer restriction is enforced in backend, not only hidden in HTML,
+    # so a Viewer cannot expose another depo by editing the URL manually.
+    requested_depos = [
+        normalize_text(x)
+        for x in request.args.getlist('depo')
+        if normalize_text(x)
+    ]
+
+    if session.get('role') == 'admin':
+        depo_filters = requested_depos
+    else:
+        allowed = set(VIEWER_ALLOWED_DEPOS)
+        depo_filters = [d for d in requested_depos if d in allowed]
+
+        # No valid selection means "All Viewer Depo", not "All Company Depo".
+        # Therefore Viewer always remains scoped to Cempaka + Serang + Cilegon.
+        if not depo_filters:
+            depo_filters = VIEWER_ALLOWED_DEPOS.copy()
+
     salesman_filter = request.args.get('salesman','').strip()
     start, end = month_range(month)
 
     monthly_targets, target_by_bp = target_lookup_for_month(month)
     billing_rows = Billing.query.filter(Billing.billing_date >= start, Billing.billing_date <= end).all()
 
-    # Filter dropdown options come from target master + billing aliases.
-    depos = sorted({t.depo for t in monthly_targets if t.depo and t.depo != 'Unmapped'})
+    # Filter dropdown options come from target master.
+    all_depos = sorted({t.depo for t in monthly_targets if t.depo and t.depo != 'Unmapped'})
+
+    if session.get('role') == 'admin':
+        depos = all_depos
+    else:
+        # Keep the requested business order for Viewer.
+        available = set(all_depos)
+        depos = [d for d in VIEWER_ALLOWED_DEPOS if d in available]
+
     salesman_options = set()
     for t in monthly_targets:
         if not depo_filters or t.depo in depo_filters:
