@@ -1,1 +1,328 @@
-{% extends 'base.html' %}{% block body %}<div class="row g-4"><div class="col-lg-5"><div class="card p-4"><h4 class="section-title">Add Team User</h4><form method="post"><label class="form-label">Username</label><input class="form-control mb-3" name="username" required><label class="form-label">Password</label><input class="form-control mb-3" name="password" type="password" required><label class="form-label">Role</label><select class="form-select mb-4" name="role"><option value="viewer">Viewer</option><option value="admin">Admin</option></select><button class="btn btn-primary">Create User</button></form></div></div><div class="col-lg-7"><div class="card p-4"><h4 class="section-title">Existing Users</h4><table class="table"><thead><tr><th>Username</th><th>Role</th></tr></thead><tbody>{% for u in users %}<tr><td>{{u.username}}</td><td><span class="badge text-bg-secondary">{{u.role}}</span></td></tr>{% endfor %}</tbody></table></div></div></div>{% endblock %}
+{% extends "base.html" %}
+
+{% block title %}Users | Daily Sales Report{% endblock %}
+
+{% block head %}
+<style>
+  .header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 18px;
+    margin-bottom: 20px;
+  }
+
+  .header-row h1 {
+    margin: 0 0 5px;
+    font-size: 27px;
+  }
+
+  .header-row p {
+    margin: 0;
+    color: #6b7280;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 18px;
+    align-items: start;
+  }
+
+  .panel {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    box-shadow: 0 3px 14px rgba(15,23,42,.05);
+  }
+
+  .panel-head {
+    padding: 18px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .panel-head h2 {
+    margin: 0 0 4px;
+    font-size: 18px;
+  }
+
+  .panel-head p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 13px;
+  }
+
+  .panel-body {
+    padding: 18px;
+  }
+
+  .field {
+    margin-bottom: 14px;
+  }
+
+  .field label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #6b7280;
+  }
+
+  .field input,
+  .field select {
+    width: 100%;
+    border: 1px solid #d1d5db;
+    border-radius: 9px;
+    padding: 10px 11px;
+    background: #ffffff;
+  }
+
+  .btn {
+    border: 0;
+    background: #0b2545;
+    color: #ffffff;
+    padding: 10px 15px;
+    border-radius: 9px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .btn:hover {
+    background: #133c65;
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 700px;
+  }
+
+  th {
+    background: #f8fafc;
+    color: #475569;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  td {
+    padding: 12px;
+    border-bottom: 1px solid #eef2f7;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 5px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .badge-admin {
+    background: #dbeafe;
+    color: #1d4ed8;
+  }
+
+  .badge-user {
+    background: #f1f5f9;
+    color: #475569;
+  }
+
+  .muted {
+    color: #6b7280;
+    font-size: 12px;
+  }
+
+  .empty {
+    padding: 30px;
+    text-align: center;
+    color: #6b7280;
+  }
+
+  @media(max-width: 900px) {
+    .layout {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+{% endblock %}
+
+
+{% block body %}
+
+<div class="header-row">
+
+  <div>
+    <h1>User Management</h1>
+    <p>
+      Manage access to the Daily Sales Report dashboard.
+    </p>
+  </div>
+
+</div>
+
+
+<div class="layout">
+
+  <div class="panel">
+
+    <div class="panel-head">
+      <h2>Add User</h2>
+      <p>Create a new dashboard account.</p>
+    </div>
+
+    <div class="panel-body">
+
+      <form method="post"
+            action="{{ url_for('users') }}">
+
+        <div class="field">
+
+          <label>Username</label>
+
+          <input type="text"
+                 name="username"
+                 required>
+
+        </div>
+
+
+        <div class="field">
+
+          <label>Password</label>
+
+          <input type="password"
+                 name="password"
+                 required>
+
+        </div>
+
+
+        <div class="field">
+
+          <label>Role</label>
+
+          <select name="role" required>
+
+            <option value="viewer">
+              Viewer
+            </option>
+
+            <option value="admin">
+              Admin
+            </option>
+
+          </select>
+
+        </div>
+
+
+        <button type="submit"
+                class="btn">
+          Add User
+        </button>
+
+      </form>
+
+    </div>
+
+  </div>
+
+
+  <div class="panel">
+
+    <div class="panel-head">
+      <h2>Users</h2>
+      <p>Accounts currently registered in the dashboard.</p>
+    </div>
+
+
+    <div class="table-wrap">
+
+      {% if users %}
+
+      <table>
+
+        <thead>
+
+          <tr>
+            <th>Username</th>
+            <th>Role</th>
+            <th>Created</th>
+          </tr>
+
+        </thead>
+
+
+        <tbody>
+
+          {% for user in users %}
+
+          <tr>
+
+            <td>
+              <strong>{{ user.username }}</strong>
+            </td>
+
+            <td>
+
+              {% if user.role == 'admin' %}
+
+                <span class="badge badge-admin">
+                  Admin
+                </span>
+
+              {% else %}
+
+                <span class="badge badge-user">
+                  Viewer
+                </span>
+
+              {% endif %}
+
+            </td>
+
+            <td class="muted">
+
+              {% if user.created_at %}
+
+                {{ user.created_at.strftime('%d %b %Y %H:%M') }}
+
+              {% else %}
+
+                —
+
+              {% endif %}
+
+            </td>
+
+          </tr>
+
+          {% endfor %}
+
+        </tbody>
+
+      </table>
+
+      {% else %}
+
+      <div class="empty">
+        Belum ada user.
+      </div>
+
+      {% endif %}
+
+    </div>
+
+  </div>
+
+</div>
+
+{% endblock %}
