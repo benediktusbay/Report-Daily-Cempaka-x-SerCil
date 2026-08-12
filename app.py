@@ -862,7 +862,7 @@ def calculate_incentive(level, person, month):
             'format': 'count',
         })
 
-    # QVO: Apple parameter is 50% of monthly SD/BO target for every level,
+    # QVO: Apple parameter is 50% of total monthly BO target for every level,
     # including LOB.
     qvo_target = metrics['qvo_target']
     qvo_actual = metrics['qvo_actual']
@@ -871,7 +871,7 @@ def calculate_incentive(level, person, month):
     earned += qvo_payout
     detail.append({
         'kpi': 'QVO',
-        'parameter': '50% of Target SD',
+        'parameter': '50% of Total BO Target',
         'target': qvo_target,
         'achievement': qvo_actual,
         'pct': incentive_pct(qvo_actual, qvo_target),
@@ -1187,14 +1187,24 @@ def incentive():
     if session.get('role') == 'admin':
         level = requested_level if requested_level in INCENTIVE_ORG else 'SC'
         allowed_levels = ['SC', 'ASH', 'TSH', 'LOB']
+        available_people = list(INCENTIVE_ORG[level].keys())
     else:
-        # Enforce SC-only in backend, even if Viewer edits URL manually.
+        # Viewer is restricted to SC incentive only for Cempaka + Serang + Cilegon.
+        # Backend enforcement prevents access through URL manipulation.
         level = 'SC'
         allowed_levels = ['SC']
+        viewer_sc = [
+            'Zefanya Septania Simorangkir',
+            'Rafhyski Alhasan',
+            'Ikmah Novtianingrum',
+        ]
+        available_people = [
+            name for name in viewer_sc
+            if name in INCENTIVE_ORG['SC']
+        ]
 
-    available_people = list(INCENTIVE_ORG[level].keys())
     person = request.args.get('name', '').strip()
-    if person not in INCENTIVE_ORG[level]:
+    if person not in available_people:
         person = ''
 
     people_to_calculate = [person] if person else available_people
