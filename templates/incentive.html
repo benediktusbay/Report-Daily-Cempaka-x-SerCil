@@ -3,134 +3,198 @@
 
 {% block head %}
 <style>
-.incentive-hero{background:linear-gradient(135deg,#0b1f38,#15395d 60%,#185a83);color:#fff;border-radius:20px;padding:22px;margin-bottom:18px}
-.incentive-hero h1{font-size:25px;font-weight:900;margin:0 0 5px}.incentive-hero p{margin:0;color:#c5d5e6}
-.filter-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:15px;margin-bottom:18px}
-.filter-grid{display:grid;grid-template-columns:180px 180px minmax(240px,1fr) auto;gap:10px;align-items:end}
-.field label{display:block;font-size:11px;font-weight:800;color:#64748b;margin-bottom:5px}.field input,.field select{width:100%;border:1px solid #d1d5db;border-radius:9px;padding:9px 10px;background:#fff}
-.summary-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:18px}.summary-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:16px}
-.summary-label{font-size:10px;font-weight:900;text-transform:uppercase;color:#64748b;letter-spacing:.05em}.summary-value{font-size:22px;font-weight:900;margin-top:5px;color:#0b2545}
-.person-card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;margin-bottom:16px;overflow:hidden}.person-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:16px 18px;border-bottom:1px solid #eef2f7}.person-name{font-size:18px;font-weight:900}.person-meta{font-size:11px;color:#64748b;margin-top:3px}.person-total{text-align:right}.person-total strong{display:block;font-size:18px;color:#0b2545}.person-total span{font-size:11px;color:#64748b}
-.table-wrap{overflow-x:auto}.incentive-table{width:100%;border-collapse:collapse;min-width:920px}.incentive-table th{font-size:10px;text-transform:uppercase;color:#64748b;background:#f8fafc;padding:9px;border-bottom:1px solid #e5e7eb}.incentive-table td{padding:9px;border-bottom:1px solid #eef2f7;font-size:12px}.right{text-align:right}.center{text-align:center}
-.status{display:inline-block;border-radius:999px;padding:4px 8px;font-size:10px;font-weight:900}.status-achieved{background:#dcfce7;color:#166534}.status-not{background:#fee2e2;color:#991b1b}.status-pending{background:#fef3c7;color:#92400e}
-.payout-positive{font-weight:900;color:#15803d}.zero{color:#94a3b8}
-.mobile-detail{display:none}
+.incentive-wrap{display:grid;gap:14px}
+.incentive-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-end;flex-wrap:wrap}
+.incentive-head h1{margin:0;font-size:24px}
+.filters-inline{display:flex;gap:10px;align-items:end;flex-wrap:wrap}
+.field label{display:block;font-size:11px;font-weight:800;color:#6b7280;margin-bottom:5px}
+.field input,.field select{min-width:160px;border:1px solid #d1d5db;border-radius:9px;padding:9px 10px;background:#fff}
+.btn-lite{border:0;border-radius:9px;background:#0b2545;color:#fff;padding:10px 14px;font-weight:800;cursor:pointer}
+.summary-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden}
+.table-wrap{overflow-x:auto}
+.compact-table{width:100%;min-width:880px;border-collapse:collapse}
+.compact-table th{background:#f8fafc;color:#64748b;font-size:10px;text-transform:uppercase;padding:10px;border-bottom:1px solid #e5e7eb}
+.compact-table td{padding:11px 10px;border-bottom:1px solid #eef2f7;font-size:12px}
+.right{text-align:right}.center{text-align:center}
+.name-btn{background:none;border:0;padding:0;color:#0b2545;font-weight:900;cursor:pointer;text-align:left}
+.level-badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#eef2f7;color:#334155;font-size:10px;font-weight:900}
+.total-earned{font-weight:900;color:#15803d}
+.zero{color:#94a3b8}
+.detail-row{display:none;background:#fbfdff}
+.detail-row.open{display:table-row}
+.detail-box{padding:10px 4px}
+.detail-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.kpi-block{border:1px solid #e5e7eb;border-radius:10px;padding:10px;background:#fff}
+.kpi-title{font-size:11px;font-weight:900;margin-bottom:7px}
+.param{display:flex;justify-content:space-between;gap:8px;font-size:10px;padding:4px 0;border-top:1px dashed #eef2f7}
+.param:first-of-type{border-top:0}
+.ok{color:#15803d;font-weight:800}.bad{color:#b91c1c;font-weight:800}.pending{color:#b45309;font-weight:800}
+.footer-sum{display:flex;justify-content:flex-end;gap:18px;padding:12px 14px;background:#f8fafc;font-size:12px}
+.footer-sum strong{color:#0b2545}
+.mobile-cards{display:none}
+
 @media(max-width:768px){
-  .incentive-hero{padding:16px}.incentive-hero h1{font-size:21px}
-  .filter-grid{grid-template-columns:1fr}.filter-grid .btn{width:100%}
-  .summary-grid{grid-template-columns:1fr 1fr}.summary-card:last-child{grid-column:1/-1}
-  .desktop-detail{display:none}.mobile-detail{display:block;padding:12px}
-  .person-head{padding:14px;flex-direction:column}.person-total{text-align:left}
-  .mobile-kpi{border:1px solid #e5e7eb;border-radius:11px;padding:10px;margin-bottom:8px}
-  .mobile-kpi-top{display:flex;justify-content:space-between;gap:10px}.mobile-kpi-title{font-weight:900;font-size:12px}.mobile-kpi-param{font-size:10px;color:#64748b}
-  .mobile-kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:8px}.mobile-cell{background:#f8fafc;border-radius:8px;padding:7px}.mobile-cell label{display:block;font-size:8px;text-transform:uppercase;color:#64748b;font-weight:800}.mobile-cell strong{display:block;font-size:11px;margin-top:3px}
+  .incentive-head{align-items:stretch}.filters-inline{display:grid;grid-template-columns:1fr 1fr;width:100%}
+  .filters-inline .field:last-of-type{grid-column:1/-1}.filters-inline .btn-lite{grid-column:1/-1;width:100%}
+  .desktop-table{display:none}.mobile-cards{display:grid;gap:10px}
+  .mobile-person{background:#fff;border:1px solid #e5e7eb;border-radius:13px;padding:12px}
+  .mobile-top{display:flex;justify-content:space-between;gap:10px;align-items:start}
+  .mobile-name{font-weight:900;font-size:13px}.mobile-total{font-weight:900;color:#15803d}
+  .mobile-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}
+  .mobile-cell{background:#f8fafc;border-radius:9px;padding:8px}.mobile-cell label{display:block;font-size:9px;text-transform:uppercase;color:#64748b;font-weight:800}.mobile-cell strong{display:block;margin-top:3px;font-size:12px}
+  .mobile-detail-btn{width:100%;margin-top:10px;border:1px solid #cbd5e1;background:#fff;border-radius:8px;padding:8px;font-weight:800}
+  .mobile-detail{display:none;margin-top:8px}.mobile-detail.open{display:grid;gap:7px}
+  .mobile-param{border-top:1px dashed #e5e7eb;padding-top:6px;font-size:10px}
 }
 </style>
 {% endblock %}
 
 {% block body %}
-<div class="incentive-hero">
-  <h1>Incentive Calculator</h1>
-  <p>SC · ASH · TSH · LOB — binary payout: achievement 100% or more pays full parameter incentive.</p>
-</div>
-
-<div class="filter-card">
-  <form method="get" action="{{ url_for('incentive') }}" class="filter-grid">
-    <div class="field">
-      <label>Period</label>
-      <input type="month" name="month" value="{{ month }}" required>
-    </div>
-    <div class="field">
-      <label>Level</label>
-      <select name="level" id="levelSelect">
-        {% for lv in ['SC','ASH','TSH','LOB'] %}
-        <option value="{{ lv }}" {% if level == lv %}selected{% endif %}>{{ lv }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="field">
-      <label>Name</label>
-      <select name="name">
-        <option value="">All {{ level }}</option>
-        {% for n in available_people %}
-        <option value="{{ n }}" {% if person == n %}selected{% endif %}>{{ n }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <button type="submit" class="btn btn-primary">Apply</button>
-  </form>
-</div>
-
-<div class="summary-grid">
-  <div class="summary-card"><div class="summary-label">Estimated Incentive</div><div class="summary-value">{{ grand_earned|rupiah }}</div></div>
-  <div class="summary-card"><div class="summary-label">Maximum Incentive</div><div class="summary-value">{{ grand_max|rupiah }}</div></div>
-  <div class="summary-card"><div class="summary-label">Payout Achievement</div><div class="summary-value">{{ '%.1f'|format(grand_pct) }}%</div></div>
-</div>
-
-{% for r in rows %}
-<div class="person-card">
-  <div class="person-head">
+<div class="incentive-wrap">
+  <div class="incentive-head">
     <div>
-      <div class="person-name">{{ r.person }}</div>
-      <div class="person-meta">{{ r.level }} · {{ r.sc_count }} SC coverage{% if r.latest_date %} · Billing through {{ r.latest_date.strftime('%d %b %Y') }}{% endif %}</div>
+      <h1>Incentive Summary</h1>
     </div>
-    <div class="person-total">
-      <strong>{{ r.earned|rupiah }}</strong>
-      <span>of {{ r.max_incentive|rupiah }} · {{ '%.1f'|format(r.earned_pct) }}%</span>
-    </div>
-  </div>
 
-  <div class="desktop-detail table-wrap">
-    <table class="incentive-table">
-      <thead><tr><th>KPI</th><th>Parameter</th><th class="right">Target</th><th class="right">Achievement</th><th class="center">%</th><th class="center">Status</th><th class="right">Incentive</th></tr></thead>
-      <tbody>
-      {% for d in r.detail %}
-        <tr>
-          <td><strong>{{ d.kpi }}</strong></td>
-          <td>{{ d.parameter }}</td>
-          <td class="right">{% if d.format == 'rupiah' %}{{ d.target|rupiah }}{% else %}{{ d.target }}{% endif %}</td>
-          <td class="right">{% if d.achievement is none %}—{% elif d.format == 'rupiah' %}{{ d.achievement|rupiah }}{% else %}{{ d.achievement }}{% endif %}</td>
-          <td class="center">{% if d.pct is none %}—{% else %}{{ '%.1f'|format(d.pct) }}%{% endif %}</td>
-          <td class="center">
-            {% if d.status == 'Achieved' %}<span class="status status-achieved">Achieved</span>
-            {% elif d.status == 'Pending' %}<span class="status status-pending">Pending</span>
-            {% else %}<span class="status status-not">Not Achieved</span>{% endif %}
-          </td>
-          <td class="right {% if d.payout %}payout-positive{% else %}zero{% endif %}">{{ d.payout|rupiah }}</td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
-
-  <div class="mobile-detail">
-    {% for d in r.detail %}
-    <div class="mobile-kpi">
-      <div class="mobile-kpi-top">
-        <div><div class="mobile-kpi-title">{{ d.kpi }}</div><div class="mobile-kpi-param">{{ d.parameter }}</div></div>
-        <div>
-          {% if d.status == 'Achieved' %}<span class="status status-achieved">Achieved</span>
-          {% elif d.status == 'Pending' %}<span class="status status-pending">Pending</span>
-          {% else %}<span class="status status-not">Not Achieved</span>{% endif %}
-        </div>
+    <form method="get" action="{{ url_for('incentive') }}" class="filters-inline">
+      <div class="field">
+        <label>Period</label>
+        <input type="month" name="month" value="{{ month }}">
       </div>
-      <div class="mobile-kpi-grid">
-        <div class="mobile-cell"><label>Target</label><strong>{% if d.format == 'rupiah' %}{{ d.target|rupiah_short }}{% else %}{{ d.target }}{% endif %}</strong></div>
-        <div class="mobile-cell"><label>Ach</label><strong>{% if d.achievement is none %}—{% elif d.format == 'rupiah' %}{{ d.achievement|rupiah_short }}{% else %}{{ d.achievement }}{% endif %}</strong></div>
-        <div class="mobile-cell"><label>Incentive</label><strong>{{ d.payout|rupiah_short }}</strong></div>
+
+      {% if session.get('role') == 'admin' %}
+      <div class="field">
+        <label>Level</label>
+        <select name="level">
+          {% for lv in allowed_levels %}
+          <option value="{{ lv }}" {% if level == lv %}selected{% endif %}>{{ lv }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
+      <div class="field">
+        <label>Name</label>
+        <select name="name">
+          <option value="">All {{ level }}</option>
+          {% for n in available_people %}
+          <option value="{{ n }}" {% if person == n %}selected{% endif %}>{{ n }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <button class="btn-lite" type="submit">Apply</button>
+    </form>
+  </div>
+
+  <div class="summary-card desktop-table">
+    <div class="table-wrap">
+      <table class="compact-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Level</th>
+            <th class="right">Speed Distribution</th>
+            <th class="right">SKU</th>
+            <th class="right">QVO</th>
+            <th class="right">Revenue</th>
+            <th class="right">Total Incentive</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for r in rows %}
+          <tr>
+            <td>
+              <button class="name-btn" type="button" onclick="toggleDetail('detail-{{ loop.index }}')">
+                {{ r.person }}
+              </button>
+            </td>
+            <td><span class="level-badge">{{ r.level }}</span></td>
+            <td class="right {% if not r.summary['Speed Distribution'] %}zero{% endif %}">{{ r.summary['Speed Distribution']|rupiah }}</td>
+            <td class="right {% if not r.summary['SKU'] %}zero{% endif %}">{{ r.summary['SKU']|rupiah }}</td>
+            <td class="right {% if not r.summary['QVO'] %}zero{% endif %}">{{ r.summary['QVO']|rupiah }}</td>
+            <td class="right {% if not r.summary['Revenue'] %}zero{% endif %}">{{ r.summary['Revenue']|rupiah }}</td>
+            <td class="right total-earned">{{ r.earned|rupiah }}</td>
+          </tr>
+
+          <tr id="detail-{{ loop.index }}" class="detail-row">
+            <td colspan="7">
+              <div class="detail-box">
+                <div class="detail-grid">
+                  {% for group in ['Speed Distribution','SKU Penetration','QVO','Revenue'] %}
+                  <div class="kpi-block">
+                    <div class="kpi-title">{{ group }}</div>
+                    {% for d in r.detail if d.kpi == group %}
+                    <div class="param">
+                      <span>{{ d.parameter }}</span>
+                      <span>
+                        {% if d.status == 'Achieved' %}<span class="ok">Achieved</span>
+                        {% elif d.status == 'Pending' %}<span class="pending">Pending</span>
+                        {% else %}<span class="bad">Not Achieved</span>{% endif %}
+                        · {{ d.payout|rupiah }}
+                      </span>
+                    </div>
+                    {% endfor %}
+                  </div>
+                  {% endfor %}
+                </div>
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="footer-sum">
+      <span>Total Earned: <strong>{{ grand_earned|rupiah }}</strong></span>
+      <span>Maximum: <strong>{{ grand_max|rupiah }}</strong></span>
+    </div>
+  </div>
+
+  <div class="mobile-cards">
+    {% for r in rows %}
+    <div class="mobile-person">
+      <div class="mobile-top">
+        <div>
+          <div class="mobile-name">{{ r.person }}</div>
+          <span class="level-badge">{{ r.level }}</span>
+        </div>
+        <div class="mobile-total">{{ r.earned|rupiah_short }}</div>
+      </div>
+
+      <div class="mobile-grid">
+        <div class="mobile-cell"><label>Speed</label><strong>{{ r.summary['Speed Distribution']|rupiah_short }}</strong></div>
+        <div class="mobile-cell"><label>SKU</label><strong>{{ r.summary['SKU']|rupiah_short }}</strong></div>
+        <div class="mobile-cell"><label>QVO</label><strong>{{ r.summary['QVO']|rupiah_short }}</strong></div>
+        <div class="mobile-cell"><label>Revenue</label><strong>{{ r.summary['Revenue']|rupiah_short }}</strong></div>
+      </div>
+
+      <button class="mobile-detail-btn" type="button" onclick="toggleMobile('m-{{ loop.index }}')">Detail</button>
+      <div id="m-{{ loop.index }}" class="mobile-detail">
+        {% for d in r.detail %}
+        <div class="mobile-param">
+          <strong>{{ d.kpi }} · {{ d.parameter }}</strong><br>
+          {% if d.status == 'Achieved' %}<span class="ok">Achieved</span>
+          {% elif d.status == 'Pending' %}<span class="pending">Pending</span>
+          {% else %}<span class="bad">Not Achieved</span>{% endif %}
+          · {{ d.payout|rupiah_short }}
+        </div>
+        {% endfor %}
       </div>
     </div>
     {% endfor %}
   </div>
 </div>
-{% endfor %}
 
 <script>
-document.getElementById('levelSelect')?.addEventListener('change', function(){
-  const url = new URL(window.location.href);
-  url.searchParams.set('level', this.value);
-  url.searchParams.delete('name');
-  window.location.href = url.toString();
-});
+function toggleDetail(id){
+  const el = document.getElementById(id);
+  if(el) el.classList.toggle('open');
+}
+function toggleMobile(id){
+  const el = document.getElementById(id);
+  if(el) el.classList.toggle('open');
+}
 </script>
 {% endblock %}
