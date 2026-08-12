@@ -251,27 +251,54 @@ def classify(item_group):
 
 
 def sku_from_article(article, item_group):
-    """Device SKU = model/type + storage; colour differences are ignored."""
+    """
+    Device SKU = model/type + storage.
+    Everything after the FIRST storage token (GB/TB) is ignored.
+
+    Examples:
+      iPhone 17 Pro 1TB Silver        -> IPHONE 17 PRO 1TB
+      iPhone 17 Pro 1TB Cosmic Orange -> IPHONE 17 PRO 1TB
+      iPhone 17 Pro 256GB Deep Blue   -> IPHONE 17 PRO 256GB
+      iPad Air 11 (M4) Wifi 128GB Blue -> IPAD AIR 11 (M4) WIFI 128GB
+
+    This deliberately does not depend on a colour dictionary, so new colour
+    names cannot accidentally create duplicate SKUs.
+    """
     if normalize_text(item_group).lower() not in DEVICE_GROUPS:
         return None
+
     s = normalize_text(article)
-    if not s or s.lower() == 'nan':
+    if not s or s.lower() in ('nan', 'none'):
         return None
-    storage_match = re.search(r'\b(\d+(?:\.\d+)?\s*(?:GB|TB))\b', s, flags=re.I)
-    storage = re.sub(r'\s+', '', storage_match.group(1).upper()) if storage_match else ''
-    tokens = re.split(r'\s+', re.sub(r'[/,_-]+', ' ', s))
+
+    # Normalize separators/spaces but keep meaningful model punctuation such as (M4).
+    s = re.sub(r'[/,_]+', ' ', s)
+    s = re.sub(r'\s+', ' ', s).strip()
+
+    # The SKU identity ends at the first storage token.
+    storage_match = re.search(r'\b\d+(?:\.\d+)?\s*(?:GB|TB)\b', s, flags=re.I)
+    if storage_match:
+        base = s[:storage_match.end()]
+        base = re.sub(
+            r'\b(\d+(?:\.\d+)?)\s*(GB|TB)\b',
+            lambda m: f"{m.group(1)}{m.group(2).upper()}",
+            base,
+            count=1,
+            flags=re.I
+        )
+        return re.sub(r'\s+', ' ', base).strip().upper()
+
+    # Defensive fallback for an unusual Device article without storage.
+    # Strip known colour words, but normal Device SKU rows should use the path above.
+    tokens = re.split(r'\s+', re.sub(r'[-]+', ' ', s))
     cleaned = []
     for token in tokens:
         bare = token.lower().strip('()[]{}.,')
         if bare in COLOR_WORDS:
             continue
         cleaned.append(token)
-    base = ' '.join(cleaned)
-    base = re.sub(r'\s+', ' ', base).strip()
-    # Normalize repeated storage spacing/casing so same type + storage is one SKU.
-    if storage_match:
-        base = re.sub(r'\b\d+(?:\.\d+)?\s*(?:GB|TB)\b', storage, base, count=1, flags=re.I)
-    return base.upper()
+    base = re.sub(r'\s+', ' ', ' '.join(cleaned)).strip()
+    return base.upper() if base else None
 
 
 def row_hash(vals):
@@ -454,8 +481,13 @@ def dashboard():
         })
         if r.category in ('Device','Macbook','ACC'):
             d[r.category] += float(r.nett_amount or 0)
-        if r.category == 'Device' and r.sku_key:
-            d['skus'].add(r.sku_key)
+        # Always recalculate Device SKU from the original Article Description.
+        # This also corrects historical billing rows whose stored sku_key was
+        # created before the latest SKU normalization rule.
+        if r.category == 'Device':
+            current_sku = sku_from_article(r.article, r.item_group)
+            if current_sku:
+                d['skus'].add(current_sku)
         if d['last_date'] is None or r.billing_date > d['last_date']:
             d['last_date'] = r.billing_date
 
