@@ -496,8 +496,10 @@ def login():
 
 @app.route('/logout')
 def logout():
+    # Clear Viewer/Admin session and open the login page.
+    # This allows a public Viewer to switch to Admin intentionally.
     session.clear()
-    return redirect(url_for('dashboard'))
+    return redirect(url_for('login'))
 
 
 def target_lookup_for_month(month):
