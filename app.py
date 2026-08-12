@@ -478,6 +478,9 @@ def ensure_db():
 
 @app.route('/login', methods=['GET','POST'])
 def login():
+    if request.method == 'GET' and session.get('user_id') and session.get('role') == 'admin':
+        return redirect(url_for('dashboard'))
+
     if request.method == 'POST':
         username = request.form.get('username','').strip()
         password = request.form.get('password','')
@@ -494,7 +497,7 @@ def login():
 @app.route('/logout')
 def logout():
     session.clear()
-    return redirect(url_for('login'))
+    return redirect(url_for('dashboard'))
 
 
 def target_lookup_for_month(month):
@@ -538,8 +541,13 @@ def sku_bucket(n):
 
 
 @app.route('/')
-@login_required
 def dashboard():
+    # Public Viewer mode:
+    # anyone with the dashboard URL may view reports without logging in.
+    # Admin-only routes still require a real authenticated admin session.
+    if 'user_id' not in session:
+        session['username'] = 'Viewer'
+        session['role'] = 'viewer'
     latest = db.session.query(db.func.max(Billing.billing_date)).scalar()
     latest_target_month = db.session.query(db.func.max(MonthlyTarget.month)).scalar()
     default_month = latest.strftime('%Y-%m') if latest else (latest_target_month or datetime.now().strftime('%Y-%m'))
