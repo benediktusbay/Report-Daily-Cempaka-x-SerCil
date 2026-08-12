@@ -1217,4 +1217,35 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   });
 })();
 </script>
+
+<script>
+(function(){
+  const selector = document.getElementById('mobileSalesmanFocus');
+  if(!selector) return;
+
+  function normalize(v){
+    return (v || '').trim().toLowerCase();
+  }
+
+  function showSalesman(name){
+    const wanted = normalize(name);
+    const cards = document.querySelectorAll('.mobile-salesman-kpi');
+    cards.forEach(function(card){
+      card.classList.toggle(
+        'mobile-salesman-active',
+        normalize(card.dataset.salesman) === wanted
+      );
+    });
+  }
+
+  selector.addEventListener('change', function(){
+    showSalesman(this.value);
+  });
+
+  if(selector.options.length){
+    showSalesman(selector.value);
+  }
+})();
+</script>
+
 {% endblock %}
