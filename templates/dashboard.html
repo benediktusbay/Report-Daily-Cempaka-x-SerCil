@@ -330,39 +330,33 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 }
 
 
-/* ===== MOBILE BACK TO TOP ===== */
-.mobile-back-to-top{
-  display:none;
+
+/* Dealer SKU popup */
+.dealer-sku-popup-backdrop{
+  display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);
+  z-index:10020;padding:20px;overflow:auto
 }
-@media(max-width:768px){
-  .mobile-back-to-top{
-    position:fixed;
-    right:16px;
-    bottom:22px;
-    width:46px;
-    height:46px;
-    border:0;
-    border-radius:50%;
-    background:#0b2d50;
-    color:#fff;
-    font-size:24px;
-    font-weight:900;
-    line-height:46px;
-    text-align:center;
-    box-shadow:0 6px 18px rgba(15,23,42,.25);
-    z-index:999;
-    cursor:pointer;
-    opacity:0;
-    visibility:hidden;
-    transform:translateY(8px);
-    transition:opacity .2s ease, transform .2s ease, visibility .2s ease;
-  }
-  .mobile-back-to-top.show{
-    opacity:1;
-    visibility:visible;
-    transform:translateY(0);
-  }
+.dealer-sku-popup-card{
+  width:min(520px,100%);margin:8vh auto;background:#fff;border-radius:16px;
+  box-shadow:0 24px 70px rgba(15,23,42,.28);overflow:hidden
 }
+.dealer-sku-popup-head{
+  display:flex;justify-content:space-between;gap:16px;align-items:flex-start;
+  padding:16px 18px;border-bottom:1px solid #e5e7eb
+}
+.dealer-sku-popup-head h3{margin:0 0 4px;font-size:17px}
+.dealer-sku-popup-head p{margin:0;color:#64748b;font-size:11px}
+.dealer-sku-popup-close{
+  border:0;background:#eef2f7;width:34px;height:34px;border-radius:8px;
+  cursor:pointer;font-size:20px
+}
+.dealer-sku-popup-body{padding:14px 18px 18px}
+.dealer-sku-popup-list{margin:0;padding:0;list-style:none;display:grid;gap:7px}
+.dealer-sku-popup-list li{
+  background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;
+  padding:8px 10px;font-size:12px;line-height:1.35;color:#334155
+}
+.dealer-sku-popup-empty{color:#94a3b8;font-size:12px;text-align:center;padding:16px 0}
 
 </style>
 {% endblock %}
@@ -871,8 +865,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
               type="button"
               class="badge badge-target dealer-target-link"
               style="border:0;cursor:pointer"
-              data-bp="{{ d.bp|e }}"
-              data-dealer="{{ d.dealer|e }}"
               data-salesman="{{ d.salesman|e }}"
               data-depo="{{ d.depo|e }}"
               data-device-target="{{ d.device_target }}"
@@ -901,7 +893,14 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
         </div>
 
         <div class="mobile-grid-3" style="margin-top:8px">
-          <div class="mobile-metric"><div class="mobile-metric-label">SKU</div><div class="mobile-metric-value">{{ d.sku }}</div></div>
+          <div class="mobile-metric">
+            <div class="mobile-metric-label">SKU</div>
+            <button type="button"
+                    class="sku-link dealer-sku-popup-btn"
+                    data-skus='{{ d.sku_list|tojson }}'>
+              {{ d.sku }}
+            </button>
+          </div>
           <div class="mobile-metric"><div class="mobile-metric-label">BO</div><div class="mobile-metric-value">{% if d.bo %}1{% else %}0{% endif %}</div></div>
           <div class="mobile-metric"><div class="mobile-metric-label">QVO</div><div class="mobile-metric-value">{% if d.qvo %}1{% else %}0{% endif %}</div></div>
         </div>
@@ -945,8 +944,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
               type="button"
               class="badge badge-target dealer-target-link"
               style="border:0;cursor:pointer"
-              data-bp="{{ d.bp|e }}"
-              data-dealer="{{ d.dealer|e }}"
               data-salesman="{{ d.salesman|e }}"
               data-depo="{{ d.depo|e }}"
               data-device-target="{{ d.device_target }}"
@@ -965,7 +962,13 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
           <td class="number">{{ d.macbook|rupiah_short }}</td>
           <td class="number">{{ d.acc|rupiah_short }}</td>
           <td class="number"><strong>{{ d.total|rupiah_short }}</strong></td>
-          <td class="center">{{ d.sku }}</td>
+          <td class="center">
+            <button type="button"
+                    class="sku-link dealer-sku-popup-btn"
+                    data-skus='{{ d.sku_list|tojson }}'>
+              {{ d.sku }}
+            </button>
+          </td>
           <td class="center">{% if d.bo %}1{% else %}0{% endif %}</td>
           <td class="center">{% if d.qvo %}1{% else %}0{% endif %}</td>
         </tr>
@@ -1228,16 +1231,16 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     modal.style.display='block';
     modal.setAttribute('aria-hidden','false');
   }
-
   function closeModal(){
     modal.style.display='none';
     modal.setAttribute('aria-hidden','true');
   }
 
-  document.querySelectorAll('.sku-link').forEach(function(btn){
+  document.querySelectorAll('.sku-link[data-bucket]').forEach(function(btn){
     btn.addEventListener('click',function(){
       openModal(btn.dataset.salesman,btn.dataset.bucket);
     });
+  });
   });
 
   closeBtn.addEventListener('click',closeModal);
@@ -1284,28 +1287,65 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 </script>
 
 
-<button type="button" id="mobileBackToTop" class="mobile-back-to-top" aria-label="Kembali ke atas" title="Kembali ke atas">↑</button>
+<div id="dealerSkuPopup" class="dealer-sku-popup-backdrop" aria-hidden="true">
+  <div class="dealer-sku-popup-card">
+    <div class="dealer-sku-popup-head">
+      <div>
+        <h3 id="dealerSkuPopupTitle">Daftar SKU</h3>
+      </div>
+      <button type="button" id="dealerSkuPopupClose" class="dealer-sku-popup-close">×</button>
+    </div>
+    <div id="dealerSkuPopupBody" class="dealer-sku-popup-body"></div>
+  </div>
+</div>
+
+
 <script>
 (function(){
-  const btn = document.getElementById('mobileBackToTop');
-  if(!btn) return;
+  const popup = document.getElementById('dealerSkuPopup');
+  const title = document.getElementById('dealerSkuPopupTitle');
+  const body = document.getElementById('dealerSkuPopupBody');
+  const close = document.getElementById('dealerSkuPopupClose');
+  if(!popup) return;
 
-  function toggleBackToTop(){
-    if(window.innerWidth <= 768 && window.scrollY > 350){
-      btn.classList.add('show');
-    } else {
-      btn.classList.remove('show');
-    }
+  function esc(s){
+    return String(s ?? '').replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c];
+    });
   }
 
-  window.addEventListener('scroll', toggleBackToTop, {passive:true});
-  window.addEventListener('resize', toggleBackToTop);
+  function openPopup(btn){
+    let skus = [];
+    try { skus = JSON.parse(btn.dataset.skus || '[]'); } catch(e) {}
+    title.textContent = 'Daftar SKU';
 
-  btn.addEventListener('click', function(){
-    window.scrollTo({top:0, behavior:'smooth'});
+    if(!skus.length){
+      body.innerHTML = '<div class="dealer-sku-popup-empty">Belum ada SKU yang tercatat.</div>';
+    }else{
+      body.innerHTML = '<ul class="dealer-sku-popup-list">' +
+        skus.map(function(s){ return '<li>'+esc(s)+'</li>'; }).join('') +
+        '</ul>';
+    }
+    popup.style.display='block';
+    popup.setAttribute('aria-hidden','false');
+  }
+
+  function closePopup(){
+    popup.style.display='none';
+    popup.setAttribute('aria-hidden','true');
+  }
+
+  document.querySelectorAll('.dealer-sku-popup-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){ openPopup(btn); });
   });
 
-  toggleBackToTop();
+  close?.addEventListener('click', closePopup);
+  popup.addEventListener('click', function(e){
+    if(e.target === popup) closePopup();
+  });
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape') closePopup();
+  });
 })();
 </script>
 
