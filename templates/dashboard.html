@@ -10,6 +10,11 @@
 .filters{padding:16px;margin-bottom:20px}.filter-form{display:flex;align-items:end;gap:12px;flex-wrap:wrap}
 .field label{display:block;font-size:12px;font-weight:700;color:#6b7280;margin-bottom:6px}
 .field input,.field select{border:1px solid #d1d5db;border-radius:9px;padding:9px 11px;background:#fff}
+.multi-depo{position:relative;min-width:260px}
+.multi-depo-button{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid #d1d5db;border-radius:9px;padding:10px 12px;background:#fff;cursor:pointer;font-size:14px;color:#111827}
+.multi-depo-button:hover{border-color:#94a3b8}.multi-depo-menu{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:50;width:100%;min-width:260px;max-height:260px;overflow:auto;background:#fff;border:1px solid #d1d5db;border-radius:10px;box-shadow:0 10px 30px rgba(15,23,42,.12);padding:8px}
+.multi-depo.open .multi-depo-menu{display:block}.multi-depo-option{display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:7px;cursor:pointer;font-size:13px}
+.multi-depo-option:hover{background:#f8fafc}.multi-depo-option input{margin:0}.multi-depo-summary{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .btn{border:0;border-radius:9px;padding:10px 15px;font-weight:700;cursor:pointer;background:#0b2545;color:#fff}.btn:hover{background:#133c65}
 .upload-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:20px}
 .upload-card{padding:18px}.upload-card h3{margin:0 0 5px}.upload-card p{color:#6b7280;margin:0 0 14px;font-size:13px}
@@ -64,13 +69,28 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     </div>
 
     <div class="field">
-      <label>Depo <span style="font-weight:400;color:#94a3b8">(multi-select)</span></label>
-      <select name="depo" multiple size="4" style="min-width:220px">
-        {% for d in depos %}
-        <option value="{{ d }}" {% if d in depo_filters %}selected{% endif %}>{{ d }}</option>
-        {% endfor %}
-      </select>
-      <div style="margin-top:5px;font-size:10px;color:#94a3b8">Mac: tahan ⌘ · Windows: tahan Ctrl saat memilih.</div>
+      <label>Depo</label>
+      <div class="multi-depo" id="multiDepo">
+        <button type="button" class="multi-depo-button" id="multiDepoButton">
+          <span class="multi-depo-summary" id="multiDepoSummary">
+            {% if depo_filters %}
+              {{ depo_filters|join(', ') }}
+            {% else %}
+              All Depo
+            {% endif %}
+          </span>
+          <span>⌄</span>
+        </button>
+
+        <div class="multi-depo-menu" id="multiDepoMenu">
+          {% for d in depos %}
+          <label class="multi-depo-option">
+            <input type="checkbox" name="depo" value="{{ d }}" {% if d in depo_filters %}checked{% endif %}>
+            <span>{{ d }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
     </div>
 
     <div class="field">
@@ -597,6 +617,41 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   dealerModal.addEventListener('click',function(e){
     if(e.target===dealerModal) closeDealerTargetModal();
   });
+
+  const multiDepo=document.getElementById('multiDepo');
+  const multiDepoButton=document.getElementById('multiDepoButton');
+  const multiDepoSummary=document.getElementById('multiDepoSummary');
+  const multiDepoChecks=document.querySelectorAll('#multiDepoMenu input[name="depo"]');
+
+  function updateMultiDepoSummary(){
+    const selected=Array.from(multiDepoChecks).filter(function(cb){return cb.checked;}).map(function(cb){return cb.value;});
+    if(!selected.length){
+      multiDepoSummary.textContent='All Depo';
+    }else if(selected.length<=2){
+      multiDepoSummary.textContent=selected.join(', ');
+    }else{
+      multiDepoSummary.textContent=selected.slice(0,2).join(', ')+' +'+(selected.length-2);
+    }
+  }
+
+  if(multiDepoButton){
+    multiDepoButton.addEventListener('click',function(e){
+      e.stopPropagation();
+      multiDepo.classList.toggle('open');
+    });
+  }
+
+  multiDepoChecks.forEach(function(cb){
+    cb.addEventListener('change',updateMultiDepoSummary);
+  });
+
+  document.addEventListener('click',function(e){
+    if(multiDepo && !multiDepo.contains(e.target)){
+      multiDepo.classList.remove('open');
+    }
+  });
+
+  updateMultiDepoSummary();
 
   const dealerTabs=document.querySelectorAll('.dealer-salesman-tab');
   const dealerRows=document.querySelectorAll('.dealer-detail-row');
