@@ -49,6 +49,173 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 @media(max-width:1200px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:850px){.upload-grid{grid-template-columns:1fr}.hero{flex-direction:column}.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.kpi-grid{grid-template-columns:1fr}}
+
+/* ===== MOBILE RESPONSIVE V2 ===== */
+.mobile-only{display:none}
+
+@media(max-width:768px){
+  body{overflow-x:hidden}
+  .hero{margin-bottom:14px}
+  .hero h1{font-size:22px;line-height:1.2}
+  .hero p{font-size:12px;line-height:1.5}
+
+  .filters{padding:12px}
+  .filter-form{display:grid;grid-template-columns:1fr;gap:12px}
+  .field{width:100%}
+  .field input,.field select,.multi-depo{width:100%}
+  .multi-depo{min-width:0}
+  .multi-depo-button{width:100%}
+  .multi-depo-menu{position:absolute;width:100%;min-width:0}
+  .btn{width:100%;padding:12px 14px}
+
+  .upload-grid{grid-template-columns:1fr;gap:12px}
+  .upload-card{padding:14px}
+  .upload-card form{display:grid;grid-template-columns:1fr;gap:10px}
+  .upload-card input{width:100%;box-sizing:border-box}
+  .upload-card .btn{width:100%}
+
+  .kpi-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .kpi-card{min-height:96px;padding:13px}
+  .kpi-label{font-size:10px}
+  .kpi-value{font-size:19px}
+  .kpi-sub{font-size:10px;line-height:1.35}
+
+  .section{margin-top:18px}
+  .section-title h2{font-size:18px}
+  .section-title p{font-size:12px;line-height:1.45}
+  .timegone-box{display:flex;width:100%;box-sizing:border-box;line-height:1.4}
+
+  .desktop-table{display:none!important}
+  .mobile-only{display:block}
+
+  .mobile-card-list{display:grid;gap:10px}
+  .mobile-kpi-card{
+    background:#fff;
+    border:1px solid #e5e7eb;
+    border-radius:14px;
+    padding:13px;
+    box-shadow:0 2px 10px rgba(15,23,42,.04)
+  }
+  .mobile-card-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:10px;
+    margin-bottom:10px
+  }
+  .mobile-card-title{font-size:14px;font-weight:900;color:#0f172a}
+  .mobile-card-sub{font-size:11px;color:#64748b;margin-top:2px}
+  .mobile-rank{
+    min-width:30px;height:30px;border-radius:999px;
+    display:flex;align-items:center;justify-content:center;
+    background:#eef2f7;font-size:11px;font-weight:900;color:#0b2545
+  }
+  .mobile-grid-3{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:8px
+  }
+  .mobile-grid-2{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px
+  }
+  .mobile-metric{
+    background:#f8fafc;
+    border-radius:10px;
+    padding:9px;
+    min-width:0
+  }
+  .mobile-metric-label{
+    font-size:9px;
+    color:#64748b;
+    text-transform:uppercase;
+    font-weight:800;
+    letter-spacing:.03em;
+    margin-bottom:5px
+  }
+  .mobile-metric-value{
+    font-size:12px;
+    font-weight:900;
+    color:#0f172a;
+    word-break:break-word
+  }
+  .mobile-metric-value.under-time{color:#dc2626}
+  .mobile-section-label{
+    font-size:10px;
+    font-weight:900;
+    color:#334155;
+    text-transform:uppercase;
+    margin:10px 0 6px
+  }
+  .mobile-total{
+    margin-top:10px;
+    border-top:1px solid #e5e7eb;
+    padding-top:10px
+  }
+
+  .dealer-salesman-tabs{
+    flex-wrap:nowrap;
+    overflow-x:auto;
+    padding-bottom:4px;
+    scrollbar-width:none
+  }
+  .dealer-salesman-tabs::-webkit-scrollbar{display:none}
+  .dealer-salesman-tab{white-space:nowrap;flex:0 0 auto}
+
+  .dealer-mobile-card .dealer-row-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:10px
+  }
+  .dealer-mobile-card .dealer-bp{font-size:11px;color:#64748b}
+  .dealer-mobile-card .dealer-name{font-size:14px;font-weight:900;line-height:1.3}
+  .dealer-mobile-card .dealer-meta{font-size:11px;color:#64748b;margin-top:3px}
+  .dealer-mobile-card .dealer-actions{margin-top:10px}
+  .dealer-mobile-card .dealer-actions .badge{font-size:10px}
+  .dealer-mobile-card .sales-total{
+    margin-top:10px;
+    padding:10px;
+    background:#eff6ff;
+    border-radius:10px;
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    align-items:center
+  }
+  .dealer-mobile-card .sales-total strong{font-size:14px}
+
+  .sku-mobile-row{
+    display:grid;
+    grid-template-columns:1fr auto auto auto auto auto;
+    gap:6px;
+    align-items:center;
+    overflow-x:auto
+  }
+  .sku-mobile-row .sku-name{
+    min-width:150px;
+    font-size:12px;
+    font-weight:900
+  }
+
+  .modal-backdrop-custom{padding:10px}
+  .modal-card-custom{margin:12px auto;border-radius:12px}
+  .modal-head-custom{padding:14px}
+  .modal-head-custom h3{font-size:18px}
+  .modal-body-custom{max-height:75vh}
+  .modal-body-custom table{min-width:720px}
+
+  .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+}
+
+@media(max-width:480px){
+  .kpi-grid{grid-template-columns:1fr 1fr}
+  .kpi-value{font-size:17px}
+  .mobile-grid-3{grid-template-columns:1fr}
+  .mobile-grid-2{grid-template-columns:1fr 1fr}
+}
+
 </style>
 {% endblock %}
 
@@ -150,7 +317,56 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     </div>
   </div>
 
-  <div class="card table-card"><div class="table-wrap">
+  
+  <div class="mobile-only">
+    {% if table %}
+    <div class="mobile-card-list">
+      {% for r in table %}
+      <div class="mobile-kpi-card">
+        <div class="mobile-card-head">
+          <div>
+            <div class="mobile-card-title">{{ r.salesman }}</div>
+            <div class="mobile-card-sub">Sales Performance</div>
+          </div>
+          <div class="mobile-rank">#{{ r.rank }}</div>
+        </div>
+
+        <div class="mobile-section-label">Device</div>
+        <div class="mobile-grid-3">
+          <div class="mobile-metric"><div class="mobile-metric-label">Target</div><div class="mobile-metric-value">{{ r.device_target|rupiah_short }}</div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><div class="mobile-metric-value">{{ r.device|rupiah_short }}</div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">%</div><div class="mobile-metric-value {% if r.device_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.device_pct) }}%</div></div>
+        </div>
+
+        <div class="mobile-section-label">Macbook</div>
+        <div class="mobile-grid-3">
+          <div class="mobile-metric"><div class="mobile-metric-label">Target</div><div class="mobile-metric-value">{{ r.macbook_target|rupiah_short }}</div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><div class="mobile-metric-value">{{ r.macbook|rupiah_short }}</div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">%</div><div class="mobile-metric-value {% if r.macbook_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.macbook_pct) }}%</div></div>
+        </div>
+
+        <div class="mobile-section-label">Accessories</div>
+        <div class="mobile-grid-3">
+          <div class="mobile-metric"><div class="mobile-metric-label">Target</div><div class="mobile-metric-value">{{ r.acc_target|rupiah_short }}</div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><div class="mobile-metric-value">{{ r.acc|rupiah_short }}</div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">%</div><div class="mobile-metric-value {% if r.acc_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.acc_pct) }}%</div></div>
+        </div>
+
+        <div class="mobile-total">
+          <div class="mobile-section-label">Grand Total Sales</div>
+          <div class="mobile-grid-3">
+            <div class="mobile-metric"><div class="mobile-metric-label">Target</div><div class="mobile-metric-value">{{ r.target_total|rupiah_short }}</div></div>
+            <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><div class="mobile-metric-value">{{ r.total|rupiah_short }}</div></div>
+            <div class="mobile-metric"><div class="mobile-metric-label">%</div><div class="mobile-metric-value {% if r.sales_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.sales_pct) }}%</div></div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+<div class="card table-card desktop-table"><div class="table-wrap">
     {% if table %}
     <table>
       <thead>
@@ -229,7 +445,41 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     <p>BO dan QVO dipisahkan dari sales value agar tabel lebih mudah dibaca.</p>
   </div>
 
-  <div class="card table-card"><div class="table-wrap">
+  
+  <div class="mobile-only">
+    {% if table %}
+    <div class="mobile-card-list">
+      {% for r in table %}
+      {% set qvo_pct = (r.qvo / r.qvo_target * 100) if r.qvo_target else 0 %}
+      <div class="mobile-kpi-card">
+        <div class="mobile-card-head">
+          <div>
+            <div class="mobile-card-title">{{ r.salesman }}</div>
+            <div class="mobile-card-sub">Outlet Performance</div>
+          </div>
+          <div class="mobile-rank">#{{ r.rank }}</div>
+        </div>
+
+        <div class="mobile-section-label">BO</div>
+        <div class="mobile-grid-3">
+          <div class="mobile-metric"><div class="mobile-metric-label">Target</div><div class="mobile-metric-value">{{ r.bo_target }}</div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><div class="mobile-metric-value">{{ r.bo }}</div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">%</div><div class="mobile-metric-value {% if r.bo_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.bo_pct) }}%</div></div>
+        </div>
+
+        <div class="mobile-section-label">QVO</div>
+        <div class="mobile-grid-3">
+          <div class="mobile-metric"><div class="mobile-metric-label">Target</div><div class="mobile-metric-value">{{ r.qvo_target }}</div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><div class="mobile-metric-value">{{ r.qvo }}</div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">%</div><div class="mobile-metric-value {% if qvo_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(qvo_pct) }}%</div></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+<div class="card table-card desktop-table"><div class="table-wrap">
     {% if table %}
     <table style="min-width:760px">
       <thead>
@@ -301,7 +551,29 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     <p>Cumulative BO: Week 1 = 75% · Week 2 = 90% · Week 3 & Week 4 = 100% dari target BO bulanan.{% if latest_in_scope %} Billing through {{ latest_in_scope.strftime('%d %b %Y') }}.{% endif %}</p>
   </div>
 
-  <div class="card table-card"><div class="table-wrap">
+  
+  <div class="mobile-only">
+    {% if speed_rows %}
+    <div class="mobile-card-list">
+      {% for r in speed_rows %}
+      <div class="mobile-kpi-card">
+        <div class="mobile-card-title">{{ r.salesman }}</div>
+        {% for w in [1,2,3,4] %}
+        {% set x = r.weeks[w] %}
+        <div class="mobile-section-label">Week {{ w }}</div>
+        <div class="mobile-grid-3">
+          <div class="mobile-metric"><div class="mobile-metric-label">Target</div><div class="mobile-metric-value">{{ x.target }}</div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><div class="mobile-metric-value">{% if x.actual is none %}—{% else %}{{ x.actual }}{% endif %}</div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">%</div><div class="mobile-metric-value">{% if x.pct is none %}—{% else %}{{ '%.1f'|format(x.pct) }}%{% endif %}</div></div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+<div class="card table-card desktop-table"><div class="table-wrap">
     {% if speed_rows %}
     <table>
       <thead>
@@ -355,7 +627,27 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     </div>
   </div>
 
-  <div class="card table-card"><div class="table-wrap">
+  
+  <div class="mobile-only">
+    {% if sku_rows %}
+    <div class="mobile-card-list">
+      {% for r in sku_rows %}
+      <div class="mobile-kpi-card">
+        <div class="mobile-card-title" style="margin-bottom:10px">{{ r.salesman }}</div>
+        <div class="mobile-grid-2">
+          <div class="mobile-metric"><div class="mobile-metric-label">SKU 1</div><button type="button" class="sku-link" data-salesman="{{ r.salesman|e }}" data-bucket="1">{{ r['1'] }}</button></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">SKU 2–3</div><button type="button" class="sku-link" data-salesman="{{ r.salesman|e }}" data-bucket="2-3">{{ r['2-3'] }}</button></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">SKU 4–6</div><button type="button" class="sku-link" data-salesman="{{ r.salesman|e }}" data-bucket="4-6">{{ r['4-6'] }}</button></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">SKU 7–10</div><button type="button" class="sku-link" data-salesman="{{ r.salesman|e }}" data-bucket="7-10">{{ r['7-10'] }}</button></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">SKU &gt;10</div><button type="button" class="sku-link" data-salesman="{{ r.salesman|e }}" data-bucket=">10">{{ r['>10'] }}</button></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+<div class="card table-card desktop-table"><div class="table-wrap">
     {% if sku_rows %}
     <table style="min-width:760px">
       <thead>
@@ -400,7 +692,66 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     </div>
   </div>
 
-  <div class="card table-card"><div class="table-wrap">
+  
+  <div class="mobile-only">
+    {% if dealer_detail %}
+    <div class="mobile-card-list">
+      {% for d in dealer_detail %}
+      <div class="mobile-kpi-card dealer-mobile-card dealer-detail-row" data-salesman="{{ d.salesman|e }}">
+        <div class="dealer-row-top">
+          <div>
+            <div class="dealer-bp">{{ d.bp }}</div>
+            <div class="dealer-name">{{ d.dealer }}</div>
+            <div class="dealer-meta">{{ d.salesman }} · {{ d.depo }}</div>
+          </div>
+
+          <div>
+            {% if d.is_target %}
+            <button
+              type="button"
+              class="badge badge-target dealer-target-link"
+              style="border:0;cursor:pointer"
+              data-bp="{{ d.bp|e }}"
+              data-dealer="{{ d.dealer|e }}"
+              data-salesman="{{ d.salesman|e }}"
+              data-depo="{{ d.depo|e }}"
+              data-device-target="{{ d.device_target }}"
+              data-device-ach="{{ d.device }}"
+              data-macbook-target="{{ d.macbook_target }}"
+              data-macbook-ach="{{ d.macbook }}"
+              data-acc-target="{{ d.acc_target }}"
+              data-acc-ach="{{ d.acc }}"
+            >Target</button>
+            {% else %}
+            <span class="badge badge-nontarget">Non Target</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="mobile-section-label">Achievement</div>
+        <div class="mobile-grid-3">
+          <div class="mobile-metric"><div class="mobile-metric-label">Device</div><div class="mobile-metric-value">{{ d.device|rupiah_short }}</div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">Macbook</div><div class="mobile-metric-value">{{ d.macbook|rupiah_short }}</div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">ACC</div><div class="mobile-metric-value">{{ d.acc|rupiah_short }}</div></div>
+        </div>
+
+        <div class="sales-total">
+          <span>Total Sales</span>
+          <strong>{{ d.total|rupiah_short }}</strong>
+        </div>
+
+        <div class="mobile-grid-3" style="margin-top:8px">
+          <div class="mobile-metric"><div class="mobile-metric-label">SKU</div><div class="mobile-metric-value">{{ d.sku }}</div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">BO</div><div class="mobile-metric-value">{% if d.bo %}1{% else %}0{% endif %}</div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">QVO</div><div class="mobile-metric-value">{% if d.qvo %}1{% else %}0{% endif %}</div></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+<div class="card table-card desktop-table"><div class="table-wrap">
     {% if dealer_detail %}
     <table>
       <thead>
