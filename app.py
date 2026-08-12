@@ -584,7 +584,13 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username','').strip()
         password = request.form.get('password','')
-        user = User.query.filter_by(username=username).first()
+
+        # Username login is case-insensitive:
+        # Bayu / bayu / BAYU all resolve to the same account.
+        user = User.query.filter(
+            db.func.lower(User.username) == username.lower()
+        ).first()
+
         if user and check_password_hash(user.password_hash, password):
             session['user_id'] = user.id
             session['username'] = user.username
