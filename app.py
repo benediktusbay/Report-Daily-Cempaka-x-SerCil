@@ -1167,8 +1167,13 @@ def dashboard():
 
 
 @app.route('/incentive')
-@admin_required
 def incentive():
+    # Public Viewer may access SC incentive only.
+    # Admin may access SC / ASH / TSH / LOB.
+    if 'user_id' not in session:
+        session['username'] = 'Viewer'
+        session['role'] = 'viewer'
+
     latest = db.session.query(db.func.max(Billing.billing_date)).scalar()
     latest_target_month = db.session.query(db.func.max(MonthlyTarget.month)).scalar()
     default_month = (
@@ -1177,9 +1182,15 @@ def incentive():
     )
 
     month = request.args.get('month', default_month)
-    level = request.args.get('level', 'SC').upper()
-    if level not in INCENTIVE_ORG:
+    requested_level = request.args.get('level', 'SC').upper()
+
+    if session.get('role') == 'admin':
+        level = requested_level if requested_level in INCENTIVE_ORG else 'SC'
+        allowed_levels = ['SC', 'ASH', 'TSH', 'LOB']
+    else:
+        # Enforce SC-only in backend, even if Viewer edits URL manually.
         level = 'SC'
+        allowed_levels = ['SC']
 
     available_people = list(INCENTIVE_ORG[level].keys())
     person = request.args.get('name', '').strip()
@@ -1192,6 +1203,24 @@ def incentive():
         for name in people_to_calculate
     ]
 
+    # Compact summary totals by KPI.
+    for r in rows:
+        r['summary'] = {
+            'Speed Distribution': 0,
+            'SKU': 0,
+            'QVO': 0,
+            'Revenue': 0,
+        }
+        for d in r['detail']:
+            if d['kpi'] == 'Speed Distribution':
+                r['summary']['Speed Distribution'] += d['payout']
+            elif d['kpi'] == 'SKU Penetration':
+                r['summary']['SKU'] += d['payout']
+            elif d['kpi'] == 'QVO':
+                r['summary']['QVO'] += d['payout']
+            elif d['kpi'] == 'Revenue':
+                r['summary']['Revenue'] += d['payout']
+
     rows.sort(key=lambda x: (-x['earned'], x['person']))
 
     grand_earned = sum(x['earned'] for x in rows)
@@ -1201,6 +1230,7 @@ def incentive():
         'incentive.html',
         month=month,
         level=level,
+        allowed_levels=allowed_levels,
         person=person,
         available_people=available_people,
         rows=rows,
