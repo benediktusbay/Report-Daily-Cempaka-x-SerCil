@@ -1,168 +1,979 @@
-{% extends 'base.html' %} {% block title %}Daily Sales Management Dashboard{% endblock %} {% block head %}{% endblock %} {% block body %}
-Management Dashboard
-Daily Sales Report
-Monthly Target + Daily Billing Â· Device Â· Macbook Â· Accessories Â· BO Â· QVO Â· SKU
-Salesmen
-{{cards.salesmen}}
-Target Dealer
-{{cards.target_dealers}}
-Active Dealer
-{{cards.dealers}}
-BO Progress
-{{'%.1f'|format(cards.bo_rate)}}%
-Month{{month}}
-DepoAll Depo{% for d in depos %}{{d}}{% endfor %}
-SalesmanAll Salesman{% for s in salesmen %}{{s}}{% endfor %}
-Apply Filter
-{% if session.get('role')=='admin' %}
-1. Upload Monthly Target
-Upload once at the beginning of each month.
-MASTER
-{{month}}
+{% extends "base.html" %}
 
-Upload Target
-Reads DEPO, BP, Dealer Name, SC Name, Device Total, ACC Total, Mac Total, Target BO & Target QVO.
-2. Upload Daily Billing
-Upload the latest Billing Detail every day.
-DAILY
+{% block title %}Dashboard | Daily Sales Report{% endblock %}
 
-Upload & Refresh
-Uses sheet Export. Duplicate billing rows are skipped automatically.
+{% block head %}
+<style>
+  .hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    margin-bottom: 22px;
+  }
+
+  .hero h1 {
+    margin: 0 0 6px;
+    font-size: 28px;
+  }
+
+  .hero p {
+    margin: 0;
+    color: #6b7280;
+  }
+
+  .month-badge {
+    background: #0b2545;
+    color: white;
+    padding: 10px 15px;
+    border-radius: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .section {
+    margin-top: 22px;
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 15px;
+    margin-bottom: 14px;
+  }
+
+  .section-header h2 {
+    margin: 0 0 4px;
+    font-size: 19px;
+  }
+
+  .section-header p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 13px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .metric {
+    padding: 18px;
+  }
+
+  .metric-label {
+    color: #6b7280;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .metric-value {
+    margin-top: 8px;
+    font-size: 25px;
+    font-weight: 800;
+    color: #0b2545;
+  }
+
+  .metric-sub {
+    margin-top: 5px;
+    font-size: 12px;
+    color: #6b7280;
+  }
+
+  .table-card {
+    overflow: hidden;
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+  }
+
+  .table-title {
+    padding: 18px 18px 0;
+  }
+
+  .table-title h2 {
+    margin: 0 0 5px;
+    font-size: 18px;
+  }
+
+  .table-title p {
+    margin: 0 0 15px;
+    color: #6b7280;
+    font-size: 13px;
+  }
+
+  .number {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .center {
+    text-align: center;
+  }
+
+  .small {
+    color: #6b7280;
+    font-size: 11px;
+    margin-top: 3px;
+  }
+
+  .progress {
+    width: 110px;
+    height: 7px;
+    background: #e5e7eb;
+    border-radius: 20px;
+    overflow: hidden;
+    margin-top: 5px;
+  }
+
+  .progress > div {
+    height: 100%;
+    background: #2563eb;
+  }
+
+  .status {
+    display: inline-block;
+    padding: 5px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .status.green {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .status.amber {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .status.red {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+
+  .upload-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .upload-box {
+    padding: 18px;
+  }
+
+  .upload-box h3 {
+    margin: 0 0 5px;
+  }
+
+  .upload-box p {
+    color: #6b7280;
+    font-size: 13px;
+  }
+
+  .upload-box input[type="file"] {
+    display: block;
+    width: 100%;
+    margin: 14px 0;
+    border: 1px solid #d1d5db;
+    padding: 10px;
+    border-radius: 9px;
+    background: white;
+  }
+
+  .btn {
+    border: 0;
+    background: #0b2545;
+    color: white;
+    padding: 10px 15px;
+    border-radius: 9px;
+    cursor: pointer;
+    font-weight: 700;
+  }
+
+  .btn:hover {
+    background: #133c65;
+  }
+
+  .filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .filter-bar input,
+  .filter-bar select {
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 9px 10px;
+    background: white;
+  }
+
+  .empty {
+    padding: 30px;
+    text-align: center;
+    color: #6b7280;
+  }
+
+  .sku-targets {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 10px 0 16px;
+  }
+
+  .sku-target {
+    background: #eef2ff;
+    color: #3730a3;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  @media(max-width: 1000px) {
+    .grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .upload-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media(max-width: 600px) {
+    .grid {
+      grid-template-columns: 1fr;
+    }
+
+    .hero {
+      flex-direction: column;
+    }
+  }
+</style>
+{% endblock %}
+
+
+{% block body %}
+
+<div class="hero">
+  <div>
+    <h1>Daily Sales Management Dashboard</h1>
+    <p>
+      Device · Macbook · Accessories · Billed Outlet · QVO · SKU Penetration
+    </p>
+  </div>
+
+  {% if month %}
+    <div class="month-badge">{{ month }}</div>
+  {% endif %}
+</div>
+
+
+{% if session.get('role') == 'admin' %}
+
+<div class="upload-grid section">
+
+  <div class="card upload-box">
+    <h3>Billing Upload</h3>
+    <p>Upload Billing Detail harian. Data yang sudah pernah masuk akan dicegah dari duplikasi oleh sistem.</p>
+
+    <form method="post"
+          action="{{ url_for('upload_billing') }}"
+          enctype="multipart/form-data">
+
+      <input type="file"
+             name="file"
+             accept=".xlsx,.xls"
+             required>
+
+      <button class="btn" type="submit">
+        Upload Billing
+      </button>
+
+    </form>
+  </div>
+
+
+  <div class="card upload-box">
+    <h3>Target Upload</h3>
+    <p>Upload master target bulanan untuk salesman dan dealer/BP.</p>
+
+    <form method="post"
+          action="{{ url_for('upload_targets') }}"
+          enctype="multipart/form-data">
+
+      <input type="file"
+             name="file"
+             accept=".xlsx,.xls"
+             required>
+
+      <button class="btn" type="submit">
+        Upload Target
+      </button>
+
+    </form>
+  </div>
+
+</div>
+
 {% endif %}
-Portfolio Sales
-{{cards.sales|rupiah_short}}
-Target {{cards.sales_target|rupiah_short}} Â· {{'%.1f'|format(cards.sales_pct)}}%
-Device
-{{cards.device|rupiah_short}}
-Target {{cards.device_target|rupiah_short}}
-Macbook
-{{cards.macbook|rupiah_short}}
-Target {{cards.macbook_target|rupiah_short}}
-Accessories
-{{cards.acc|rupiah_short}}
-Target {{cards.acc_target|rupiah_short}}
-Billed Outlet
-{{cards.bo}} / {{cards.bo_target}}
-{{'%.1f'|format(cards.bo_rate)}}% monthly BO
-QVO
-{{cards.qvo}} / {{cards.qvo_target}}
-{{'%.1f'|format(cards.qvo_rate)}}% target Â· â‰¥ {{qvo_threshold|rupiah_short}}
-Salesman Performance
-Target, Achievement and % Achievement by category
-Target from Monthly Target File
-{% for r in table %}{% else %}{% endfor %}
-Rank
-Salesman
-Device
-Macbook
-Accessories
-BO
-QVO
-Status
-{{r.rank}}
-{{r.salesman}}
-Total {{r.total|rupiah_short}} / {{r.target_total|rupiah_short}}
-{{r.device|rupiah_short}}
-Target {{r.device_target|rupiah_short}}
-{{'%.1f'|format(r.device_pct)}}%
-{{r.macbook|rupiah_short}}
-Target {{r.macbook_target|rupiah_short}}
-{{'%.1f'|format(r.macbook_pct)}}%
-{{r.acc|rupiah_short}}
-Target {{r.acc_target|rupiah_short}}
-{{'%.1f'|format(r.acc_pct)}}%
-{{r.bo}} / {{r.bo_target}}
-{{'%.1f'|format(r.bo_pct)}}%
-{{r.qvo}} / {{r.qvo_target}}
-{% if r.health=='Green' %}On Track{% elif r.health=='Amber' %}Watch{% else %}Need Push{% endif %}
-Belum ada target/billing untuk periode ini.
-Leaderboard
-BO + SKU + Sales
-Top
-{% for r in leaderboard[:8] %}
-{{loop.index}}
-{{r.salesman}}
-BO {{r.bo}} Â· QVO {{r.qvo}} Â· SKU {{r.sku_score}}/26
-{{'%.0f'|format(r.overall_score)}}
-score
-{% else %}
-Belum ada data.
-{% endfor %}
-Speed Distribution â€” BO per Week
-Cumulative BO. W1 75% Â· W2 90% Â· W3/W4 100% of each salesman's monthly BO target.
-{% if latest_in_scope %}Billing through {{latest_in_scope.strftime('%d %b %Y')}}{% endif %}
-{% for r in speed_rows %}{% for w in [1,2,3,4] %}{% set x=r.weeks[w] %}{% endfor %}{% else %}{% endfor %}
-Salesman
-Week 1
-Week 2
-Week 3
-Week 4
-{{r.salesman}}
-{% if x.actual is none %}â€”{% else %}{{x.actual}}{% endif %} / {{x.target}}
-Actual / Target
-{% if x.pct is not none %}{{'%.1f'|format(x.pct)}}%{% else %}Future week{% endif %}
-Belum ada data.
-Chart Salesman{% for r in speed_rows %}{{r.salesman}}{% endfor %}
 
-SKU Penetration per Salesman
-Number of dealers by device SKU depth. Same type/storage with different colour counts as one SKU.
-Target 2â€“3: 134â€“6: 67â€“10: 5>10: 2
-{% for r in sku_rows %}{% else %}{% endfor %}
-Salesman
-SKU 1
-SKU 2â€“3
-SKU 4â€“6
-SKU 7â€“10
-SKU >10
-{{r.salesman}}
-{{r['1']}}
-dealer
-{{r['2-3']}} /13
-{{r['4-6']}} /6
-{{r['7-10']}} /5
-{{r['>10']}} /2
-Belum ada data SKU.
-SKU Dealer Detail
-Dealer name, BP, SKU count and device types already purchased
-All Salesman{% for s in salesmen %}{{s}}{% endfor %}
-Salesman
-Depo
-BP
-Dealer
-SKU Count
-Bucket
-Types / SKU Purchased
 
-Dealer Drilldown
-BP and Dealer are separated; BP is shown without decimal .0.
-Salesman
-Depo
-BP
-Dealer
-Device
-Macbook
-ACC
-Total
-SKU
-BO
-QVO
+{% if cards %}
 
-Target Upload
-Latest monthly master files
-{% for u in target_uploads %}
-{{u.filename}}
-{{u.month}} Â· {{u.dealers_loaded}} dealers
-{{u.uploaded_at.strftime('%d %b %Y %H:%M')}}
-{% else %}
-Belum ada target upload.
-{% endfor %}
-Billing Upload
-Latest daily files
-{% for u in uploads %}
-{{u.filename}}
-{{u.rows_added}} new / {{u.rows_read}} rows
-{{u.uploaded_at.strftime('%d %b %Y %H:%M')}}
-{% else %}
-Belum ada billing upload.
-{% endfor %}
-{% endblock %} {% block scripts %}{% endblock %}
+<div class="grid section">
+
+  <div class="card metric">
+    <div class="metric-label">Device Sales</div>
+    <div class="metric-value">
+      {{ cards.device|default(0)|rupiah_short }}
+    </div>
+    <div class="metric-sub">Mobile Phones + iPad/Tablet</div>
+  </div>
+
+  <div class="card metric">
+    <div class="metric-label">Macbook Sales</div>
+    <div class="metric-value">
+      {{ cards.macbook|default(0)|rupiah_short }}
+    </div>
+    <div class="metric-sub">Computer</div>
+  </div>
+
+  <div class="card metric">
+    <div class="metric-label">Accessories</div>
+    <div class="metric-value">
+      {{ cards.acc|default(0)|rupiah_short }}
+    </div>
+    <div class="metric-sub">Accessories & Wearable</div>
+  </div>
+
+  <div class="card metric">
+    <div class="metric-label">Total Sales</div>
+    <div class="metric-value">
+      {{ cards.total|default(0)|rupiah_short }}
+    </div>
+    <div class="metric-sub">Total achievement</div>
+  </div>
+
+</div>
+
+{% endif %}
+
+
+<div class="card table-card section">
+
+  <div class="table-title">
+    <h2>Salesman Performance</h2>
+    <p>
+      Achievement vs target Device, Macbook, Accessories, BO and QVO.
+    </p>
+  </div>
+
+  <div class="table-wrap">
+
+    {% if performance %}
+
+    <table>
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Salesman</th>
+          <th>Total Sales</th>
+          <th>Device</th>
+          <th>Macbook</th>
+          <th>Accessories</th>
+          <th>BO</th>
+          <th>QVO</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+
+      <tbody>
+
+      {% for row in performance %}
+
+        <tr>
+
+          <td class="center">
+            {{ row.rank }}
+          </td>
+
+          <td>
+            <strong>{{ row.salesman }}</strong>
+          </td>
+
+          <td class="number">
+            <strong>
+              {{ row.total|default(0)|rupiah_short }}
+            </strong>
+
+            {% if row.target_total is defined %}
+            <div class="small">
+              Target {{ row.target_total|default(0)|rupiah_short }}
+            </div>
+            {% endif %}
+          </td>
+
+          <td class="number">
+            {{ row.device|default(0)|rupiah_short }}
+
+            <div class="small">
+              Target {{ row.device_target|default(0)|rupiah_short }}
+            </div>
+
+            {% if row.device_pct is defined %}
+            <div class="small">
+              {{ '%.1f'|format(row.device_pct|default(0)) }}%
+            </div>
+            {% endif %}
+          </td>
+
+          <td class="number">
+            {{ row.macbook|default(0)|rupiah_short }}
+
+            <div class="small">
+              Target {{ row.macbook_target|default(0)|rupiah_short }}
+            </div>
+
+            {% if row.macbook_pct is defined %}
+            <div class="small">
+              {{ '%.1f'|format(row.macbook_pct|default(0)) }}%
+            </div>
+            {% endif %}
+          </td>
+
+          <td class="number">
+            {{ row.acc|default(0)|rupiah_short }}
+
+            <div class="small">
+              Target {{ row.acc_target|default(0)|rupiah_short }}
+            </div>
+
+            {% if row.acc_pct is defined %}
+            <div class="small">
+              {{ '%.1f'|format(row.acc_pct|default(0)) }}%
+            </div>
+            {% endif %}
+          </td>
+
+          <td class="center">
+            <strong>{{ row.bo|default(0) }}</strong>
+            /
+            {{ row.bo_target|default(25) }}
+
+            {% if row.bo_pct is defined %}
+            <div class="small">
+              {{ '%.1f'|format(row.bo_pct|default(0)) }}%
+            </div>
+            {% endif %}
+          </td>
+
+          <td class="center">
+            <strong>{{ row.qvo|default(0) }}</strong>
+
+            {% if row.qvo_target is defined %}
+            /
+            {{ row.qvo_target|default(0) }}
+            {% endif %}
+          </td>
+
+          <td>
+
+            {% if row.health is defined %}
+
+              {% if row.health == 'Green' %}
+                <span class="status green">On Track</span>
+
+              {% elif row.health == 'Amber' %}
+                <span class="status amber">Watch</span>
+
+              {% else %}
+                <span class="status red">Need Push</span>
+              {% endif %}
+
+            {% else %}
+
+              <span class="status amber">Monitoring</span>
+
+            {% endif %}
+
+          </td>
+
+        </tr>
+
+      {% endfor %}
+
+      </tbody>
+    </table>
+
+    {% else %}
+
+      <div class="empty">
+        Belum ada data billing untuk periode ini.
+      </div>
+
+    {% endif %}
+
+  </div>
+</div>
+
+
+<div class="card table-card section">
+
+  <div class="table-title">
+    <h2>Speed Distribution — BO per Week</h2>
+
+    <p>
+      Cumulative BO · Week 1 = 75% · Week 2 = 90% ·
+      Week 3 & Week 4 = 100% dari target BO bulanan.
+      {% if latest_in_scope %}
+        Billing through {{ latest_in_scope.strftime('%d %b %Y') }}
+      {% endif %}
+    </p>
+  </div>
+
+  <div class="table-wrap">
+
+    {% if speed_rows %}
+
+    <table>
+
+      <thead>
+        <tr>
+          <th>Salesman</th>
+          <th>Week 1</th>
+          <th>Week 2</th>
+          <th>Week 3</th>
+          <th>Week 4</th>
+        </tr>
+      </thead>
+
+      <tbody>
+
+      {% for row in speed_rows %}
+
+        <tr>
+
+          <td>
+            <strong>{{ row.salesman }}</strong>
+          </td>
+
+          {% for week_no in [1, 2, 3, 4] %}
+
+            {% set week = row.weeks[week_no] %}
+
+            <td class="center">
+
+              {% if week.actual is none %}
+
+                <strong>—</strong>
+
+              {% else %}
+
+                <strong>
+                  {{ week.actual }} / {{ week.target }}
+                </strong>
+
+              {% endif %}
+
+              <div class="small">
+                Actual / Target
+              </div>
+
+              {% if week.pct is not none %}
+
+                <div class="small">
+                  {{ '%.1f'|format(week.pct) }}%
+                </div>
+
+              {% else %}
+
+                <div class="small">
+                  Future week
+                </div>
+
+              {% endif %}
+
+            </td>
+
+          {% endfor %}
+
+        </tr>
+
+      {% endfor %}
+
+      </tbody>
+
+    </table>
+
+    {% else %}
+
+      <div class="empty">
+        Belum ada data Speed Distribution.
+      </div>
+
+    {% endif %}
+
+  </div>
+</div>
+
+
+<div class="card table-card section">
+
+  <div class="table-title">
+
+    <h2>SKU Penetration per Salesman</h2>
+
+    <p>
+      Jumlah dealer berdasarkan kedalaman SKU Device.
+      Tipe/storage yang sama dengan warna berbeda dihitung sebagai satu SKU.
+    </p>
+
+    <div class="sku-targets">
+      <span class="sku-target">Target BO: 25</span>
+      <span class="sku-target">SKU 2–3: 13</span>
+      <span class="sku-target">SKU 4–6: 6</span>
+      <span class="sku-target">SKU 7–10: 5</span>
+      <span class="sku-target">SKU &gt;10: 2</span>
+    </div>
+
+  </div>
+
+  <div class="table-wrap">
+
+    {% if sku_rows %}
+
+    <table>
+
+      <thead>
+        <tr>
+          <th>Salesman</th>
+          <th>SKU 1</th>
+          <th>SKU 2–3</th>
+          <th>SKU 4–6</th>
+          <th>SKU 7–10</th>
+          <th>SKU &gt;10</th>
+        </tr>
+      </thead>
+
+      <tbody>
+
+      {% for row in sku_rows %}
+
+        <tr>
+
+          <td>
+            <strong>{{ row.salesman }}</strong>
+          </td>
+
+          <td class="center">
+            {{ row['1']|default(0) }}
+            <div class="small">dealer</div>
+          </td>
+
+          <td class="center">
+            {{ row['2-3']|default(0) }}
+            <div class="small">Target 13</div>
+          </td>
+
+          <td class="center">
+            {{ row['4-6']|default(0) }}
+            <div class="small">Target 6</div>
+          </td>
+
+          <td class="center">
+            {{ row['7-10']|default(0) }}
+            <div class="small">Target 5</div>
+          </td>
+
+          <td class="center">
+            {{ row['>10']|default(0) }}
+            <div class="small">Target 2</div>
+          </td>
+
+        </tr>
+
+      {% endfor %}
+
+      </tbody>
+
+    </table>
+
+    {% else %}
+
+      <div class="empty">
+        Belum ada data SKU.
+      </div>
+
+    {% endif %}
+
+  </div>
+</div>
+
+
+{% if sku_detail is defined %}
+
+<div class="card table-card section">
+
+  <div class="table-title">
+    <h2>SKU Dealer Detail</h2>
+    <p>
+      Detail dealer, BP, SKU count dan salesman.
+    </p>
+  </div>
+
+  <div class="table-wrap">
+
+    {% if sku_detail %}
+
+    <table>
+
+      <thead>
+        <tr>
+          <th>Salesman</th>
+          <th>Depo</th>
+          <th>BP</th>
+          <th>Dealer</th>
+          <th>SKU Count</th>
+        </tr>
+      </thead>
+
+      <tbody>
+
+      {% for row in sku_detail %}
+
+        <tr>
+          <td>{{ row.salesman }}</td>
+          <td>{{ row.depo|default('') }}</td>
+          <td>{{ row.bp|default('') }}</td>
+          <td>{{ row.dealer|default('') }}</td>
+          <td class="center">{{ row.sku_count|default(0) }}</td>
+        </tr>
+
+      {% endfor %}
+
+      </tbody>
+
+    </table>
+
+    {% else %}
+
+      <div class="empty">
+        Belum ada detail SKU dealer.
+      </div>
+
+    {% endif %}
+
+  </div>
+</div>
+
+{% endif %}
+
+
+{% if dealer_rows is defined %}
+
+<div class="card table-card section">
+
+  <div class="table-title">
+    <h2>Dealer Drilldown</h2>
+    <p>
+      Detail achievement per dealer/BP.
+    </p>
+  </div>
+
+  <div class="table-wrap">
+
+    {% if dealer_rows %}
+
+    <table>
+
+      <thead>
+        <tr>
+          <th>Salesman</th>
+          <th>Depo</th>
+          <th>BP</th>
+          <th>Dealer</th>
+          <th>Device</th>
+          <th>Macbook</th>
+          <th>Accessories</th>
+          <th>Total</th>
+          <th>BO</th>
+          <th>QVO</th>
+        </tr>
+      </thead>
+
+      <tbody>
+
+      {% for row in dealer_rows %}
+
+        <tr>
+
+          <td>{{ row.salesman }}</td>
+          <td>{{ row.depo|default('') }}</td>
+          <td>{{ row.bp|default('') }}</td>
+          <td>{{ row.dealer|default('') }}</td>
+
+          <td class="number">
+            {{ row.device|default(0)|rupiah_short }}
+          </td>
+
+          <td class="number">
+            {{ row.macbook|default(0)|rupiah_short }}
+          </td>
+
+          <td class="number">
+            {{ row.acc|default(0)|rupiah_short }}
+          </td>
+
+          <td class="number">
+            <strong>
+              {{ row.total|default(0)|rupiah_short }}
+            </strong>
+          </td>
+
+          <td class="center">
+            {{ row.bo|default(0) }}
+          </td>
+
+          <td class="center">
+            {{ row.qvo|default(0) }}
+          </td>
+
+        </tr>
+
+      {% endfor %}
+
+      </tbody>
+
+    </table>
+
+    {% else %}
+
+      <div class="empty">
+        Belum ada data dealer.
+      </div>
+
+    {% endif %}
+
+  </div>
+</div>
+
+{% endif %}
+
+
+{% if target_uploads is defined or uploads is defined %}
+
+<div class="section">
+
+  <div class="section-header">
+    <div>
+      <h2>Upload History</h2>
+      <p>File billing dan target terbaru.</p>
+    </div>
+  </div>
+
+
+  <div class="upload-grid">
+
+    {% if target_uploads is defined %}
+
+    <div class="card upload-box">
+
+      <h3>Target Upload</h3>
+
+      {% if target_uploads %}
+
+        {% for item in target_uploads %}
+
+          <div style="padding:9px 0;border-bottom:1px solid #e5e7eb">
+
+            <strong>{{ item.filename }}</strong>
+
+            <div class="small">
+              {% if item.month is defined %}
+                {{ item.month }} ·
+              {% endif %}
+
+              {% if item.dealers_loaded is defined %}
+                {{ item.dealers_loaded }} dealers ·
+              {% endif %}
+
+              {% if item.uploaded_at %}
+                {{ item.uploaded_at.strftime('%d %b %Y %H:%M') }}
+              {% endif %}
+            </div>
+
+          </div>
+
+        {% endfor %}
+
+      {% else %}
+
+        <p>Belum ada target upload.</p>
+
+      {% endif %}
+
+    </div>
+
+    {% endif %}
+
+
+    {% if uploads is defined %}
+
+    <div class="card upload-box">
+
+      <h3>Billing Upload</h3>
+
+      {% if uploads %}
+
+        {% for item in uploads %}
+
+          <div style="padding:9px 0;border-bottom:1px solid #e5e7eb">
+
+            <strong>{{ item.filename }}</strong>
+
+            <div class="small">
+
+              {% if item.rows_added is defined %}
+                {{ item.rows_added }} new
+              {% endif %}
+
+              {% if item.rows_read is defined %}
+                / {{ item.rows_read }} rows
+              {% endif %}
+
+              {% if item.uploaded_at %}
+                · {{ item.uploaded_at.strftime('%d %b %Y %H:%M') }}
+              {% endif %}
+
+            </div>
+
+          </div>
+
+        {% endfor %}
+
+      {% else %}
+
+        <p>Belum ada billing upload.</p>
+
+      {% endif %}
+
+    </div>
+
+    {% endif %}
+
+  </div>
+</div>
+
+{% endif %}
+
+{% endblock %}
