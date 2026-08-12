@@ -511,10 +511,10 @@ def resolve_billing_owner(row, target_by_bp):
     return salesman, SALESMAN_DEPO_FALLBACK.get(salesman, 'Unmapped'), normalize_text(row.sold_to_name), None
 
 
-def matches_scope(salesman, depo, salesman_filter, depo_filter):
+def matches_scope(salesman, depo, salesman_filter, depo_filters):
     if salesman_filter and salesman != salesman_filter:
         return False
-    if depo_filter and depo != depo_filter:
+    if depo_filters and depo not in depo_filters:
         return False
     return True
 
@@ -544,7 +544,7 @@ def dashboard():
     latest_target_month = db.session.query(db.func.max(MonthlyTarget.month)).scalar()
     default_month = latest.strftime('%Y-%m') if latest else (latest_target_month or datetime.now().strftime('%Y-%m'))
     month = request.args.get('month', default_month)
-    depo_filter = request.args.get('depo','').strip()
+    depo_filters = [normalize_text(x) for x in request.args.getlist('depo') if normalize_text(x)]
     salesman_filter = request.args.get('salesman','').strip()
     start, end = month_range(month)
 
@@ -555,11 +555,11 @@ def dashboard():
     depos = sorted({t.depo for t in monthly_targets if t.depo and t.depo != 'Unmapped'})
     salesman_options = set()
     for t in monthly_targets:
-        if not depo_filter or t.depo == depo_filter:
+        if not depo_filters or t.depo in depo_filters:
             salesman_options.add(t.salesman)
     for r in billing_rows:
         owner, depo, _, _ = resolve_billing_owner(r, target_by_bp)
-        if owner and (not depo_filter or depo == depo_filter):
+        if owner and (not depo_filters or depo in depo_filters):
             salesman_options.add(owner)
     salesmen = sorted(salesman_options)
     if salesman_filter and salesman_filter not in salesmen:
@@ -568,7 +568,7 @@ def dashboard():
     # Target rows in the active scope.
     scoped_targets = [
         t for t in monthly_targets
-        if matches_scope(t.salesman, t.depo, salesman_filter, depo_filter)
+        if matches_scope(t.salesman, t.depo, salesman_filter, depo_filters)
     ]
 
     # Dealer master starts with all monthly target dealers so zero-achievement dealers remain visible.
@@ -586,7 +586,7 @@ def dashboard():
     scoped_billing = []
     for r in billing_rows:
         owner, depo, dealer_name, target = resolve_billing_owner(r, target_by_bp)
-        if not matches_scope(owner, depo, salesman_filter, depo_filter):
+        if not matches_scope(owner, depo, salesman_filter, depo_filters):
             continue
         scoped_billing.append((r, owner, depo))
         bp = normalize_bp(r.sold_to_code)
@@ -746,7 +746,9 @@ def dashboard():
     uploads = UploadLog.query.order_by(UploadLog.uploaded_at.desc()).limit(6).all()
     target_uploads = TargetUploadLog.query.order_by(TargetUploadLog.uploaded_at.desc()).limit(6).all()
     return render_template(
-        'dashboard.html', month=month, depo_filter=depo_filter, salesman_filter=salesman_filter,
+        'dashboard.html', month=month,
+        depo_filter=(depo_filters[0] if len(depo_filters) == 1 else ''),
+        depo_filters=depo_filters, salesman_filter=salesman_filter,
         depos=depos, salesmen=salesmen, cards=cards, table=table, leaderboard=leaderboard,
         speed_rows=speed_rows, sku_rows=sku_rows, sku_detail=sku_detail, dealer_detail=dealer_detail,
         sku_targets=SKU_TARGETS, uploads=uploads, target_uploads=target_uploads,
