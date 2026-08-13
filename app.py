@@ -383,6 +383,8 @@ def normalize_bp(value):
 
 BILLING_ALIASES = {
     'billing_date': ['billing date','billingdate','bill date'],
+    'billing_document': ['billing document', 'billing document number', 'billing doc'],
+    'bill_item_no': ['bill item no', 'billing item no', 'bill item number'],
     'salesman': ['salesman name','salesman','sales person','salesperson name'],
     'sold_to_code': ['sold to party code','sold-to party code','sold to code'],
     'sold_to_name': ['sold to party name','sold-to party name','sold to name'],
@@ -635,24 +637,18 @@ def resolve_billing_owner(row, target_by_bp):
     bp = normalize_bp(row.sold_to_code)
     target = target_by_bp.get(bp)
 
-    # Achievement ownership follows Billing Detail for the eight locked
-    # salesmen. Monthly Target still supplies the dealer and depo master.
+    # Achievement ownership always follows Salesman Name in Billing Detail.
+    # Monthly Target supplies dealer/depo metadata only; it must never move a
+    # transaction from one salesman to another.
     billing_salesman = canonical_salesman(row.salesman)
-    if billing_salesman in LOCKED_SALESMEN:
-        if target:
-            return billing_salesman, target.depo, target.dealer, target
-        return (
-            billing_salesman,
-            SALESMAN_DEPO_FALLBACK.get(billing_salesman, 'Unmapped'),
-            normalize_text(row.sold_to_name),
-            None,
-        )
-
-    # Unexpected billing names never create a ninth dashboard salesman. When
-    # possible, attribute them to the BP owner in Monthly Target instead.
     if target:
-        return target.salesman, target.depo, target.dealer, target
-    return billing_salesman, SALESMAN_DEPO_FALLBACK.get(billing_salesman, 'Unmapped'), normalize_text(row.sold_to_name), None
+        return billing_salesman, target.depo, target.dealer, target
+    return (
+        billing_salesman,
+        SALESMAN_DEPO_FALLBACK.get(billing_salesman, 'Unmapped'),
+        normalize_text(row.sold_to_name),
+        None,
+    )
 
 
 def matches_scope(salesman, depo, salesman_filter, depo_filters):
@@ -1354,6 +1350,8 @@ def upload():
             if pd.isna(dt):
                 continue
             salesman_raw = normalize_text(rr[cmap['salesman']])
+            billing_document = normalize_text(rr[cmap['billing_document']])
+            bill_item_no = normalize_text(rr[cmap['bill_item_no']])
             code_raw = normalize_text(rr[cmap['sold_to_code']])
             code = normalize_bp(code_raw)
             name = normalize_text(rr[cmap['sold_to_name']])
@@ -1363,7 +1361,13 @@ def upload():
             amount = to_num(rr[cmap['nett_amount']])
             if not salesman_raw or not code or salesman_raw.lower() == 'nan':
                 continue
-            h = row_hash([dt.date().isoformat(), salesman_raw, code_raw, name, group, article, qty, amount])
+            # Billing Document + Bill Item No uniquely identify a source line.
+            # Without them, separate legitimate transactions with identical BP,
+            # article, quantity and amount were incorrectly discarded as duplicates.
+            h = row_hash([
+                billing_document, bill_item_no, dt.date().isoformat(),
+                salesman_raw, code_raw, name, group, article, qty, amount,
+            ])
             parsed_rows.append({
                 'row_hash': h, 'billing_date': dt.date(), 'salesman': salesman_raw,
                 'sold_to_code': code, 'sold_to_name': name, 'item_group': group,
