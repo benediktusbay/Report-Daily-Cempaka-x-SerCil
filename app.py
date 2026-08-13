@@ -37,6 +37,19 @@ SKU_TARGETS = {'2-3': 13, '4-6': 6, '7-10': 5, '>10': 2}
 # Admin continues to see every depot available in Monthly Target / Billing.
 VIEWER_ALLOWED_DEPOS = ['Cempaka', 'Serang', 'Cilegon']
 
+# The dashboard is intentionally limited to these eight Apple salesmen.
+# Keep this sequence as the canonical display/filter order.
+LOCKED_SALESMEN = [
+    'Andy Varandy',
+    'Michael Serafin Sidik',
+    'Muhamad Fajri',
+    'Edi Suyitno',
+    'Zefanya Septania Simorangkir',
+    'Edi Purnomo',
+    'Rafhyski Alhasan',
+    'Ikmah Novtianingrum',
+]
+
 
 # Incentive organization structure.
 INCENTIVE_ORG = {
@@ -376,7 +389,12 @@ BILLING_ALIASES = {
     'item_group': ['item group desc','item group description','item group'],
     'article': ['article description','article desc','article'],
     'quantity': ['quantity','qty'],
-    'nett_amount': ['total nett amount with tax','total net amount with tax','nett amount with tax','net amount with tax']
+    # Achievement must use the pre-tax value from Billing Detail.
+    'nett_amount': [
+        'total net amount no tax', 'total nett amount no tax',
+        'net amount no tax', 'nett amount no tax',
+        'total net amount without tax', 'total nett amount without tax',
+    ]
 }
 
 TARGET_ALIASES = {
@@ -1015,7 +1033,8 @@ def dashboard():
         owner, depo, _, _ = resolve_billing_owner(r, target_by_bp)
         if owner and (not depo_filters or depo in depo_filters):
             salesman_options.add(owner)
-    salesmen = sorted(salesman_options)
+    # Do not allow unexpected/raw billing names to create extra dashboard rows.
+    salesmen = [s for s in LOCKED_SALESMEN if s in salesman_options]
     if salesman_filter and salesman_filter not in salesmen:
         salesman_filter = ''
 
@@ -1113,7 +1132,8 @@ def dashboard():
             'is_target': d['is_target']
         })
 
-    all_people = sorted(set(salesman_target) | set(salesman_actual))
+    all_people_found = set(salesman_target) | set(salesman_actual)
+    all_people = [s for s in LOCKED_SALESMEN if s in all_people_found]
     table = []
     for salesman in all_people:
         a = salesman_actual.get(salesman, {'device':0,'macbook':0,'acc':0,'bo':0,'qvo':0,'sku_bins':{'1':0,'2-3':0,'4-6':0,'7-10':0,'>10':0}})
@@ -1313,7 +1333,7 @@ def upload():
     try:
         df = pd.read_excel(f, sheet_name='Export')
         cmap = map_columns(df.columns, BILLING_ALIASES, 'Billing Detail / sheet Export')
-        added = 0
+        parsed_rows = []
         for _, rr in df.iterrows():
             dt = pd.to_datetime(rr[cmap['billing_date']], errors='coerce')
             if pd.isna(dt):
@@ -1328,14 +1348,34 @@ def upload():
             amount = to_num(rr[cmap['nett_amount']])
             if not salesman_raw or not code or salesman_raw.lower() == 'nan':
                 continue
-            # Preserve raw code in the hash so existing V1 data does not duplicate after upgrade.
             h = row_hash([dt.date().isoformat(), salesman_raw, code_raw, name, group, article, qty, amount])
-            if Billing.query.filter_by(row_hash=h).first():
+            parsed_rows.append({
+                'row_hash': h, 'billing_date': dt.date(), 'salesman': salesman_raw,
+                'sold_to_code': code, 'sold_to_name': name, 'item_group': group,
+                'article': article, 'quantity': qty, 'nett_amount': amount,
+                'category': classify(group), 'sku_key': sku_from_article(article, group),
+            })
+
+        if not parsed_rows:
+            raise ValueError('Tidak ada baris Billing Detail valid yang dapat diimpor.')
+
+        # Billing exports are snapshots. Replace the uploaded date range so old
+        # with-tax values and records removed from the latest export cannot remain.
+        first_date = min(r['billing_date'] for r in parsed_rows)
+        last_date = max(r['billing_date'] for r in parsed_rows)
+        replaced = Billing.query.filter(
+            Billing.billing_date >= first_date,
+            Billing.billing_date <= last_date,
+        ).delete(synchronize_session=False)
+
+        seen_hashes = set()
+        added = 0
+        for values in parsed_rows:
+            if values['row_hash'] in seen_hashes:
                 continue
+            seen_hashes.add(values['row_hash'])
             db.session.add(Billing(
-                row_hash=h, billing_date=dt.date(), salesman=salesman_raw, sold_to_code=code,
-                sold_to_name=name, item_group=group, article=article, quantity=qty, nett_amount=amount,
-                category=classify(group), sku_key=sku_from_article(article, group)
+                **values
             ))
             added += 1
         db.session.add(UploadLog(
@@ -1343,7 +1383,12 @@ def upload():
             rows_read=len(df), rows_added=added
         ))
         db.session.commit()
-        flash(f'Billing berhasil: {added} baris baru dari {len(df)} baris. Duplikat dilewati.', 'success')
+        flash(
+            f'Billing berhasil: {added} baris No Tax disinkronkan untuk '
+            f'{first_date.strftime("%d %b %Y")}–{last_date.strftime("%d %b %Y")}. '
+            f'{replaced} baris lama diganti.',
+            'success'
+        )
     except Exception as e:
         db.session.rollback()
         flash(f'Upload Billing gagal: {e}', 'danger')
