@@ -634,10 +634,25 @@ def target_lookup_for_month(month):
 def resolve_billing_owner(row, target_by_bp):
     bp = normalize_bp(row.sold_to_code)
     target = target_by_bp.get(bp)
+
+    # Achievement ownership follows Billing Detail for the eight locked
+    # salesmen. Monthly Target still supplies the dealer and depo master.
+    billing_salesman = canonical_salesman(row.salesman)
+    if billing_salesman in LOCKED_SALESMEN:
+        if target:
+            return billing_salesman, target.depo, target.dealer, target
+        return (
+            billing_salesman,
+            SALESMAN_DEPO_FALLBACK.get(billing_salesman, 'Unmapped'),
+            normalize_text(row.sold_to_name),
+            None,
+        )
+
+    # Unexpected billing names never create a ninth dashboard salesman. When
+    # possible, attribute them to the BP owner in Monthly Target instead.
     if target:
         return target.salesman, target.depo, target.dealer, target
-    salesman = canonical_salesman(row.salesman)
-    return salesman, SALESMAN_DEPO_FALLBACK.get(salesman, 'Unmapped'), normalize_text(row.sold_to_name), None
+    return billing_salesman, SALESMAN_DEPO_FALLBACK.get(billing_salesman, 'Unmapped'), normalize_text(row.sold_to_name), None
 
 
 def matches_scope(salesman, depo, salesman_filter, depo_filters):
