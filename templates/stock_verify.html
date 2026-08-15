@@ -8,46 +8,22 @@
     *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,sans-serif;background:#f3f6fa;color:#14213a;min-height:100vh;display:grid;place-items:center;padding:20px}
     .panel{width:min(430px,100%);background:#fff;border:1px solid #dfe6ef;border-radius:18px;box-shadow:0 16px 50px rgba(15,35,65,.10);padding:28px}h1{margin:0 0 7px;font-size:26px}p{margin:0 0 22px;color:#64748b;line-height:1.55}
     label{display:block;font-size:12px;font-weight:800;color:#526078;margin-bottom:7px;text-transform:uppercase;letter-spacing:.04em}input{width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:13px 14px;font-size:24px;text-align:center;letter-spacing:.28em;font-weight:800;outline:none}input:focus{border-color:#0b315b;box-shadow:0 0 0 3px rgba(11,49,91,.12)}
-    button{width:100%;border:0;border-radius:10px;background:#0b315b;color:#fff;font-weight:800;font-size:15px;padding:13px 16px;margin-top:14px;cursor:pointer}.links{display:flex;justify-content:space-between;gap:12px;margin-top:16px;font-size:13px}.links a{color:#0b315b;text-decoration:none;font-weight:700}
+    button{width:100%;border:0;border-radius:10px;background:#0b315b;color:#fff;font-weight:800;font-size:15px;padding:13px 16px;margin-top:14px;cursor:pointer}.links{display:flex;justify-content:space-between;gap:12px;margin-top:16px;font-size:13px}.links a{color:#0b315b;text-decoration:none;font-weight:700}.back{display:block;width:100%;margin-top:18px;padding:12px 14px;border:1px solid #cbd5e1;border-radius:10px;color:#0b315b;text-align:center;text-decoration:none;font-size:14px;font-weight:800;background:#fff}
     .flash{padding:11px 13px;border-radius:9px;margin-bottom:14px;font-size:13px}.flash-danger{background:#fee2e2;color:#991b1b}.flash-success{background:#dcfce7;color:#166534}
   </style>
 </head>
 <body>
   <main class="panel">
     <h1>Masukkan kode OTP</h1>
-    <p>
-      Kode enam angka telah dikirim ke
-      <strong>{{ email }}</strong>
-      dan berlaku selama 10 menit.
-    </p>
-
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% for category, message in messages %}
-        <div class="flash flash-{{ category }}">{{ message }}</div>
-      {% endfor %}
-    {% endwith %}
-
+    <p>Kode enam angka telah dikirim ke <strong>{{ email }}</strong> dan berlaku selama 10 menit.</p>
+    {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div class="flash flash-{{ category }}">{{ message }}</div>{% endfor %}{% endwith %}
     <form method="post">
       <label for="code">Kode OTP</label>
-      <input
-        id="code"
-        name="code"
-        type="text"
-        inputmode="numeric"
-        pattern="[0-9]{6}"
-        maxlength="6"
-        autocomplete="one-time-code"
-        required
-        autofocus
-      >
-
+      <input id="code" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required autofocus>
       <button type="submit">Verifikasi dan masuk</button>
     </form>
-
-    <div class="links">
-      <a href="{{ url_for('stock_login') }}">Kirim ulang OTP</a>
-      <a href="{{ url_for('stock_login') }}">Ganti email</a>
-    </div>
+    <div class="links"><a href="{{ url_for('stock_login') }}">Kirim ulang OTP</a><a href="{{ url_for('stock_login') }}">Ganti email</a></div>
+    <a class="back" href="{{ url_for('dashboard') }}">← Kembali ke Dashboard</a>
   </main>
 </body>
 </html>
