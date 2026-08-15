@@ -657,6 +657,7 @@ def stock_column_map(columns, require_material_group=False):
     }
     if require_material_group:
         aliases['material_group'] = ['material group', 'materialgroup']
+        aliases['storage_location'] = ['storage location', 'stor location', 'storage loc', 'sloc', 's loc']
     mapped = {}
     for key, choices in aliases.items():
         for choice in choices:
@@ -680,6 +681,9 @@ def save_stock_snapshot(dataframe, stock_date, source_name, uploaded_by, require
         if require_material_group:
             material_group = normalize_text(row[cmap['material_group']]).upper()
             if not material_group.endswith('APP'):
+                continue
+            storage_location = normalize_bp(row[cmap['storage_location']])
+            if storage_location != '1001':
                 continue
 
         material = normalize_bp(row[cmap['material']])
@@ -1877,7 +1881,7 @@ def stock_upload():
         )
         flash(
             f'Stock {snapshot.stock_date.strftime("%d %b %Y")} berhasil: '
-            f'{snapshot.app_rows} baris APP diproses menjadi {stored_rows} posisi stock.',
+            f'{snapshot.app_rows} baris APP Storage Location 1001 diproses menjadi {stored_rows} posisi stock.',
             'success',
         )
     except Exception as exc:
