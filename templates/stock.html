@@ -12,7 +12,7 @@
     .toolbar{display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap;margin-bottom:13px}.tabs{display:flex;gap:8px}.tab{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:9px;padding:10px 16px;font-weight:850;cursor:pointer}.tab.active{background:#0b315b;color:#fff;border-color:#0b315b}.tools{display:flex;align-items:end;gap:10px;flex-wrap:wrap}.tools .field{margin:0}.tools input{min-width:240px}.copy-btn{background:#16834b}.copy-btn.copied{background:#166534}.meta{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:#64748b;font-size:13px;margin:0 2px 12px}.meta strong{color:#14213a}
     .table-shell{background:#fff;border:1px solid #dfe6ef;border-radius:14px;overflow:hidden}.table-scroll{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:760px}th{background:#eaf2fb;color:#183451;text-transform:uppercase;letter-spacing:.03em;font-size:11px;padding:11px 12px;text-align:left;white-space:nowrap}td{padding:10px 12px;border-bottom:1px solid #edf1f6;font-size:13px}td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}.total-row td{background:#eaf2fb;font-weight:900;border-top:2px solid #b9c9dc}.empty{padding:32px;text-align:center;color:#64748b}.hidden{display:none!important}
     .mobile-list{display:none}.mobile-item{background:#fff;border:1px solid #dfe6ef;border-radius:13px;padding:14px;margin-bottom:10px}.mobile-desc{font-size:15px;font-weight:900;line-height:1.35}.mobile-material{font-size:11px;color:#64748b;margin:4px 0 12px}.metric-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.metric{background:#f3f6fa;border-radius:9px;padding:9px;min-width:0}.metric span{display:block;font-size:9px;color:#64748b;text-transform:uppercase;font-weight:850;margin-bottom:4px}.metric strong{display:block;font-size:14px;word-break:break-word}.mobile-grand{display:flex;justify-content:space-between;gap:12px;background:#eaf2fb;border-radius:12px;padding:14px;font-weight:900;margin-top:12px}
-    @media(max-width:760px){.page{padding:12px}.topbar{align-items:flex-start}.account div{display:none}.input-panel{grid-template-columns:1fr}.toolbar{align-items:stretch}.tabs,.tools,.tools .field{width:100%}.tab{flex:1}.tools input{min-width:0}.tools .field:first-child{flex:1}.tools .field:nth-child(2){width:100%}.copy-btn{width:100%}.table-shell{display:block;border-radius:12px}.mobile-list{display:none}.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}table{border-collapse:separate;border-spacing:0;min-width:980px}th{position:sticky;top:0;z-index:3}th,td{padding:9px 8px;font-size:11px}.sticky-material{position:sticky;left:0;width:105px;min-width:105px;max-width:105px;background:#fff;z-index:2;border-right:1px solid #dfe6ef}.sticky-description{position:sticky;left:105px;width:225px;min-width:225px;max-width:225px;background:#fff;z-index:2;border-right:1px solid #dfe6ef;box-shadow:5px 0 8px rgba(20,33,58,.06);white-space:normal}.sticky-material.sticky-head,.sticky-description.sticky-head{background:#eaf2fb;z-index:5}.total-row .sticky-material,.total-row .sticky-description{background:#eaf2fb;z-index:4}.brand h1{font-size:19px}.input-box{padding:13px}}
+    @media(max-width:760px){.page{padding:12px}.topbar{align-items:flex-start}.account div{display:none}.input-panel{grid-template-columns:1fr}.toolbar{align-items:stretch}.tabs,.tools,.tools .field{width:100%}.tab{flex:1}.tools input{min-width:0}.tools .field:first-child{flex:1}.tools .field:nth-child(2){width:100%}.copy-btn{width:100%}.table-shell{display:block;border-radius:12px}.mobile-list{display:none}.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}table{border-collapse:separate;border-spacing:0;min-width:850px}th{position:sticky;top:0;z-index:3}th,td{padding:8px 6px;font-size:10px}th.num,td.num{min-width:78px}.sticky-material{position:sticky;left:0;width:70px;min-width:70px;max-width:70px;background:#fff;z-index:2;border-right:1px solid #dfe6ef;font-size:8px;overflow-wrap:anywhere}.sticky-description{position:sticky;left:70px;width:180px;min-width:180px;max-width:180px;background:#fff;z-index:2;border-right:1px solid #dfe6ef;box-shadow:5px 0 8px rgba(20,33,58,.06);white-space:normal;font-size:10px;line-height:1.25}.sticky-material.sticky-head,.sticky-description.sticky-head{background:#eaf2fb;z-index:5;font-size:9px}.total-row .sticky-material,.total-row .sticky-description{background:#eaf2fb;z-index:4}.brand h1{font-size:19px}.input-box{padding:13px}}
     @media(max-width:380px){.metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
   </style>
 </head>
@@ -25,6 +25,7 @@
 
   {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div class="flash flash-{{ category }}">{{ message }}</div>{% endfor %}{% endwith %}
 
+  {% if stock_is_admin %}
   <details>
     <summary>Perbarui stock harian</summary>
     <div class="input-panel">
@@ -37,7 +38,6 @@
           <button class="btn" type="submit">Upload dan proses</button>
         </form>
       </section>
-
       <section class="input-box">
         <h3>Copy-paste dari Excel</h3>
         <p>Urutan kolom: Material, Material Description, Name1, Unrestricted. Header boleh ikut di-copy.</p>
@@ -49,13 +49,13 @@
       </section>
     </div>
   </details>
+  {% endif %}
 
   <div class="toolbar">
     <div class="tabs">
       <button class="tab active" type="button" data-tab="cempaka">Cempaka</button>
       <button class="tab" type="button" data-tab="r5">R5</button>
     </div>
-
     <div class="tools">
       <div class="field"><label>Cari material</label><input id="stockSearch" type="search" placeholder="Kode atau nama produk"></div>
       {% if snapshots %}<div class="field"><label>Tanggal data</label><select id="stockDate">{% for snap in snapshots %}<option value="{{ snap.stock_date.isoformat() }}" {% if selected and snap.id == selected.id %}selected{% endif %}>{{ snap.stock_date.strftime('%d %b %Y') }}</option>{% endfor %}</select></div>{% endif %}
@@ -64,14 +64,13 @@
   </div>
 
   {% if selected %}
-  <div class="meta"><span>Data per <strong>{{ selected.stock_date.strftime('%d %b %Y') }}</strong> · {{ selected.source_name }}</span><span>Diunggah oleh <strong>{{ selected.uploaded_by }}</strong></span></div>
+  <div class="meta"><span>Data per <strong>{{ selected.stock_date.strftime('%d %b %Y') }}</strong></span></div>
 
   <section id="panel-cempaka" class="stock-panel">
     <div class="table-shell"><div class="table-scroll"><table><thead><tr><th class="sticky-material sticky-head">Material</th><th class="sticky-description sticky-head">Material Description</th><th class="num">Cempaka</th></tr></thead><tbody>
       {% for row in cempaka_rows %}<tr class="search-row" data-search="{{ row.material|lower }} {{ row.description|lower }}"><td class="sticky-material">{{ row.material }}</td><td class="sticky-description">{{ row.description }}</td><td class="num"><strong>{{ row.Cempaka|number_id }}</strong></td></tr>{% endfor %}
       <tr class="total-row"><td class="sticky-material"></td><td class="sticky-description">GRAND TOTAL</td><td class="num">{{ totals.Cempaka|number_id }}</td></tr>
     </tbody></table></div></div>
-
     <div class="mobile-list">
       {% for row in cempaka_rows %}<article class="mobile-item search-row" data-search="{{ row.material|lower }} {{ row.description|lower }}"><div class="mobile-desc">{{ row.description }}</div><div class="mobile-material">Material {{ row.material }}</div><div class="metric-grid"><div class="metric"><span>Cempaka</span><strong>{{ row.Cempaka|number_id }} unit</strong></div></div></article>{% endfor %}
       <div class="mobile-grand"><span>Grand total</span><strong>{{ totals.Cempaka|number_id }} unit</strong></div>
@@ -83,22 +82,16 @@
       {% for row in r5_rows %}<tr class="search-row" data-search="{{ row.material|lower }} {{ row.description|lower }}"><td class="sticky-material">{{ row.material }}</td><td class="sticky-description">{{ row.description }}</td><td class="num">{{ row.Cempaka|number_id }}</td><td class="num">{{ row.Cilegon|number_id }}</td><td class="num">{{ row.Roxy|number_id }}</td><td class="num">{{ row.Serang|number_id }}</td><td class="num">{{ row.Tangerang|number_id }}</td><td class="num"><strong>{{ row.grand_total|number_id }}</strong></td></tr>{% endfor %}
       <tr class="total-row"><td class="sticky-material"></td><td class="sticky-description">GRAND TOTAL</td><td class="num">{{ totals.Cempaka|number_id }}</td><td class="num">{{ totals.Cilegon|number_id }}</td><td class="num">{{ totals.Roxy|number_id }}</td><td class="num">{{ totals.Serang|number_id }}</td><td class="num">{{ totals.Tangerang|number_id }}</td><td class="num">{{ totals.grand_total|number_id }}</td></tr>
     </tbody></table></div></div>
-
     <div class="mobile-list">
       {% for row in r5_rows %}<article class="mobile-item search-row" data-search="{{ row.material|lower }} {{ row.description|lower }}"><div class="mobile-desc">{{ row.description }}</div><div class="mobile-material">Material {{ row.material }}</div><div class="metric-grid"><div class="metric"><span>Cempaka</span><strong>{{ row.Cempaka|number_id }}</strong></div><div class="metric"><span>Cilegon</span><strong>{{ row.Cilegon|number_id }}</strong></div><div class="metric"><span>Roxy</span><strong>{{ row.Roxy|number_id }}</strong></div><div class="metric"><span>Serang</span><strong>{{ row.Serang|number_id }}</strong></div><div class="metric"><span>Tangerang</span><strong>{{ row.Tangerang|number_id }}</strong></div><div class="metric"><span>Grand Total</span><strong>{{ row.grand_total|number_id }}</strong></div></div></article>{% endfor %}
       <div class="mobile-grand"><span>Grand total R5</span><strong>{{ totals.grand_total|number_id }} unit</strong></div>
     </div>
   </section>
-
-  {% else %}
-  <div class="empty">Belum ada data stock. Buka “Perbarui stock harian” untuk upload Excel atau copy-paste data.</div>
-  {% endif %}
+  {% else %}<div class="empty">Belum ada data stock. Buka “Perbarui stock harian” untuk upload Excel atau copy-paste data.</div>{% endif %}
 </main>
-
 <script>
   const tabs=document.querySelectorAll('[data-tab]');
   const search=document.getElementById('stockSearch');
-
   {% if selected %}
   const stockCopyData={
     date:{{ selected.stock_date.strftime('%d %b %Y')|tojson }},
@@ -106,13 +99,10 @@
     r5:{{ r5_rows|tojson }},
     totals:{{ totals|tojson }}
   };
-
   const formatStockNumber=value=>new Intl.NumberFormat('id-ID',{maximumFractionDigits:2}).format(Number(value||0));
-
   function whatsappStockText(){
     const active=document.querySelector('[data-tab].active')?.dataset.tab||'cempaka';
     const lines=[`*STOCK APPLE - ${active.toUpperCase()}*`,`_Tanggal ${stockCopyData.date}_`,''];
-
     if(active==='cempaka'){
       stockCopyData.cempaka.forEach(row=>lines.push(`${row.material} - ${row.description}\nCempaka: ${formatStockNumber(row.Cempaka)}`));
       lines.push('',`*GRAND TOTAL: ${formatStockNumber(stockCopyData.totals.Cempaka)} unit*`);
@@ -120,59 +110,19 @@
       stockCopyData.r5.forEach(row=>lines.push(`${row.material} - ${row.description}\nCMP ${formatStockNumber(row.Cempaka)} | CLG ${formatStockNumber(row.Cilegon)} | RXY ${formatStockNumber(row.Roxy)} | SRG ${formatStockNumber(row.Serang)} | TGR ${formatStockNumber(row.Tangerang)} | TOTAL ${formatStockNumber(row.grand_total)}`));
       lines.push('',`*GRAND TOTAL R5: ${formatStockNumber(stockCopyData.totals.grand_total)} unit*`);
     }
-
     return lines.join('\n');
   }
-
   async function copyForWhatsApp(){
     const text=whatsappStockText();
-
-    try{
-      await navigator.clipboard.writeText(text);
-    }catch(error){
-      const area=document.createElement('textarea');
-      area.value=text;
-      area.style.position='fixed';
-      area.style.opacity='0';
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand('copy');
-      area.remove();
-    }
-
-    const button=document.getElementById('copyWhatsApp');
-    button.textContent='Berhasil dicopy';
-    button.classList.add('copied');
-
-    setTimeout(()=>{
-      button.textContent='Copy untuk WhatsApp';
-      button.classList.remove('copied');
-    },1800);
+    try{await navigator.clipboard.writeText(text);}catch(error){const area=document.createElement('textarea');area.value=text;area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();document.execCommand('copy');area.remove();}
+    const button=document.getElementById('copyWhatsApp');button.textContent='Berhasil dicopy';button.classList.add('copied');setTimeout(()=>{button.textContent='Copy untuk WhatsApp';button.classList.remove('copied');},1800);
   }
-
   document.getElementById('copyWhatsApp')?.addEventListener('click',copyForWhatsApp);
   {% endif %}
-
-  function applySearch(){
-    const q=(search?.value||'').trim().toLowerCase();
-
-    document.querySelectorAll('.search-row').forEach(row=>
-      row.classList.toggle('hidden',q&&!row.dataset.search.includes(q))
-    );
-  }
-
-  tabs.forEach(tab=>tab.addEventListener('click',()=>{
-    tabs.forEach(x=>x.classList.toggle('active',x===tab));
-    document.querySelectorAll('.stock-panel').forEach(panel=>panel.classList.add('hidden'));
-    document.getElementById('panel-'+tab.dataset.tab)?.classList.remove('hidden');
-    applySearch();
-  }));
-
+  function applySearch(){const q=(search?.value||'').trim().toLowerCase();document.querySelectorAll('.search-row').forEach(row=>row.classList.toggle('hidden',q&&!row.dataset.search.includes(q)));}
+  tabs.forEach(tab=>tab.addEventListener('click',()=>{tabs.forEach(x=>x.classList.toggle('active',x===tab));document.querySelectorAll('.stock-panel').forEach(panel=>panel.classList.add('hidden'));document.getElementById('panel-'+tab.dataset.tab)?.classList.remove('hidden');applySearch();}));
   search?.addEventListener('input',applySearch);
-
-  document.getElementById('stockDate')?.addEventListener('change',event=>{
-    window.location='{{ url_for("stock") }}?date='+encodeURIComponent(event.target.value);
-  });
+  document.getElementById('stockDate')?.addEventListener('change',event=>{window.location='{{ url_for("stock") }}?date='+encodeURIComponent(event.target.value);});
 </script>
 </body>
 </html>
