@@ -53,6 +53,7 @@ STOCK_ALLOWED_EMAILS = {
     'ikmah.novtianingrum@erajaya.com',
     'benediktus.kristianto@erajaya.com',
 }
+STOCK_SESSION_MINUTES = 15
 STOCK_DEPOTS = [
     ('Cempaka', 'TAM DC CEMPAKA MAS'),
     ('Cilegon', 'TAM DC CILEGON'),
@@ -390,12 +391,27 @@ def stock_required(fn):
             user = db.session.get(User, user_id)
             if user and user.role == 'admin':
                 return fn(*args, **kwargs)
-        email = normalize_text(session.get('stock_email')).lower()
-        if email not in STOCK_ALLOWED_EMAILS:
-            session.pop('stock_email', None)
+        if not stock_session_is_valid():
+            clear_stock_session()
             return redirect(url_for('stock_login', next=request.path))
         return fn(*args, **kwargs)
     return wrapper
+
+
+def clear_stock_session():
+    for key in ('stock_email', 'stock_session_expires_at'):
+        session.pop(key, None)
+
+
+def stock_session_is_valid():
+    email = normalize_text(session.get('stock_email')).lower()
+    expires_raw = session.get('stock_session_expires_at')
+    if email not in STOCK_ALLOWED_EMAILS or not expires_raw:
+        return False
+    try:
+        return datetime.utcnow() < datetime.fromisoformat(expires_raw)
+    except (TypeError, ValueError):
+        return False
 
 
 def stock_actor():
@@ -1741,8 +1757,10 @@ def stock_login():
             return redirect(url_for('stock'))
 
     current_email = normalize_text(session.get('stock_email')).lower()
-    if current_email in STOCK_ALLOWED_EMAILS:
+    if stock_session_is_valid():
         return redirect(url_for('stock'))
+    if current_email:
+        clear_stock_session()
 
     if request.method == 'POST':
         email = normalize_text(request.form.get('email')).lower()
@@ -1811,6 +1829,7 @@ def stock_verify():
 
         session.permanent = True
         session['stock_email'] = email
+        session['stock_session_expires_at'] = (datetime.utcnow() + timedelta(minutes=STOCK_SESSION_MINUTES)).isoformat()
         for key in ('stock_otp_email', 'stock_otp_hash', 'stock_otp_expires_at', 'stock_otp_sent_at', 'stock_otp_attempts'):
             session.pop(key, None)
         return redirect(url_for('stock'))
@@ -1820,7 +1839,7 @@ def stock_verify():
 
 @app.route('/stock/logout')
 def stock_logout():
-    for key in ('stock_email', 'stock_otp_email', 'stock_otp_hash', 'stock_otp_expires_at', 'stock_otp_sent_at', 'stock_otp_attempts'):
+    for key in ('stock_email', 'stock_session_expires_at', 'stock_otp_email', 'stock_otp_hash', 'stock_otp_expires_at', 'stock_otp_sent_at', 'stock_otp_attempts'):
         session.pop(key, None)
     return redirect(url_for('stock_login'))
 
