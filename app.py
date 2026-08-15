@@ -1,14 +1,15 @@
 import os
 import re
 import math
+import base64
 import hashlib
 import io
+import json
 import secrets
-import smtplib
-import ssl
+import urllib.error
+import urllib.request
 from datetime import datetime, timedelta
 import datetime as dt
-from email.message import EmailMessage
 from functools import wraps
 
 import pandas as pd
@@ -724,22 +725,50 @@ def save_stock_snapshot(dataframe, stock_date, source_name, uploaded_by, require
 
 def send_stock_otp(recipient, code):
     sender = normalize_text(os.environ.get('OTP_SENDER_EMAIL'))
-    app_password = normalize_text(os.environ.get('OTP_EMAIL_APP_PASSWORD')).replace(' ', '')
-    if not sender or not app_password:
-        raise RuntimeError('Pengaturan email OTP di Render belum lengkap.')
+    api_key = normalize_text(os.environ.get('MAILJET_API_KEY'))
+    secret_key = normalize_text(os.environ.get('MAILJET_SECRET_KEY'))
+    if not sender or not api_key or not secret_key:
+        raise RuntimeError('Pengaturan OTP Mailjet di Render belum lengkap.')
 
-    message = EmailMessage()
-    message['Subject'] = 'Kode OTP Stock Apple'
-    message['From'] = sender
-    message['To'] = recipient
-    message.set_content(
-        f'Kode OTP Anda: {code}\n\n'
-        'Kode berlaku selama 10 menit. Jangan berikan kode ini kepada siapa pun.'
+    payload = {
+        'Messages': [{
+            'From': {
+                'Email': sender,
+                'Name': normalize_text(os.environ.get('OTP_SENDER_NAME')) or 'Stock Apple',
+            },
+            'To': [{'Email': recipient}],
+            'Subject': 'Kode OTP Stock Apple',
+            'TextPart': (
+                f'Kode OTP Anda: {code}\n\n'
+                'Kode berlaku selama 10 menit. Jangan berikan kode ini kepada siapa pun.'
+            ),
+        }],
+    }
+    credentials = base64.b64encode(f'{api_key}:{secret_key}'.encode('utf-8')).decode('ascii')
+    api_request = urllib.request.Request(
+        'https://api.mailjet.com/v3.1/send',
+        data=json.dumps(payload).encode('utf-8'),
+        headers={
+            'accept': 'application/json',
+            'authorization': f'Basic {credentials}',
+            'content-type': 'application/json',
+        },
+        method='POST',
     )
-    context = ssl.create_default_context()
-    with smtplib.SMTP_SSL('smtp.gmail.com', 465, context=context, timeout=20) as server:
-        server.login(sender, app_password)
-        server.send_message(message)
+    try:
+        with urllib.request.urlopen(api_request, timeout=20) as response:
+            response_data = json.loads(response.read().decode('utf-8'))
+            message_status = response_data.get('Messages', [{}])[0].get('Status')
+            if response.status not in (200, 201, 202) or message_status != 'success':
+                raise RuntimeError(f'Mailjet belum menerima email OTP (status: {message_status or response.status}).')
+    except urllib.error.HTTPError as exc:
+        try:
+            detail = json.loads(exc.read().decode('utf-8')).get('message', '')
+        except Exception:
+            detail = ''
+        raise RuntimeError(f'Mailjet menolak pengiriman ({exc.code}): {detail or exc.reason}') from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f'Tidak dapat terhubung ke Mailjet: {exc.reason}') from exc
 
 
 def rupiah(x):
