@@ -10,7 +10,7 @@
     .mark{width:46px;height:46px;border-radius:13px;background:#0b315b;color:#fff;display:grid;place-items:center;font-size:23px;margin-bottom:18px}
     h1{margin:0 0 7px;font-size:26px}p{margin:0 0 22px;color:#64748b;line-height:1.55}.field label{display:block;font-size:12px;font-weight:800;color:#526078;margin-bottom:7px;text-transform:uppercase;letter-spacing:.04em}
     input{width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:13px 14px;font-size:16px;outline:none}input:focus{border-color:#0b315b;box-shadow:0 0 0 3px rgba(11,49,91,.12)}
-    button{width:100%;border:0;border-radius:10px;background:#0b315b;color:#fff;font-weight:800;font-size:15px;padding:13px 16px;margin-top:14px;cursor:pointer}.note{font-size:12px;color:#64748b;margin-top:16px;text-align:center}
+    button{width:100%;border:0;border-radius:10px;background:#0b315b;color:#fff;font-weight:800;font-size:15px;padding:13px 16px;margin-top:14px;cursor:pointer}.note{font-size:12px;color:#64748b;margin-top:16px;text-align:center}.back{display:block;width:100%;margin-top:14px;padding:12px 14px;border:1px solid #cbd5e1;border-radius:10px;color:#0b315b;text-align:center;text-decoration:none;font-size:14px;font-weight:800;background:#fff}
     .flash{padding:11px 13px;border-radius:9px;margin-bottom:14px;font-size:13px}.flash-danger{background:#fee2e2;color:#991b1b}.flash-success{background:#dcfce7;color:#166534}
   </style>
 </head>
@@ -19,34 +19,16 @@
     <div class="mark">▦</div>
     <h1>Stock Apple</h1>
     <p>Masukkan email yang telah didaftarkan. Kami akan mengirim kode OTP untuk verifikasi.</p>
-
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% for category, message in messages %}
-        <div class="flash flash-{{ category }}">{{ message }}</div>
-      {% endfor %}
-    {% endwith %}
-
+    {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div class="flash flash-{{ category }}">{{ message }}</div>{% endfor %}{% endwith %}
     <form method="post">
       <div class="field">
         <label for="email">Email</label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          autocomplete="email"
-          value="{{ email }}"
-          placeholder="nama@erajaya.com"
-          required
-          autofocus
-        >
+        <input id="email" name="email" type="email" autocomplete="email" value="{{ email }}" placeholder="nama@erajaya.com" required autofocus>
       </div>
-
       <button type="submit">Kirim kode OTP</button>
     </form>
-
-    <div class="note">
-      Hanya email terdaftar yang dapat mengakses halaman Stock.
-    </div>
+    <div class="note">Hanya email terdaftar yang dapat mengakses halaman Stock.</div>
+    <a class="back" href="{{ url_for('dashboard') }}">← Kembali ke Dashboard</a>
   </main>
 </body>
 </html>
