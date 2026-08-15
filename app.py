@@ -2,8 +2,13 @@ import os
 import re
 import math
 import hashlib
-from datetime import datetime
+import io
+import secrets
+import smtplib
+import ssl
+from datetime import datetime, timedelta
 import datetime as dt
+from email.message import EmailMessage
 from functools import wraps
 
 import pandas as pd
@@ -20,6 +25,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
 ).replace('postgres://', 'postgresql://', 1)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['MAX_CONTENT_LENGTH'] = 30 * 1024 * 1024
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 
 db = SQLAlchemy(app)
 
@@ -36,6 +42,23 @@ SKU_TARGETS = {'2-3': 13, '4-6': 6, '7-10': 5, '>10': 2}
 # Public Viewer is intentionally limited to these depots.
 # Admin continues to see every depot available in Monthly Target / Billing.
 VIEWER_ALLOWED_DEPOS = ['Cempaka', 'Serang', 'Cilegon']
+
+# Only these email addresses can request an OTP and open the Stock page.
+STOCK_ALLOWED_EMAILS = {
+    'fanny.lolowang@erajaya.com',
+    'isroudin.01@erajaya.com',
+    'rafhyski.alhasan@erajaya.com',
+    'zefanya.simorangkir@erajaya.com',
+    'ikmah.novtianingrum@erajaya.com',
+    'benediktus.kristianto@erajaya.com',
+}
+STOCK_DEPOTS = [
+    ('Cempaka', 'TAM DC CEMPAKA MAS'),
+    ('Cilegon', 'TAM DC CILEGON'),
+    ('Roxy', 'TAM DC ROXY'),
+    ('Serang', 'TAM DC SERANG'),
+    ('Tangerang', 'TAM DC TANGERANG'),
+]
 
 # The dashboard is intentionally limited to these eight Apple salesmen.
 # Keep this sequence as the canonical display/filter order.
@@ -314,6 +337,28 @@ class Billing(db.Model):
     sku_key = db.Column(db.String(300))
 
 
+class StockSnapshot(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    stock_date = db.Column(db.Date, nullable=False, unique=True, index=True)
+    source_name = db.Column(db.String(255), nullable=False)
+    uploaded_by = db.Column(db.String(160), nullable=False)
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    source_rows = db.Column(db.Integer, default=0)
+    app_rows = db.Column(db.Integer, default=0)
+
+
+class StockItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    snapshot_id = db.Column(db.Integer, db.ForeignKey('stock_snapshot.id'), nullable=False, index=True)
+    material = db.Column(db.String(80), nullable=False, index=True)
+    description = db.Column(db.String(500), nullable=False, index=True)
+    depot = db.Column(db.String(40), nullable=False, index=True)
+    quantity = db.Column(db.Float, default=0)
+    __table_args__ = (
+        db.UniqueConstraint('snapshot_id', 'material', 'depot', name='uq_stock_snapshot_material_depot'),
+    )
+
+
 def login_required(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
@@ -332,6 +377,17 @@ def admin_required(fn):
         if not user or user.role != 'admin':
             flash('Menu ini hanya untuk Admin.', 'danger')
             return redirect(url_for('dashboard'))
+        return fn(*args, **kwargs)
+    return wrapper
+
+
+def stock_required(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        email = normalize_text(session.get('stock_email')).lower()
+        if email not in STOCK_ALLOWED_EMAILS:
+            session.pop('stock_email', None)
+            return redirect(url_for('stock_login', next=request.path))
         return fn(*args, **kwargs)
     return wrapper
 
@@ -558,6 +614,120 @@ def to_num(value, default=0):
     return default if pd.isna(v) else float(v)
 
 
+def number_id(value):
+    try:
+        number = float(value or 0)
+    except Exception:
+        number = 0
+    if number.is_integer():
+        return f'{int(number):,}'.replace(',', '.')
+    return f'{number:,.2f}'.replace(',', '_').replace('.', ',').replace('_', '.')
+
+
+def normalize_stock_depot(value):
+    raw = normalize_text(value).upper()
+    for short_name, source_name in STOCK_DEPOTS:
+        if raw == source_name.upper():
+            return short_name
+    return ''
+
+
+def stock_column_map(columns, require_material_group=False):
+    normalized = {normalize_col(column): column for column in columns}
+    aliases = {
+        'material': ['material'],
+        'description': ['material description', 'material desc', 'description'],
+        'depot': ['name 1', 'name1', 'depo', 'depot'],
+        'quantity': ['unrestricted', 'stock', 'quantity', 'qty'],
+    }
+    if require_material_group:
+        aliases['material_group'] = ['material group', 'materialgroup']
+    mapped = {}
+    for key, choices in aliases.items():
+        for choice in choices:
+            found = normalized.get(normalize_col(choice))
+            if found is not None:
+                mapped[key] = found
+                break
+    missing = [key for key in aliases if key not in mapped]
+    if missing:
+        raise ValueError('Kolom stok tidak ditemukan: ' + ', '.join(missing))
+    return mapped
+
+
+def save_stock_snapshot(dataframe, stock_date, source_name, uploaded_by, require_material_group=False):
+    cmap = stock_column_map(dataframe.columns, require_material_group=require_material_group)
+    source_rows = len(dataframe)
+    grouped = {}
+    app_rows = 0
+
+    for _, row in dataframe.iterrows():
+        if require_material_group:
+            material_group = normalize_text(row[cmap['material_group']]).upper()
+            if not material_group.endswith('APP'):
+                continue
+
+        material = normalize_bp(row[cmap['material']])
+        description = normalize_text(row[cmap['description']])
+        depot = normalize_stock_depot(row[cmap['depot']])
+        quantity = to_num(row[cmap['quantity']])
+        if not material or not description or not depot:
+            continue
+        app_rows += 1
+        key = (material, depot)
+        record = grouped.setdefault(key, {'description': description, 'quantity': 0.0})
+        record['quantity'] += quantity
+
+    if not grouped:
+        raise ValueError('Tidak ada data stock APP untuk lima Depo yang dapat disimpan.')
+
+    existing = StockSnapshot.query.filter_by(stock_date=stock_date).first()
+    if existing:
+        StockItem.query.filter_by(snapshot_id=existing.id).delete(synchronize_session=False)
+        db.session.delete(existing)
+        db.session.flush()
+
+    snapshot = StockSnapshot(
+        stock_date=stock_date,
+        source_name=source_name,
+        uploaded_by=uploaded_by,
+        source_rows=source_rows,
+        app_rows=app_rows,
+    )
+    db.session.add(snapshot)
+    db.session.flush()
+    for (material, depot), record in grouped.items():
+        db.session.add(StockItem(
+            snapshot_id=snapshot.id,
+            material=material,
+            description=record['description'],
+            depot=depot,
+            quantity=record['quantity'],
+        ))
+    db.session.commit()
+    return snapshot, len(grouped)
+
+
+def send_stock_otp(recipient, code):
+    sender = normalize_text(os.environ.get('OTP_SENDER_EMAIL'))
+    app_password = normalize_text(os.environ.get('OTP_EMAIL_APP_PASSWORD')).replace(' ', '')
+    if not sender or not app_password:
+        raise RuntimeError('Pengaturan email OTP di Render belum lengkap.')
+
+    message = EmailMessage()
+    message['Subject'] = 'Kode OTP Stock Apple'
+    message['From'] = sender
+    message['To'] = recipient
+    message.set_content(
+        f'Kode OTP Anda: {code}\n\n'
+        'Kode berlaku selama 10 menit. Jangan berikan kode ini kepada siapa pun.'
+    )
+    context = ssl.create_default_context()
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465, context=context, timeout=20) as server:
+        server.login(sender, app_password)
+        server.send_message(message)
+
+
 def rupiah(x):
     try:
         return 'Rp {:,.0f}'.format(float(x)).replace(',', '.')
@@ -584,6 +754,7 @@ def rupiah_short(x):
 
 app.jinja_env.filters['rupiah'] = rupiah
 app.jinja_env.filters['rupiah_short'] = rupiah_short
+app.jinja_env.filters['number_id'] = number_id
 
 
 @app.before_request
@@ -1496,6 +1667,214 @@ def users():
             db.session.commit()
             flash('User berhasil dibuat.', 'success')
     return render_template('users.html', users=User.query.order_by(User.username).all())
+
+
+@app.route('/stock/login', methods=['GET', 'POST'])
+def stock_login():
+    current_email = normalize_text(session.get('stock_email')).lower()
+    if current_email in STOCK_ALLOWED_EMAILS:
+        return redirect(url_for('stock'))
+
+    if request.method == 'POST':
+        email = normalize_text(request.form.get('email')).lower()
+        if email not in STOCK_ALLOWED_EMAILS:
+            flash('Email ini tidak terdaftar untuk mengakses halaman Stock.', 'danger')
+            return render_template('stock_login.html', email=email)
+
+        now = datetime.utcnow()
+        last_sent_raw = session.get('stock_otp_sent_at')
+        if last_sent_raw:
+            try:
+                last_sent = datetime.fromisoformat(last_sent_raw)
+                seconds_left = 60 - int((now - last_sent).total_seconds())
+                if seconds_left > 0:
+                    flash(f'Tunggu {seconds_left} detik sebelum meminta OTP baru.', 'danger')
+                    return render_template('stock_login.html', email=email)
+            except Exception:
+                pass
+
+        code = f'{secrets.randbelow(900000) + 100000:06d}'
+        try:
+            send_stock_otp(email, code)
+        except Exception as exc:
+            flash(f'OTP belum dapat dikirim: {exc}', 'danger')
+            return render_template('stock_login.html', email=email)
+
+        session['stock_otp_email'] = email
+        session['stock_otp_hash'] = generate_password_hash(code)
+        session['stock_otp_expires_at'] = (now + timedelta(minutes=10)).isoformat()
+        session['stock_otp_sent_at'] = now.isoformat()
+        session['stock_otp_attempts'] = 0
+        flash('Kode OTP telah dikirim ke email Anda.', 'success')
+        return redirect(url_for('stock_verify'))
+
+    return render_template('stock_login.html', email='')
+
+
+@app.route('/stock/verify', methods=['GET', 'POST'])
+def stock_verify():
+    email = normalize_text(session.get('stock_otp_email')).lower()
+    otp_hash = session.get('stock_otp_hash')
+    expires_raw = session.get('stock_otp_expires_at')
+    if email not in STOCK_ALLOWED_EMAILS or not otp_hash or not expires_raw:
+        return redirect(url_for('stock_login'))
+
+    if request.method == 'POST':
+        try:
+            expires_at = datetime.fromisoformat(expires_raw)
+        except Exception:
+            expires_at = datetime.utcnow() - timedelta(seconds=1)
+        if datetime.utcnow() > expires_at:
+            flash('Kode OTP sudah kedaluwarsa. Silakan minta kode baru.', 'danger')
+            return redirect(url_for('stock_login'))
+
+        attempts = int(session.get('stock_otp_attempts', 0)) + 1
+        session['stock_otp_attempts'] = attempts
+        if attempts > 5:
+            session.pop('stock_otp_hash', None)
+            flash('Terlalu banyak percobaan. Silakan minta OTP baru.', 'danger')
+            return redirect(url_for('stock_login'))
+
+        code = re.sub(r'\D', '', request.form.get('code', ''))
+        if len(code) != 6 or not check_password_hash(otp_hash, code):
+            flash('Kode OTP tidak benar.', 'danger')
+            return render_template('stock_verify.html', email=email)
+
+        session.permanent = True
+        session['stock_email'] = email
+        for key in ('stock_otp_email', 'stock_otp_hash', 'stock_otp_expires_at', 'stock_otp_sent_at', 'stock_otp_attempts'):
+            session.pop(key, None)
+        return redirect(url_for('stock'))
+
+    return render_template('stock_verify.html', email=email)
+
+
+@app.route('/stock/logout')
+def stock_logout():
+    for key in ('stock_email', 'stock_otp_email', 'stock_otp_hash', 'stock_otp_expires_at', 'stock_otp_sent_at', 'stock_otp_attempts'):
+        session.pop(key, None)
+    return redirect(url_for('stock_login'))
+
+
+@app.route('/stock')
+@stock_required
+def stock():
+    snapshots = StockSnapshot.query.order_by(StockSnapshot.stock_date.desc()).all()
+    requested_date = request.args.get('date', '').strip()
+    selected = None
+    if requested_date:
+        try:
+            selected = StockSnapshot.query.filter_by(stock_date=pd.to_datetime(requested_date).date()).first()
+        except Exception:
+            selected = None
+    if selected is None and snapshots:
+        selected = snapshots[0]
+
+    cempaka_rows = []
+    r5_rows = []
+    totals = {short_name: 0.0 for short_name, _ in STOCK_DEPOTS}
+    if selected:
+        matrix = {}
+        items = StockItem.query.filter_by(snapshot_id=selected.id).all()
+        for item in items:
+            key = (item.material, item.description)
+            row = matrix.setdefault(key, {
+                'material': item.material,
+                'description': item.description,
+                **{short_name: 0.0 for short_name, _ in STOCK_DEPOTS},
+            })
+            row[item.depot] += float(item.quantity or 0)
+            totals[item.depot] += float(item.quantity or 0)
+
+        r5_rows = sorted(matrix.values(), key=lambda row: (row['description'].casefold(), row['material']))
+        for row in r5_rows:
+            row['grand_total'] = sum(row[short_name] for short_name, _ in STOCK_DEPOTS)
+        r5_rows = [row for row in r5_rows if row['grand_total'] != 0]
+        cempaka_rows = [row for row in r5_rows if row['Cempaka'] != 0]
+
+    totals['grand_total'] = sum(totals[short_name] for short_name, _ in STOCK_DEPOTS)
+    return render_template(
+        'stock.html',
+        snapshots=snapshots,
+        selected=selected,
+        cempaka_rows=cempaka_rows,
+        r5_rows=r5_rows,
+        totals=totals,
+        stock_email=session.get('stock_email'),
+        today=datetime.now().strftime('%Y-%m-%d'),
+    )
+
+
+@app.route('/stock/upload', methods=['POST'])
+@stock_required
+def stock_upload():
+    file = request.files.get('stock_file')
+    stock_date_raw = request.form.get('stock_date', '').strip()
+    if not file or not file.filename:
+        flash('Pilih file Excel stock terlebih dahulu.', 'danger')
+        return redirect(url_for('stock'))
+    if not file.filename.lower().endswith(('.xlsx', '.xls')):
+        flash('File stock harus berformat Excel (.xlsx atau .xls).', 'danger')
+        return redirect(url_for('stock'))
+    try:
+        stock_date = pd.to_datetime(stock_date_raw).date()
+        dataframe = pd.read_excel(file, sheet_name=0)
+        snapshot, stored_rows = save_stock_snapshot(
+            dataframe,
+            stock_date,
+            secure_filename(file.filename),
+            session['stock_email'],
+            require_material_group=True,
+        )
+        flash(
+            f'Stock {snapshot.stock_date.strftime("%d %b %Y")} berhasil: '
+            f'{snapshot.app_rows} baris APP diproses menjadi {stored_rows} posisi stock.',
+            'success',
+        )
+    except Exception as exc:
+        db.session.rollback()
+        flash(f'Upload stock gagal: {exc}', 'danger')
+    return redirect(url_for('stock', date=stock_date_raw))
+
+
+@app.route('/stock/paste', methods=['POST'])
+@stock_required
+def stock_paste():
+    pasted = request.form.get('stock_paste', '').strip()
+    stock_date_raw = request.form.get('stock_date', '').strip()
+    if not pasted:
+        flash('Paste data stock terlebih dahulu.', 'danger')
+        return redirect(url_for('stock'))
+    try:
+        stock_date = pd.to_datetime(stock_date_raw).date()
+        first_cells = [normalize_col(value) for value in pasted.splitlines()[0].split('\t')]
+        has_header = 'material' in first_cells and any(value in first_cells for value in ('name 1', 'name1', 'depo', 'depot'))
+        if has_header:
+            dataframe = pd.read_csv(io.StringIO(pasted), sep='\t', dtype=str)
+        else:
+            dataframe = pd.read_csv(
+                io.StringIO(pasted),
+                sep='\t',
+                dtype=str,
+                header=None,
+                names=['Material', 'Material Description', 'Name1', 'Unrestricted'],
+            )
+        snapshot, stored_rows = save_stock_snapshot(
+            dataframe,
+            stock_date,
+            'Copy-paste',
+            session['stock_email'],
+            require_material_group=False,
+        )
+        flash(
+            f'Stock {snapshot.stock_date.strftime("%d %b %Y")} berhasil disimpan dari copy-paste: '
+            f'{snapshot.app_rows} baris diproses menjadi {stored_rows} posisi stock.',
+            'success',
+        )
+    except Exception as exc:
+        db.session.rollback()
+        flash(f'Paste stock gagal: {exc}', 'danger')
+    return redirect(url_for('stock', date=stock_date_raw))
 
 
 @app.route('/api/dealers')
