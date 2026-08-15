@@ -1453,6 +1453,32 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
       '<div class="jpg-pair"><span>Achievement</span><strong>'+money(actual)+'</strong></div>'+
       '<div class="jpg-category-pct"><span>Achievement %</span><strong class="'+pctClass(percentage)+'">'+pctText(percentage)+'</strong></div></div>';
   }
+  function dealerTargetTotal(d){
+    return (Number(d.device_target)||0)+(Number(d.macbook_target)||0)+(Number(d.acc_target)||0);
+  }
+  function dealerActualTotal(d){
+    return (Number(d.device)||0)+(Number(d.macbook)||0)+(Number(d.acc)||0);
+  }
+  function dealerTableHtml(tableRows,title){
+    const heading=title?'<h3 class="jpg-depo-title">DEPO '+esc(title)+'</h3>':'';
+    const header='<table class="jpg-table"><thead><tr><th rowspan="2">BP</th><th rowspan="2">Dealer</th><th colspan="3" class="group-head">Target</th><th colspan="3" class="group-head">Achievement</th><th colspan="3" class="group-head">Grand Total</th></tr><tr><th class="sub-head">Device</th><th class="sub-head">MacBook</th><th class="sub-head">ACC</th><th class="sub-head">Device</th><th class="sub-head">MacBook</th><th class="sub-head">ACC</th><th class="sub-head">Target</th><th class="sub-head">Achievement</th><th class="sub-head">%</th></tr></thead><tbody>';
+    const body=tableRows.map(function(d){
+      const target=dealerTargetTotal(d);
+      const actual=dealerActualTotal(d);
+      const percentage=pct(actual,target);
+      return '<tr><td>'+esc(d.bp)+'</td><td class="dealer-cell">'+esc(d.dealer)+'</td><td class="number">'+money(d.device_target)+'</td><td class="number">'+money(d.macbook_target)+'</td><td class="number">'+money(d.acc_target)+'</td><td class="number">'+money(d.device)+'</td><td class="number">'+money(d.macbook)+'</td><td class="number">'+money(d.acc)+'</td><td class="number total-cell">'+money(target)+'</td><td class="number total-cell">'+money(actual)+'</td><td class="pct-cell '+pctClass(percentage)+'">'+pctText(percentage)+'</td></tr>';
+    }).join('');
+    return heading+header+body+'</tbody></table>';
+  }
+  function allDealerTablesHtml(rows,salesman){
+    if(salesman.toLowerCase()==='ikmah novtianingrum'){
+      return ['Cilegon','Serang'].map(function(depo){
+        const group=rows.filter(function(d){return String(d.depo||'').toLowerCase()===depo.toLowerCase();});
+        return group.length?dealerTableHtml(group,depo):'';
+      }).join('');
+    }
+    return dealerTableHtml(rows,'');
+  }
 
   async function downloadJpg(){
     const salesman=button.dataset.salesman||'';
@@ -1462,6 +1488,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
       return;
     }
     const rows=dealers.filter(function(d){return d.salesman===salesman;});
+    rows.sort(function(a,b){return dealerTargetTotal(b)-dealerTargetTotal(a);});
     if(!rows.length){alert('Dealer untuk salesman ini belum tersedia.');return;}
 
     const totals=rows.reduce(function(sum,d){
@@ -1473,22 +1500,19 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     const stage=document.createElement('div');
     stage.style.cssText='position:fixed;left:-10000px;top:0;width:2400px;background:#f4f7fb;color:#14213a;font-family:Arial,sans-serif;z-index:-1';
     stage.innerHTML='<style>'+
-      '.jpg-sheet{width:2400px;background:#f4f7fb}.jpg-head{position:relative;background:#0b315b;color:#fff;padding:34px 38px 30px}.jpg-kicker{font-size:13px;font-weight:800;letter-spacing:1.8px;opacity:.75}.jpg-head h1{font-size:36px;line-height:1.15;margin:9px 0 5px}.jpg-period{font-size:15px;opacity:.82}.jpg-logo{position:absolute;right:38px;top:34px;width:55px;height:55px;border-radius:14px;background:#fff;color:#0b315b;display:flex;align-items:center;justify-content:center;font-size:27px}.jpg-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:18px;background:#eaf2fb}.jpg-metric{background:#fff;border:1px solid #d9e2ed;border-radius:13px;padding:15px 17px}.jpg-metric span{display:block;font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:#64748b;font-weight:800;margin-bottom:6px}.jpg-metric strong{font-size:22px}.jpg-table-wrap{padding:18px}.jpg-table{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border:1px solid #dbe4ee;border-radius:14px;overflow:hidden}.jpg-table th{background:#edf3fa;color:#334155;font-size:14px;text-transform:uppercase;letter-spacing:.5px;padding:15px 16px;text-align:left;border-bottom:1px solid #dbe4ee;white-space:nowrap}.jpg-table td{font-size:17px;padding:15px 16px;border-bottom:1px solid #e6ebf1;vertical-align:middle}.jpg-table tr:last-child td{border-bottom:0}.jpg-table .dealer-cell{font-weight:800;width:24%}.jpg-table .group-head{text-align:center;background:#dfeaf6;color:#0b315b;font-size:15px;font-weight:900}.jpg-table .sub-head{text-align:right;background:#f5f8fc;font-size:12px}.jpg-table .pct-cell{text-align:right;white-space:nowrap;font-weight:900}.jpg-table .number{text-align:right;white-space:nowrap}.jpg-table .total-cell{font-weight:900}.ok{color:#167044}.mid{color:#9a6700}.low{color:#b42318}.jpg-foot{display:flex;justify-content:space-between;background:#eaf2fb;color:#64748b;padding:14px 28px;font-size:11px}'+
+      '.jpg-sheet{width:2400px;background:#f4f7fb}.jpg-head{position:relative;background:#0b315b;color:#fff;padding:34px 38px 30px}.jpg-kicker{font-size:13px;font-weight:800;letter-spacing:1.8px;opacity:.75}.jpg-head h1{font-size:36px;line-height:1.15;margin:9px 0 5px}.jpg-period{font-size:15px;opacity:.82}.jpg-logo{position:absolute;right:38px;top:34px;width:55px;height:55px;border-radius:14px;background:#fff;color:#0b315b;display:flex;align-items:center;justify-content:center;font-size:27px}.jpg-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:18px;background:#eaf2fb}.jpg-metric{background:#fff;border:1px solid #d9e2ed;border-radius:13px;padding:15px 17px}.jpg-metric span{display:block;font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:#64748b;font-weight:800;margin-bottom:6px}.jpg-metric strong{font-size:22px}.jpg-table-wrap{padding:18px}.jpg-depo-title{margin:5px 0 10px;padding:10px 14px;border-left:6px solid #0b315b;background:#dfeaf6;color:#0b315b;font-size:18px}.jpg-table+.jpg-depo-title{margin-top:22px}.jpg-table{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border:1px solid #dbe4ee;border-radius:14px;overflow:hidden}.jpg-table th{background:#edf3fa;color:#334155;font-size:14px;text-transform:uppercase;letter-spacing:.5px;padding:15px 16px;text-align:left;border-bottom:1px solid #dbe4ee;white-space:nowrap}.jpg-table td{font-size:17px;padding:15px 16px;border-bottom:1px solid #e6ebf1;vertical-align:middle}.jpg-table tr:last-child td{border-bottom:0}.jpg-table .dealer-cell{font-weight:800;width:24%}.jpg-table .group-head{text-align:center;background:#dfeaf6;color:#0b315b;font-size:15px;font-weight:900}.jpg-table .sub-head{text-align:right;background:#f5f8fc;font-size:12px}.jpg-table .pct-cell{text-align:right;white-space:nowrap;font-weight:900}.jpg-table .number{text-align:right;white-space:nowrap}.jpg-table .total-cell{font-weight:900}.ok{color:#167044}.mid{color:#9a6700}.low{color:#b42318}.jpg-foot{display:flex;justify-content:space-between;background:#eaf2fb;color:#64748b;padding:14px 28px;font-size:11px}'+
       '</style><article class="jpg-sheet"><header class="jpg-head"><div class="jpg-kicker">DEALER ACHIEVEMENT DETAIL</div><h1>'+esc(salesman)+'</h1><div class="jpg-period">Billing through '+esc(reportDate)+'</div><div class="jpg-logo">▦</div></header>'+
       '<section class="jpg-summary"><div class="jpg-metric"><span>Total Target</span><strong>'+money(totals.target)+'</strong></div><div class="jpg-metric"><span>Total Achievement</span><strong>'+money(totals.actual)+'</strong></div><div class="jpg-metric"><span>Achievement %</span><strong class="'+pctClass(totalPct)+'">'+pctText(totalPct)+'</strong></div></section>'+
-      '<section class="jpg-table-wrap"><table class="jpg-table"><thead><tr><th rowspan="2">BP</th><th rowspan="2">Dealer</th><th colspan="3" class="group-head">Target</th><th colspan="3" class="group-head">Achievement</th><th colspan="3" class="group-head">Grand Total</th></tr><tr><th class="sub-head">Device</th><th class="sub-head">MacBook</th><th class="sub-head">ACC</th><th class="sub-head">Device</th><th class="sub-head">MacBook</th><th class="sub-head">ACC</th><th class="sub-head">Target</th><th class="sub-head">Achievement</th><th class="sub-head">%</th></tr></thead><tbody>'+rows.map(function(d){
-        const target=(Number(d.device_target)||0)+(Number(d.macbook_target)||0)+(Number(d.acc_target)||0);
-        const actual=(Number(d.device)||0)+(Number(d.macbook)||0)+(Number(d.acc)||0);
-        const percentage=pct(actual,target);
-        return '<tr><td>'+esc(d.bp)+'</td><td class="dealer-cell">'+esc(d.dealer)+'</td><td class="number">'+money(d.device_target)+'</td><td class="number">'+money(d.macbook_target)+'</td><td class="number">'+money(d.acc_target)+'</td><td class="number">'+money(d.device)+'</td><td class="number">'+money(d.macbook)+'</td><td class="number">'+money(d.acc)+'</td><td class="number total-cell">'+money(target)+'</td><td class="number total-cell">'+money(actual)+'</td><td class="pct-cell '+pctClass(percentage)+'">'+pctText(percentage)+'</td></tr>';
-      }).join('')+'</tbody></table></section><footer class="jpg-foot"><span>Daily Sales Report Apple</span><span>Target &amp; Achievement per Dealer</span></footer></article>';
+      '<section class="jpg-table-wrap">'+allDealerTablesHtml(rows,salesman)+'</section><footer class="jpg-foot"><span>Daily Sales Report Apple</span><span>Target &amp; Achievement per Dealer</span></footer></article>';
     document.body.appendChild(stage);
     button.disabled=true;
     button.textContent='Membuat JPG...';
     try{
       const canvas=await window.html2canvas(stage.querySelector('.jpg-sheet'),{backgroundColor:'#f4f7fb',scale:1,useCORS:true,logging:false});
       const link=document.createElement('a');
-      link.download='dealer-achievement-'+salesman.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')+'.jpg';
+      const salesmanSlug=salesman.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+      const dateSlug=String(reportDate).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+      link.download='dealer-achievement-'+salesmanSlug+'-'+dateSlug+'.jpg';
       link.href=canvas.toDataURL('image/jpeg',0.93);
       link.click();
     }catch(error){
