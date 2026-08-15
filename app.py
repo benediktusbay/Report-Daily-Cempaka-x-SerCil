@@ -407,6 +407,22 @@ def stock_actor():
     return normalize_text(session.get('stock_email')).lower()
 
 
+def is_stock_admin():
+    user_id = session.get('user_id')
+    user = db.session.get(User, user_id) if user_id else None
+    return bool(user and user.role == 'admin')
+
+
+def stock_admin_required(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        if not is_stock_admin():
+            flash('Perbarui stock harian hanya dapat dilakukan oleh Admin.', 'danger')
+            return redirect(url_for('stock'))
+        return fn(*args, **kwargs)
+    return wrapper
+
+
 def normalize_col(s):
     return re.sub(r'[^a-z0-9]+', ' ', str(s).strip().lower()).strip()
 
@@ -1854,12 +1870,14 @@ def stock():
         r5_rows=r5_rows,
         totals=totals,
         stock_email=stock_actor(),
+        stock_is_admin=is_stock_admin(),
         today=datetime.now().strftime('%Y-%m-%d'),
     )
 
 
 @app.route('/stock/upload', methods=['POST'])
 @stock_required
+@stock_admin_required
 def stock_upload():
     file = request.files.get('stock_file')
     stock_date_raw = request.form.get('stock_date', '').strip()
@@ -1892,6 +1910,7 @@ def stock_upload():
 
 @app.route('/stock/paste', methods=['POST'])
 @stock_required
+@stock_admin_required
 def stock_paste():
     pasted = request.form.get('stock_paste', '').strip()
     stock_date_raw = request.form.get('stock_date', '').strip()
