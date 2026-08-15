@@ -384,12 +384,26 @@ def admin_required(fn):
 def stock_required(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
+        user_id = session.get('user_id')
+        if user_id:
+            user = db.session.get(User, user_id)
+            if user and user.role == 'admin':
+                return fn(*args, **kwargs)
         email = normalize_text(session.get('stock_email')).lower()
         if email not in STOCK_ALLOWED_EMAILS:
             session.pop('stock_email', None)
             return redirect(url_for('stock_login', next=request.path))
         return fn(*args, **kwargs)
     return wrapper
+
+
+def stock_actor():
+    user_id = session.get('user_id')
+    if user_id:
+        user = db.session.get(User, user_id)
+        if user and user.role == 'admin':
+            return f'Admin: {user.username}'
+    return normalize_text(session.get('stock_email')).lower()
 
 
 def normalize_col(s):
@@ -1671,6 +1685,12 @@ def users():
 
 @app.route('/stock/login', methods=['GET', 'POST'])
 def stock_login():
+    user_id = session.get('user_id')
+    if user_id:
+        user = db.session.get(User, user_id)
+        if user and user.role == 'admin':
+            return redirect(url_for('stock'))
+
     current_email = normalize_text(session.get('stock_email')).lower()
     if current_email in STOCK_ALLOWED_EMAILS:
         return redirect(url_for('stock'))
@@ -1800,7 +1820,7 @@ def stock():
         cempaka_rows=cempaka_rows,
         r5_rows=r5_rows,
         totals=totals,
-        stock_email=session.get('stock_email'),
+        stock_email=stock_actor(),
         today=datetime.now().strftime('%Y-%m-%d'),
     )
 
@@ -1823,7 +1843,7 @@ def stock_upload():
             dataframe,
             stock_date,
             secure_filename(file.filename),
-            session['stock_email'],
+            stock_actor(),
             require_material_group=True,
         )
         flash(
@@ -1863,7 +1883,7 @@ def stock_paste():
             dataframe,
             stock_date,
             'Copy-paste',
-            session['stock_email'],
+            stock_actor(),
             require_material_group=False,
         )
         flash(
