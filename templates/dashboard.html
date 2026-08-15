@@ -6,6 +6,7 @@
 <style>
 .hero{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:22px}
 .hero h1{margin:0 0 6px;font-size:28px}.hero p{margin:0;color:#6b7280}
+.hero .btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}
 .filters,.upload-card,.card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 3px 14px rgba(15,23,42,.05)}
 .filters{padding:16px;margin-bottom:20px}.filter-form{display:flex;align-items:end;gap:12px;flex-wrap:wrap}
 .field label{display:block;font-size:12px;font-weight:700;color:#6b7280;margin-bottom:6px}
@@ -323,13 +324,10 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     display:block;
   }
 
-  /* Dealer remains controlled by its existing salesman tabs */
   .dealer-mobile-list .dealer-detail-row{
     display:block;
   }
 }
-
-
 
 /* Dealer SKU popup */
 .dealer-sku-popup-backdrop{
@@ -346,8 +344,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 }
 .dealer-sku-popup-head h3{margin:0 0 4px;font-size:17px}
 .dealer-sku-popup-head p{margin:0;color:#64748b;font-size:11px}
-.dealer-sku-popup-close{
-  border:0;background:#eef2f7;width:34px;height:34px;border-radius:8px;
+.dealer-sku-popup-close{  border:0;background:#eef2f7;width:34px;height:34px;border-radius:8px;
   cursor:pointer;font-size:20px
 }
 .dealer-sku-popup-body{padding:14px 18px 18px}
@@ -358,9 +355,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 }
 .dealer-sku-popup-empty{color:#94a3b8;font-size:12px;text-align:center;padding:16px 0}
 
-/* ===== MOBILE READABLE V5 =====
-   Final phone treatment: larger type and compact horizontal metrics.
-   Desktop rules above remain unchanged. */
+/* ===== MOBILE READABLE V5 ===== */
 @media(max-width:768px){
   .hero h1{font-size:25px}
   .hero p{font-size:14px}
@@ -418,6 +413,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     <h1>Daily Sales Management Dashboard</h1>
     <p>Sales Achievement · Billed Outlet · QVO · Speed Distribution · SKU Penetration</p>
   </div>
+  <a class="btn" href="{{ url_for('stock') }}">Stock Apple</a>
 </div>
 
 <div class="filters">
@@ -499,7 +495,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   <div class="card kpi-card"><div class="kpi-label">QVO</div><div class="kpi-value">{{ cards.qvo }}</div><div class="kpi-sub">Target {{ cards.qvo_target }} · {{ '%.1f'|format(cards.qvo_rate) }}%</div></div>
 </div>
 
-
 <div class="mobile-salesman-focus">
   <label for="mobileSalesmanFocus">Salesman Dashboard</label>
   <select id="mobileSalesmanFocus">
@@ -514,13 +509,12 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 <div class="section">
   <div class="section-title">
     <h2>Sales Performance — Value</h2>
-        <div class="timegone-box">
+    <div class="timegone-box">
       Time Gone: {{ '%.1f'|format(timegone_pct) }}% · {{ working_days_elapsed }} / {{ working_days_total }} Working Days
       {% if latest_in_scope %} · Billing through {{ latest_in_scope.strftime('%d %b %Y') }}{% endif %}
     </div>
   </div>
 
-  
   <div class="mobile-only">
     {% if table %}
     <div class="mobile-swipe-hint">Geser ke samping <span>→</span></div>
@@ -570,7 +564,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     {% endif %}
   </div>
 
-<div class="card table-card desktop-table"><div class="table-wrap">
+  <div class="card table-card desktop-table"><div class="table-wrap">
     {% if table %}
     <table>
       <thead>
@@ -590,25 +584,20 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
           {% endfor %}
         </tr>
       </thead>
-
       <tbody>
         {% for r in table %}
         <tr>
           <td class="center"><strong>{{ r.rank }}</strong></td>
           <td><strong>{{ r.salesman }}</strong></td>
-
           <td class="number">{{ r.device_target|rupiah_short }}</td>
           <td class="number">{{ r.device|rupiah_short }}</td>
           <td class="center {% if r.device_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.device_pct) }}%</td>
-
           <td class="number">{{ r.macbook_target|rupiah_short }}</td>
           <td class="number">{{ r.macbook|rupiah_short }}</td>
           <td class="center {% if r.macbook_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.macbook_pct) }}%</td>
-
           <td class="number">{{ r.acc_target|rupiah_short }}</td>
           <td class="number">{{ r.acc|rupiah_short }}</td>
           <td class="center {% if r.acc_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.acc_pct) }}%</td>
-
           <td class="number">{{ r.target_total|rupiah_short }}</td>
           <td class="number">{{ r.total|rupiah_short }}</td>
           <td class="center {% if r.sales_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.sales_pct) }}%</td>
@@ -618,19 +607,15 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
         <tr class="grand-total">
           <td></td>
           <td>GRAND TOTAL</td>
-
           <td class="number">{{ cards.device_target|rupiah_short }}</td>
           <td class="number">{{ cards.device|rupiah_short }}</td>
           <td class="center {% if cards.device_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(cards.device_pct) }}%</td>
-
           <td class="number">{{ cards.macbook_target|rupiah_short }}</td>
           <td class="number">{{ cards.macbook|rupiah_short }}</td>
           <td class="center {% if cards.macbook_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(cards.macbook_pct) }}%</td>
-
           <td class="number">{{ cards.acc_target|rupiah_short }}</td>
           <td class="number">{{ cards.acc|rupiah_short }}</td>
           <td class="center {% if cards.acc_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(cards.acc_pct) }}%</td>
-
           <td class="number">{{ cards.sales_target|rupiah_short }}</td>
           <td class="number">{{ cards.sales|rupiah_short }}</td>
           <td class="center {% if cards.sales_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(cards.sales_pct) }}%</td>
@@ -646,9 +631,8 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 <div class="section">
   <div class="section-title">
     <h2>Outlet Performance — BO & QVO</h2>
-      </div>
+  </div>
 
-  
   <div class="mobile-only">
     {% if table %}
     <div class="mobile-swipe-hint">Geser ke samping <span>→</span></div>
@@ -683,7 +667,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     {% endif %}
   </div>
 
-<div class="card table-card desktop-table"><div class="table-wrap">
+  <div class="card table-card desktop-table"><div class="table-wrap">
     {% if table %}
     <table style="min-width:760px">
       <thead>
@@ -695,8 +679,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
           <th rowspan="2" class="center">Status</th>
         </tr>
         <tr>
-          <th class="sub-head">Target</th>
-          <th class="sub-head">Achievement</th>
+          <th class="sub-head">Target</th>          <th class="sub-head">Achievement</th>
           <th class="sub-head">%</th>
           <th class="sub-head">Target</th>
           <th class="sub-head">Achievement</th>
@@ -730,15 +713,12 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
         <tr class="grand-total">
           <td></td>
           <td>GRAND TOTAL</td>
-
           <td class="center">{{ cards.bo_target }}</td>
           <td class="center">{{ cards.bo }}</td>
           <td class="center {% if cards.bo_rate < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(cards.bo_rate) }}%</td>
-
           <td class="center">{{ cards.qvo_target }}</td>
           <td class="center">{{ cards.qvo }}</td>
           <td class="center {% if cards.qvo_rate < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(cards.qvo_rate) }}%</td>
-
           <td></td>
         </tr>
       </tbody>
@@ -755,7 +735,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     <p>Cumulative BO: Week 1 = 75% · Week 2 = 90% · Week 3 & Week 4 = 100% dari target BO bulanan.{% if latest_in_scope %} Billing through {{ latest_in_scope.strftime('%d %b %Y') }}.{% endif %}</p>
   </div>
 
-  
   <div class="mobile-only">
     {% if speed_rows %}
     <div class="mobile-swipe-hint">Geser ke samping <span>→</span></div>
@@ -778,7 +757,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     {% endif %}
   </div>
 
-<div class="card table-card desktop-table"><div class="table-wrap">
+  <div class="card table-card desktop-table"><div class="table-wrap">
     {% if speed_rows %}
     <table>
       <thead>
@@ -797,7 +776,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
           {% endfor %}
         </tr>
       </thead>
-
       <tbody>
         {% for r in speed_rows %}
         <tr>
@@ -821,7 +799,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 <div class="section">
   <div class="section-title">
     <h2>SKU Penetration</h2>
-    
     <div class="sku-target">
       <span>Target BO Overall: 25</span>
       <span>SKU 2–3: 13</span>
@@ -831,7 +808,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     </div>
   </div>
 
-  
   <div class="mobile-only">
     {% if sku_rows %}
     <div class="mobile-swipe-hint">Geser ke samping <span>→</span></div>
@@ -852,7 +828,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     {% endif %}
   </div>
 
-<div class="card table-card desktop-table"><div class="table-wrap">
+  <div class="card table-card desktop-table"><div class="table-wrap">
     {% if sku_rows %}
     <table style="min-width:760px">
       <thead>
@@ -865,7 +841,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
           <th class="center">SKU &gt;10</th>
         </tr>
       </thead>
-
       <tbody>
         {% for r in sku_rows %}
         <tr>
@@ -888,7 +863,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 <div class="section">
   <div class="section-title">
     <h2>Dealer Achievement Detail</h2>
-        <div class="dealer-salesman-tabs">
+    <div class="dealer-salesman-tabs">
       <button type="button" class="dealer-salesman-tab active" data-salesman-filter="__ALL__">All Salesman</button>
       {% for s in salesmen %}
       <button type="button" class="dealer-salesman-tab" data-salesman-filter="{{ s|e }}">{{ s }}</button>
@@ -896,7 +871,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     </div>
   </div>
 
-  
   <div class="mobile-only">
     {% if dealer_detail %}
     <div class="mobile-card-list">
@@ -908,7 +882,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
             <div class="dealer-name">{{ d.dealer }}</div>
             <div class="dealer-meta">{{ d.salesman }} · {{ d.depo }}</div>
           </div>
-
           <div>
             {% if d.is_target %}
             <button
@@ -960,7 +933,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     {% endif %}
   </div>
 
-<div class="card table-card desktop-table"><div class="table-wrap">
+  <div class="card table-card desktop-table"><div class="table-wrap">
     {% if dealer_detail %}
     <table>
       <thead>
@@ -979,7 +952,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
           <th class="center">QVO</th>
         </tr>
       </thead>
-
       <tbody>
         {% for d in dealer_detail %}
         <tr class="dealer-detail-row" data-salesman="{{ d.salesman|e }}">
@@ -987,7 +959,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
           <td>{{ d.salesman }}</td>
           <td>{{ d.bp }}</td>
           <td><strong>{{ d.dealer }}</strong></td>
-
           <td class="center">
             {% if d.is_target %}
             <button
@@ -1007,7 +978,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
             <span class="badge badge-nontarget">Non Target</span>
             {% endif %}
           </td>
-
           <td class="number">{{ d.device|rupiah_short }}</td>
           <td class="number">{{ d.macbook|rupiah_short }}</td>
           <td class="number">{{ d.acc|rupiah_short }}</td>
@@ -1031,7 +1001,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   </div></div>
 </div>
 
-
 <div id="dealerTargetModal" class="modal-backdrop-custom" aria-hidden="true">
   <div class="modal-card-custom" style="width:min(820px,100%)">
     <div class="modal-head-custom">
@@ -1045,8 +1014,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     <div class="modal-body-custom">
       <div class="table-wrap">
         <table style="min-width:680px">
-          <thead>
-            <tr>
+          <thead>            <tr>
               <th>KPI</th>
               <th class="number">Target</th>
               <th class="number">Achievement</th>
@@ -1281,6 +1249,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     modal.style.display='block';
     modal.setAttribute('aria-hidden','false');
   }
+
   function closeModal(){
     modal.style.display='none';
     modal.setAttribute('aria-hidden','true');
@@ -1296,6 +1265,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   modal.addEventListener('click',function(e){
     if(e.target===modal) closeModal();
   });
+
   document.addEventListener('keydown',function(e){
     if(e.key==='Escape'){
       closeModal();
@@ -1325,7 +1295,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     });
   }
 
-  selector.addEventListener('change', function(){
+  selector.addEventListener('change',function(){
     showSalesman(this.value);
   });
 
@@ -1334,7 +1304,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   }
 })();
 </script>
-
 
 <div id="dealerSkuPopup" class="dealer-sku-popup-backdrop" aria-hidden="true">
   <div class="dealer-sku-popup-card">
@@ -1348,33 +1317,36 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   </div>
 </div>
 
-
 <script>
 (function(){
-  const popup = document.getElementById('dealerSkuPopup');
-  const title = document.getElementById('dealerSkuPopupTitle');
-  const body = document.getElementById('dealerSkuPopupBody');
-  const close = document.getElementById('dealerSkuPopupClose');
+  const popup=document.getElementById('dealerSkuPopup');
+  const title=document.getElementById('dealerSkuPopupTitle');
+  const body=document.getElementById('dealerSkuPopupBody');
+  const close=document.getElementById('dealerSkuPopupClose');
   if(!popup) return;
 
   function esc(s){
-    return String(s ?? '').replace(/[&<>"']/g, function(c){
+    return String(s??'').replace(/[&<>"']/g,function(c){
       return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c];
     });
   }
 
   function openPopup(btn){
-    let skus = [];
-    try { skus = JSON.parse(btn.dataset.skus || '[]'); } catch(e) {}
-    title.textContent = 'Daftar SKU';
+    let skus=[];
+    try{
+      skus=JSON.parse(btn.dataset.skus||'[]');
+    }catch(e){}
+
+    title.textContent='Daftar SKU';
 
     if(!skus.length){
-      body.innerHTML = '<div class="dealer-sku-popup-empty">Belum ada SKU yang tercatat.</div>';
+      body.innerHTML='<div class="dealer-sku-popup-empty">Belum ada SKU yang tercatat.</div>';
     }else{
-      body.innerHTML = '<ul class="dealer-sku-popup-list">' +
-        skus.map(function(s){ return '<li>'+esc(s)+'</li>'; }).join('') +
+      body.innerHTML='<ul class="dealer-sku-popup-list">'+
+        skus.map(function(s){return '<li>'+esc(s)+'</li>';}).join('')+
         '</ul>';
     }
+
     popup.style.display='block';
     popup.setAttribute('aria-hidden','false');
   }
@@ -1385,15 +1357,19 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   }
 
   document.querySelectorAll('.dealer-sku-popup-btn').forEach(function(btn){
-    btn.addEventListener('click', function(){ openPopup(btn); });
+    btn.addEventListener('click',function(){
+      openPopup(btn);
+    });
   });
 
-  close?.addEventListener('click', closePopup);
-  popup.addEventListener('click', function(e){
-    if(e.target === popup) closePopup();
+  close?.addEventListener('click',closePopup);
+
+  popup.addEventListener('click',function(e){
+    if(e.target===popup) closePopup();
   });
-  document.addEventListener('keydown', function(e){
-    if(e.key === 'Escape') closePopup();
+
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape') closePopup();
   });
 })();
 </script>
