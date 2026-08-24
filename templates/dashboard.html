@@ -928,6 +928,8 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
               type="button"
               class="badge badge-target dealer-target-link"
               style="border:0;cursor:pointer"
+              data-bp="{{ d.bp|e }}"
+              data-dealer="{{ d.dealer|e }}"
               data-salesman="{{ d.salesman|e }}"
               data-depo="{{ d.depo|e }}"
               data-device-target="{{ d.device_target }}"
@@ -1007,6 +1009,8 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
               type="button"
               class="badge badge-target dealer-target-link"
               style="border:0;cursor:pointer"
+              data-bp="{{ d.bp|e }}"
+              data-dealer="{{ d.dealer|e }}"
               data-salesman="{{ d.salesman|e }}"
               data-depo="{{ d.depo|e }}"
               data-device-target="{{ d.device_target }}"
@@ -1136,6 +1140,11 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     return 'Rp'+Math.round(n).toLocaleString('id-ID');
   }
 
+  function rupiahExactJs(value){
+    const n=Number(value||0);
+    return 'Rp'+Math.round(n).toLocaleString('id-ID');
+  }
+
   function pctJs(ach,target){
     target=Number(target||0);
     ach=Number(ach||0);
@@ -1169,8 +1178,8 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
       const isTotal=row[0]==='TOTAL';
       return '<tr class="'+(isTotal?'grand-total':'')+'">'+
         '<td><strong>'+row[0]+'</strong></td>'+
-        '<td class="number">'+rupiahShortJs(row[1])+'</td>'+
-        '<td class="number">'+rupiahShortJs(row[2])+'</td>'+
+        '<td class="number">'+rupiahExactJs(row[1])+'</td>'+
+        '<td class="number">'+rupiahExactJs(row[2])+'</td>'+
         '<td class="center">'+pctJs(row[2],row[1])+'</td>'+
       '</tr>';
     }).join('');
