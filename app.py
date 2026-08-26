@@ -1470,7 +1470,9 @@ def dashboard():
     # Dealer master starts with all monthly target dealers so zero-achievement dealers remain visible.
     dealer = {}
     for t in scoped_targets:
-        key = normalize_bp(t.bp)
+        # BP can move between salesmen. Keep target ownership separate from
+        # Billing ownership so actual sales always follow Salesman Name in Billing.
+        key = (normalize_bp(t.bp), t.salesman)
         dealer[key] = {
             'salesman': t.salesman, 'depo': t.depo, 'bp': key, 'dealer': t.dealer,
             'Device': 0.0, 'Macbook': 0.0, 'ACC': 0.0, 'skus': set(), 'last_date': None,
@@ -1486,15 +1488,17 @@ def dashboard():
             continue
         scoped_billing.append((r, owner, depo))
         bp = normalize_bp(r.sold_to_code)
-        d = dealer.setdefault(bp, {
+        key = (bp, owner)
+        target_belongs_to_owner = bool(target and target.salesman == owner)
+        d = dealer.setdefault(key, {
             'salesman': owner, 'depo': depo, 'bp': bp, 'dealer': dealer_name,
             'Device': 0.0, 'Macbook': 0.0, 'ACC': 0.0, 'skus': set(), 'last_date': None,
-            'device_target': float(target.device_target or 0) if target else 0,
-            'macbook_target': float(target.macbook_target or 0) if target else 0,
-            'acc_target': float(target.acc_target or 0) if target else 0,
-            'bo_target': int(target.bo_target or 0) if target else 0,
-            'qvo_target': int(target.qvo_target or 0) if target else 0,
-            'is_target': bool(target)
+            'device_target': float(target.device_target or 0) if target_belongs_to_owner else 0,
+            'macbook_target': float(target.macbook_target or 0) if target_belongs_to_owner else 0,
+            'acc_target': float(target.acc_target or 0) if target_belongs_to_owner else 0,
+            'bo_target': int(target.bo_target or 0) if target_belongs_to_owner else 0,
+            'qvo_target': int(target.qvo_target or 0) if target_belongs_to_owner else 0,
+            'is_target': target_belongs_to_owner
         })
         if r.category in ('Device','Macbook','ACC'):
             d[r.category] += float(r.nett_amount or 0)
@@ -1524,7 +1528,8 @@ def dashboard():
     sku_detail = []
     dealer_detail = []
     active_dealers = 0
-    for bp, d in dealer.items():
+    for _, d in dealer.items():
+        bp = d['bp']
         total = d['Device'] + d['Macbook'] + d['ACC']
         bo = (d['Device'] + d['Macbook']) > 0
         qvo = total >= QVO_THRESHOLD
