@@ -40,6 +40,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 .sales-value-link:hover{background:#e0efff;color:#0b4f8a}.mobile-metric-value .sales-value-link{font-size:inherit;max-width:100%}
 .badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:10px;font-weight:900}
 .badge-target{background:#dcfce7;color:#166534}.badge-nontarget{background:#fee2e2;color:#991b1b}
+.qvo-achieved{background:#dcfce7!important;color:#166534!important;font-weight:900;border-radius:7px}
 .dealer-salesman-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .dealer-salesman-tab{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:999px;padding:7px 11px;font-size:11px;font-weight:800;cursor:pointer}
 .dealer-salesman-tab:hover{background:#f8fafc}.dealer-salesman-tab.active{background:#0b2545;color:#fff;border-color:#0b2545}
@@ -978,7 +979,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
             </button>
           </div>
           <div class="mobile-metric"><div class="mobile-metric-label">BO</div><div class="mobile-metric-value">{% if d.bo %}1{% else %}0{% endif %}</div></div>
-          <div class="mobile-metric"><div class="mobile-metric-label">QVO</div><div class="mobile-metric-value">{% if d.qvo %}1{% else %}0{% endif %}</div></div>
+          <div class="mobile-metric {% if d.qvo %}qvo-achieved{% endif %}"><div class="mobile-metric-label">QVO</div><div class="mobile-metric-value">{% if d.qvo %}1{% else %}0{% endif %}</div></div>
         </div>
       </div>
       {% endfor %}
@@ -1048,7 +1049,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
             </button>
           </td>
           <td class="center">{% if d.bo %}1{% else %}0{% endif %}</td>
-          <td class="center">{% if d.qvo %}1{% else %}0{% endif %}</td>
+          <td class="center {% if d.qvo %}qvo-achieved{% endif %}">{% if d.qvo %}1{% else %}0{% endif %}</td>
         </tr>
         {% endfor %}
       </tbody>
