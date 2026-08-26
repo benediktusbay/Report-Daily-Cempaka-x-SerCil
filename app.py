@@ -1477,7 +1477,7 @@ def dashboard():
         # Billing ownership so actual sales always follow Salesman Name in Billing.
         key = (normalize_bp(t.bp), t.salesman)
         dealer[key] = {
-            'salesman': t.salesman, 'depo': t.depo, 'bp': key, 'dealer': t.dealer,
+            'salesman': t.salesman, 'depo': t.depo, 'bp': normalize_bp(t.bp), 'dealer': t.dealer,
             'Device': 0.0, 'Macbook': 0.0, 'ACC': 0.0, 'skus': set(), 'last_date': None,
             'device_target': float(t.device_target or 0), 'macbook_target': float(t.macbook_target or 0),
             'acc_target': float(t.acc_target or 0), 'bo_target': int(t.bo_target or 0), 'qvo_target': int(t.qvo_target or 0),
