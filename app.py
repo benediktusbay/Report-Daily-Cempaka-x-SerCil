@@ -1066,7 +1066,10 @@ def resolve_billing_owner(row, target_by_bp):
 def matches_scope(salesman, depo, salesman_filter, depo_filters):
     if salesman_filter and salesman != salesman_filter:
         return False
-    if depo_filters and depo not in depo_filters:
+    # Billing ownership follows Salesman Name. A BP that is not yet present in
+    # Target Master must still contribute to that salesman's achievement even
+    # though its depo cannot be resolved yet.
+    if depo_filters and depo not in depo_filters and depo != 'Unmapped':
         return False
     return True
 
@@ -1454,7 +1457,7 @@ def dashboard():
             salesman_options.add(t.salesman)
     for r in billing_rows:
         owner, depo, _, _ = resolve_billing_owner(r, target_by_bp)
-        if owner and (not depo_filters or depo in depo_filters):
+        if owner and (not depo_filters or depo in depo_filters or depo == 'Unmapped'):
             salesman_options.add(owner)
     # Do not allow unexpected/raw billing names to create extra dashboard rows.
     salesmen = [s for s in LOCKED_SALESMEN if s in salesman_options]
