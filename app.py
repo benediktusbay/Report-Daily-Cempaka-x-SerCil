@@ -1000,6 +1000,51 @@ def program_rows_for_month(month):
     return list(rows.values())
 
 
+def build_program_achievement(month, salesman_filter='', depo_filters=None):
+    """Build the standalone Program page rows using Billing With Tax by BP."""
+    start, end = month_range(month)
+    billing_rows = Billing.query.filter(
+        Billing.billing_date >= start,
+        Billing.billing_date <= end,
+    ).all()
+    actual_by_bp = {}
+    for billing in billing_rows:
+        bp = normalize_bp(billing.sold_to_code)
+        actual_by_bp[bp] = actual_by_bp.get(bp, 0.0) + float(
+            billing.net_amount_with_tax or 0
+        )
+
+    loyalty = []
+    ppg_paa = []
+    for program in program_rows_for_month(month):
+        if not matches_scope(
+            program.salesman, program.depo, salesman_filter, depo_filters or []
+        ):
+            continue
+        achievement = actual_by_bp.get(normalize_bp(program.bp), 0.0)
+        target = float(program.target or 0)
+        item = {
+            'program_type': program.program_type,
+            'depo': program.depo,
+            'bp': normalize_bp(program.bp),
+            'dealer': program.dealer,
+            'salesman': program.salesman,
+            'category': program.category,
+            'target': target,
+            'achievement': achievement,
+            'pct': achievement / target * 100 if target else 0,
+            'below_target': achievement < target if target else False,
+            'reward_monthly': program.reward_monthly,
+            'reward_loyalty': program.reward_loyalty,
+        }
+        (ppg_paa if program.program_type == 'PPG/PAA' else loyalty).append(item)
+
+    sort_key = lambda row: (-row['target'], row['depo'], row['dealer'])
+    loyalty.sort(key=sort_key)
+    ppg_paa.sort(key=sort_key)
+    return loyalty, ppg_paa
+
+
 def resolve_billing_owner(row, target_by_bp):
     bp = normalize_bp(row.sold_to_code)
     target = target_by_bp.get(bp)
@@ -1393,50 +1438,6 @@ def dashboard():
     monthly_targets, target_by_bp = target_lookup_for_month(month)
     billing_rows = Billing.query.filter(Billing.billing_date >= start, Billing.billing_date <= end).all()
 
-    # Program achievement is independent from Target Master and uses Billing
-    # Detail Total Net Amount With Tax, aggregated by BP.
-    program_actual_by_bp = {}
-    for billing in billing_rows:
-        bp = normalize_bp(billing.sold_to_code)
-        program_actual_by_bp[bp] = (
-            program_actual_by_bp.get(bp, 0.0)
-            + float(billing.net_amount_with_tax or 0)
-        )
-
-    program_loyalty = []
-    program_ppg_paa = []
-    for program in program_rows_for_month(month):
-        if not matches_scope(program.salesman, program.depo, salesman_filter, depo_filters):
-            continue
-        achievement = program_actual_by_bp.get(normalize_bp(program.bp), 0.0)
-        target = float(program.target or 0)
-        item = {
-            'program_type': program.program_type,
-            'depo': program.depo,
-            'bp': normalize_bp(program.bp),
-            'dealer': program.dealer,
-            'salesman': program.salesman,
-            'category': program.category,
-            'target': target,
-            'achievement': achievement,
-            'pct': achievement / target * 100 if target else 0,
-            'below_target': achievement < target if target else False,
-            'reward_monthly': program.reward_monthly,
-            'reward_loyalty': program.reward_loyalty,
-        }
-        if program.program_type == 'PPG/PAA':
-            program_ppg_paa.append(item)
-        else:
-            program_loyalty.append(item)
-
-    program_sort_key = lambda row: (-row['target'], row['depo'], row['dealer'])
-    program_loyalty.sort(key=program_sort_key)
-    program_ppg_paa.sort(key=program_sort_key)
-    loyalty_reward_notes = [
-        {'category': category, **values}
-        for category, values in LOYALTY_CATEGORY_CONFIG.items()
-    ]
-
     # Filter dropdown options come from target master.
     all_depos = sorted({t.depo for t in monthly_targets if t.depo and t.depo != 'Unmapped'})
 
@@ -1649,13 +1650,74 @@ def dashboard():
         depo_filters=depo_filters, salesman_filter=salesman_filter,
         depos=depos, salesmen=salesmen, cards=cards, table=table, leaderboard=leaderboard,
         speed_rows=speed_rows, sku_rows=sku_rows, sku_detail=sku_detail, dealer_detail=dealer_detail,
-        program_loyalty=program_loyalty, program_ppg_paa=program_ppg_paa,
-        loyalty_reward_notes=loyalty_reward_notes,
         sku_targets=SKU_TARGETS, uploads=uploads, target_uploads=target_uploads,
         qvo_threshold=QVO_THRESHOLD, latest_in_scope=latest_in_scope,
         timegone_pct=timegone_pct,
         working_days_elapsed=working_days_elapsed,
         working_days_total=working_days_total
+    )
+
+
+@app.route('/program')
+def program():
+    # Program is a separate top-level page. Access scope follows Dashboard.
+    if 'user_id' not in session:
+        session['username'] = 'Viewer'
+        session['role'] = 'viewer'
+
+    latest = db.session.query(db.func.max(Billing.billing_date)).scalar()
+    latest_program_month = db.session.query(db.func.max(ProgramTarget.month)).scalar()
+    latest_target_month = db.session.query(db.func.max(MonthlyTarget.month)).scalar()
+    default_month = (
+        latest.strftime('%Y-%m')
+        if latest else (latest_program_month or latest_target_month or datetime.now().strftime('%Y-%m'))
+    )
+    month = request.args.get('month', default_month)
+
+    all_programs = program_rows_for_month(month)
+    available_depos = sorted({p.depo for p in all_programs if p.depo})
+    requested_depo = canonical_depo(request.args.get('depo', '').strip())
+    if session.get('role') == 'admin':
+        allowed_depos = available_depos
+    else:
+        allowed_depos = [d for d in VIEWER_ALLOWED_DEPOS if d in available_depos]
+
+    depo_filters = [requested_depo] if requested_depo in allowed_depos else allowed_depos
+    salesman_options = [
+        name for name in LOCKED_SALESMEN
+        if any(
+            p.salesman == name and (not depo_filters or p.depo in depo_filters)
+            for p in all_programs
+        )
+    ]
+    salesman_filter = request.args.get('salesman', '').strip()
+    if salesman_filter not in salesman_options:
+        salesman_filter = ''
+
+    loyalty, ppg_paa = build_program_achievement(
+        month, salesman_filter=salesman_filter, depo_filters=depo_filters
+    )
+    reward_notes = [
+        {'category': category, **values}
+        for category, values in LOYALTY_CATEGORY_CONFIG.items()
+    ]
+
+    def totals(rows):
+        target = sum(r['target'] for r in rows)
+        achievement = sum(r['achievement'] for r in rows)
+        return {
+            'target': target,
+            'achievement': achievement,
+            'pct': achievement / target * 100 if target else 0,
+        }
+
+    return render_template(
+        'program.html', month=month, depos=allowed_depos,
+        depo_filter=(requested_depo if requested_depo in allowed_depos else ''),
+        salesmen=salesman_options, salesman_filter=salesman_filter,
+        program_loyalty=loyalty, program_ppg_paa=ppg_paa,
+        loyalty_totals=totals(loyalty), ppg_paa_totals=totals(ppg_paa),
+        loyalty_reward_notes=reward_notes, latest=latest,
     )
 
 
