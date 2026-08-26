@@ -15,6 +15,7 @@ from functools import wraps
 import pandas as pd
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import inspect, text
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
@@ -39,6 +40,45 @@ WEEK_PCTS = {1: 0.75, 2: 0.90, 3: 1.00, 4: 1.00}
 WEEK_END_DAY = {1: 7, 2: 14, 3: 21, 4: 31}
 WEEK_START_DAY = {1: 1, 2: 8, 3: 15, 4: 22}
 SKU_TARGETS = {'2-3': 13, '4-6': 6, '7-10': 5, '>10': 2}
+
+# Program targets are independent from Target Master. Loyalty targets and
+# rewards are determined by dealer category.
+LOYALTY_CATEGORY_CONFIG = {
+    'CROWN':   {'target': 5_000_000_000, 'reward_monthly': 0.0100, 'reward_loyalty': 0.0090},
+    'DIAMOND': {'target': 2_000_000_000, 'reward_monthly': 0.0100, 'reward_loyalty': 0.0060},
+    'GOLD':    {'target':   500_000_000, 'reward_monthly': 0.0075, 'reward_loyalty': 0.0035},
+    'SILVER':  {'target':   350_000_000, 'reward_monthly': 0.0050, 'reward_loyalty': 0.0035},
+    'BRONZE':  {'target':    50_000_000, 'reward_monthly': 0.0050, 'reward_loyalty': None},
+}
+
+# Initial Program Loyalty Cempaka supplied on 26 Aug 2026. These rows are a
+# fallback until a Program sheet is uploaded; uploaded rows override them by BP.
+DEFAULT_LOYALTY_CEMPAKA = [
+    ('10028000', 'PT SINAR ARTHA MAHAMAKMUR', 'CROWN', 'Rafhyski Alhasan'),
+    ('10072814', 'PT. DIGITAL KOMUNIKASI PINTAR', 'DIAMOND', 'Zefanya Septania Simorangkir'),
+    ('10028005', 'PT UNIVERSAL GLOBAL SEJAHTERA', 'CROWN', 'Rafhyski Alhasan'),
+    ('10002175', 'PT BUMI ASIA JAYA', 'CROWN', 'Rafhyski Alhasan'),
+    ('10002353', 'PT GUDANG DIGITAL KOMERSIAL', 'GOLD', 'Zefanya Septania Simorangkir'),
+    ('10005878', 'PT TUJUH BINTANG SINAR DUNIA', 'GOLD', 'Zefanya Septania Simorangkir'),
+    ('10082147', 'PT KOMUNIKASI RENTAL BERSAMA', 'SILVER', 'Zefanya Septania Simorangkir'),
+    ('10045600', 'MITRA PHONE CELL', 'BRONZE', 'Rafhyski Alhasan'),
+    ('10003006', 'HERO CELL - ITC CEMPAKA MAS', 'BRONZE', 'Rafhyski Alhasan'),
+    ('10066523', 'PT. MANSION BINTANG ELEKTRO', 'GOLD', 'Zefanya Septania Simorangkir'),
+    ('10044035', 'PT.LEON SELLULAR INDONESIA', 'BRONZE', 'Rafhyski Alhasan'),
+    ('10056785', 'CAHAYA CELL', 'BRONZE', 'Rafhyski Alhasan'),
+    ('10080178', 'PT DDD JAYA BERSAMA', 'SILVER', 'Rafhyski Alhasan'),
+    ('10006541', 'VIVI CELLULAR - ITC CEMPAKA MAS', 'BRONZE', 'Rafhyski Alhasan'),
+    ('10004520', 'DJADAYAT CELL', 'BRONZE', 'Rafhyski Alhasan'),
+    ('10073725', 'PT. SENANG BERBAGI REJEKI', 'BRONZE', 'Zefanya Septania Simorangkir'),
+    ('10054986', 'PT. NINETOLOGY INDONESIA', 'SILVER', 'Rafhyski Alhasan'),
+    ('10000677', 'ABADI CELLULAR', 'BRONZE', 'Zefanya Septania Simorangkir'),
+    ('10005697', 'CV SENTRAL ABADI JAYA', 'BRONZE', 'Zefanya Septania Simorangkir'),
+    ('10038759', 'PT. REJEKI PAHALA MANDIRI', 'GOLD', 'Zefanya Septania Simorangkir'),
+    ('10028075', 'IDOLA CELLULAR - ITC CEMPAKA MAS', 'BRONZE', 'Zefanya Septania Simorangkir'),
+    ('10027998', 'PT SELULAR INDO PRATAMA', 'DIAMOND', 'Zefanya Septania Simorangkir'),
+    ('10034424', 'PT LESTARI JAYA ELEKTRIK', 'GOLD', 'Zefanya Septania Simorangkir'),
+    ('10034388', 'PT INDO MITRA SENTOSA', 'GOLD', 'Rafhyski Alhasan'),
+]
 
 # Public Viewer is intentionally limited to these depots.
 # Admin continues to see every depot available in Monthly Target / Billing.
@@ -236,6 +276,8 @@ SALESMAN_ALIASES = {
     'edi suyitno': 'Edi Suyitno',
     'muhamad fajri': 'Muhamad Fajri',
     'muhamad fajri deactive': 'Muhamad Fajri',
+    'rafhy': 'Rafhyski Alhasan',
+    'zefa': 'Zefanya Septania Simorangkir',
 }
 
 # Fallback only when a BP is not found in Monthly Target. Ikmah intentionally has no
@@ -324,6 +366,23 @@ class TargetUploadLog(db.Model):
     dealers_loaded = db.Column(db.Integer, default=0)
 
 
+class ProgramTarget(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    month = db.Column(db.String(7), nullable=False, index=True)
+    program_type = db.Column(db.String(30), nullable=False, index=True)
+    depo = db.Column(db.String(80), nullable=False, index=True)
+    bp = db.Column(db.String(80), nullable=False, index=True)
+    dealer = db.Column(db.String(255), nullable=False)
+    salesman = db.Column(db.String(160), nullable=False, index=True)
+    category = db.Column(db.String(40), nullable=False)
+    target = db.Column(db.Float, default=0)
+    reward_monthly = db.Column(db.Float, nullable=True)
+    reward_loyalty = db.Column(db.Float, nullable=True)
+    __table_args__ = (
+        db.UniqueConstraint('month', 'program_type', 'bp', name='uq_program_month_type_bp'),
+    )
+
+
 class Billing(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     row_hash = db.Column(db.String(64), unique=True, nullable=False)
@@ -335,6 +394,7 @@ class Billing(db.Model):
     article = db.Column(db.String(500), nullable=False)
     quantity = db.Column(db.Float, default=0)
     nett_amount = db.Column(db.Float, default=0)
+    net_amount_with_tax = db.Column(db.Float, default=0)
     category = db.Column(db.String(20), nullable=False)
     sku_key = db.Column(db.String(300))
 
@@ -499,7 +559,11 @@ BILLING_ALIASES = {
         'total net amount no tax', 'total nett amount no tax',
         'net amount no tax', 'nett amount no tax',
         'total net amount without tax', 'total nett amount without tax',
-    ]
+    ],
+    'net_amount_with_tax': [
+        'total net amount with tax', 'total nett amount with tax',
+        'net amount with tax', 'nett amount with tax',
+    ],
 }
 
 TARGET_ALIASES = {
@@ -512,6 +576,15 @@ TARGET_ALIASES = {
     'macbook_target': ['mac total', 'macbook total', 'mac target', 'target mac'],
     'bo_target': ['target bo', 'bo target'],
     'qvo_target': ['target qvo', 'qvo target'],
+}
+
+PROGRAM_ALIASES = {
+    'program_type': ['program type', 'nama program', 'program'],
+    'depo': ['depo', 'depot'],
+    'bp': ['bp', 'bp number', 'nomor bp vendor', 'sold to party code'],
+    'dealer': ['dealer name', 'nama vendor', 'dealer', 'sold to party name'],
+    'salesman': ['salesman', 'sales', 'sc name', 'salesman name'],
+    'category': ['category', 'kategori dealer', 'kategori'],
 }
 
 
@@ -527,6 +600,15 @@ def map_columns(columns, aliases, label='file'):
     if missing:
         raise ValueError(f'Kolom wajib tidak ditemukan di {label}: ' + ', '.join(missing))
     return mapped
+
+
+def find_column(columns, choices):
+    normalized = {normalize_col(c): c for c in columns}
+    for choice in choices:
+        found = normalized.get(normalize_col(choice))
+        if found is not None:
+            return found
+    return None
 
 
 def classify(item_group):
@@ -839,6 +921,14 @@ app.jinja_env.filters['number_id'] = number_id
 @app.before_request
 def ensure_db():
     db.create_all()
+    # db.create_all() does not add columns to an existing table. Add the new
+    # with-tax field safely for deployments that already have Billing data.
+    billing_columns = {c['name'] for c in inspect(db.engine).get_columns('billing')}
+    if 'net_amount_with_tax' not in billing_columns:
+        db.session.execute(text(
+            'ALTER TABLE billing ADD COLUMN net_amount_with_tax FLOAT DEFAULT 0'
+        ))
+        db.session.commit()
     if User.query.count() == 0:
         username = os.environ.get('ADMIN_USERNAME', 'admin')
         password = os.environ.get('ADMIN_PASSWORD', 'admin123')
@@ -881,6 +971,33 @@ def logout():
 def target_lookup_for_month(month):
     targets = MonthlyTarget.query.filter_by(month=month).all()
     return targets, {normalize_bp(t.bp): t for t in targets}
+
+
+def normalize_program_type(value):
+    key = normalize_text(value).upper().replace(' ', '')
+    if key in ('LOYALTY', 'PROGRAMLOYALTY'):
+        return 'Loyalty'
+    if key in ('PPG/PAA', 'PPGPAA', 'PPG', 'PAA', 'PROGRAMPPG/PAA'):
+        return 'PPG/PAA'
+    return normalize_text(value) or 'Loyalty'
+
+
+def program_rows_for_month(month):
+    """Return uploaded program rows plus the initial Cempaka Loyalty list."""
+    uploaded = ProgramTarget.query.filter_by(month=month).all()
+    rows = {(p.program_type, normalize_bp(p.bp)): p for p in uploaded}
+    for bp, dealer, category, salesman in DEFAULT_LOYALTY_CEMPAKA:
+        key = ('Loyalty', normalize_bp(bp))
+        if key in rows:
+            continue
+        cfg = LOYALTY_CATEGORY_CONFIG[category]
+        rows[key] = ProgramTarget(
+            month=month, program_type='Loyalty', depo='Cempaka', bp=bp,
+            dealer=dealer, salesman=salesman, category=category,
+            target=cfg['target'], reward_monthly=cfg['reward_monthly'],
+            reward_loyalty=cfg['reward_loyalty'],
+        )
+    return list(rows.values())
 
 
 def resolve_billing_owner(row, target_by_bp):
@@ -1276,6 +1393,50 @@ def dashboard():
     monthly_targets, target_by_bp = target_lookup_for_month(month)
     billing_rows = Billing.query.filter(Billing.billing_date >= start, Billing.billing_date <= end).all()
 
+    # Program achievement is independent from Target Master and uses Billing
+    # Detail Total Net Amount With Tax, aggregated by BP.
+    program_actual_by_bp = {}
+    for billing in billing_rows:
+        bp = normalize_bp(billing.sold_to_code)
+        program_actual_by_bp[bp] = (
+            program_actual_by_bp.get(bp, 0.0)
+            + float(billing.net_amount_with_tax or 0)
+        )
+
+    program_loyalty = []
+    program_ppg_paa = []
+    for program in program_rows_for_month(month):
+        if not matches_scope(program.salesman, program.depo, salesman_filter, depo_filters):
+            continue
+        achievement = program_actual_by_bp.get(normalize_bp(program.bp), 0.0)
+        target = float(program.target or 0)
+        item = {
+            'program_type': program.program_type,
+            'depo': program.depo,
+            'bp': normalize_bp(program.bp),
+            'dealer': program.dealer,
+            'salesman': program.salesman,
+            'category': program.category,
+            'target': target,
+            'achievement': achievement,
+            'pct': achievement / target * 100 if target else 0,
+            'below_target': achievement < target if target else False,
+            'reward_monthly': program.reward_monthly,
+            'reward_loyalty': program.reward_loyalty,
+        }
+        if program.program_type == 'PPG/PAA':
+            program_ppg_paa.append(item)
+        else:
+            program_loyalty.append(item)
+
+    program_sort_key = lambda row: (-row['target'], row['depo'], row['dealer'])
+    program_loyalty.sort(key=program_sort_key)
+    program_ppg_paa.sort(key=program_sort_key)
+    loyalty_reward_notes = [
+        {'category': category, **values}
+        for category, values in LOYALTY_CATEGORY_CONFIG.items()
+    ]
+
     # Filter dropdown options come from target master.
     all_depos = sorted({t.depo for t in monthly_targets if t.depo and t.depo != 'Unmapped'})
 
@@ -1488,6 +1649,8 @@ def dashboard():
         depo_filters=depo_filters, salesman_filter=salesman_filter,
         depos=depos, salesmen=salesmen, cards=cards, table=table, leaderboard=leaderboard,
         speed_rows=speed_rows, sku_rows=sku_rows, sku_detail=sku_detail, dealer_detail=dealer_detail,
+        program_loyalty=program_loyalty, program_ppg_paa=program_ppg_paa,
+        loyalty_reward_notes=loyalty_reward_notes,
         sku_targets=SKU_TARGETS, uploads=uploads, target_uploads=target_uploads,
         qvo_threshold=QVO_THRESHOLD, latest_in_scope=latest_in_scope,
         timegone_pct=timegone_pct,
@@ -1609,6 +1772,7 @@ def upload():
             article = normalize_text(rr[cmap['article']])
             qty = to_num(rr[cmap['quantity']])
             amount = to_num(rr[cmap['nett_amount']])
+            amount_with_tax = to_num(rr[cmap['net_amount_with_tax']])
             if not salesman_raw or not code or salesman_raw.lower() == 'nan':
                 continue
             # Billing Document + Bill Item No uniquely identify a source line.
@@ -1616,12 +1780,13 @@ def upload():
             # article, quantity and amount were incorrectly discarded as duplicates.
             h = row_hash([
                 billing_document, bill_item_no, dt.date().isoformat(),
-                salesman_raw, code_raw, name, group, article, qty, amount,
+                salesman_raw, code_raw, name, group, article, qty, amount, amount_with_tax,
             ])
             parsed_rows.append({
                 'row_hash': h, 'billing_date': dt.date(), 'salesman': salesman_raw,
                 'sold_to_code': code, 'sold_to_name': name, 'item_group': group,
                 'article': article, 'quantity': qty, 'nett_amount': amount,
+                'net_amount_with_tax': amount_with_tax,
                 'category': classify(group), 'sku_key': sku_from_article(article, group),
             })
 
@@ -1653,7 +1818,7 @@ def upload():
         ))
         db.session.commit()
         flash(
-            f'Billing berhasil: {added} baris No Tax disinkronkan untuk '
+            f'Billing berhasil: {added} baris No Tax + With Tax disinkronkan untuk '
             f'{first_date.strftime("%d %b %Y")}–{last_date.strftime("%d %b %Y")}. '
             f'{replaced} baris lama diganti.',
             'success'
@@ -1676,7 +1841,13 @@ def upload_target():
         flash('Format Target harus Excel (.xlsx/.xls).', 'danger')
         return redirect(url_for('dashboard', month=target_month))
     try:
-        df = pd.read_excel(f, sheet_name=0)
+        file_bytes = f.read()
+        excel = pd.ExcelFile(io.BytesIO(file_bytes))
+        target_sheet = next(
+            (name for name in excel.sheet_names if normalize_col(name) == 'target master'),
+            excel.sheet_names[0],
+        )
+        df = pd.read_excel(excel, sheet_name=target_sheet)
         cmap = map_columns(df.columns, TARGET_ALIASES, 'Target Bulanan')
         collapsed = {}
         for _, rr in df.iterrows():
@@ -1705,12 +1876,89 @@ def upload_target():
         MonthlyTarget.query.filter_by(month=target_month).delete(synchronize_session=False)
         for rec in collapsed.values():
             db.session.add(MonthlyTarget(month=target_month, **rec))
+
+        program_loaded = None
+        program_sheet = next(
+            (name for name in excel.sheet_names if normalize_col(name) == 'program'),
+            None,
+        )
+        if program_sheet:
+            program_df = pd.read_excel(excel, sheet_name=program_sheet)
+            # Ignore completely blank rows and section-title rows.
+            program_df = program_df.dropna(how='all')
+            program_cmap = {}
+            for key, choices in PROGRAM_ALIASES.items():
+                column = find_column(program_df.columns, choices)
+                if column is not None:
+                    program_cmap[key] = column
+            required = ['depo', 'bp', 'dealer', 'salesman', 'category']
+            missing = [key for key in required if key not in program_cmap]
+            if missing:
+                raise ValueError(
+                    'Kolom wajib tidak ditemukan di sheet Program: ' + ', '.join(missing)
+                )
+            target_col = find_column(
+                program_df.columns,
+                ['target program', 'target loyalty', 'target'],
+            )
+            monthly_reward_col = find_column(program_df.columns, ['reward monthly'])
+            loyalty_reward_col = find_column(program_df.columns, ['reward loyalty'])
+            program_records = {}
+            for _, rr in program_df.iterrows():
+                bp = normalize_bp(rr[program_cmap['bp']])
+                dealer_name = normalize_text(rr[program_cmap['dealer']])
+                salesman = canonical_salesman(rr[program_cmap['salesman']])
+                depo = canonical_depo(rr[program_cmap['depo']])
+                category = normalize_text(rr[program_cmap['category']]).upper()
+                program_type = normalize_program_type(
+                    rr[program_cmap['program_type']]
+                    if 'program_type' in program_cmap else 'Loyalty'
+                )
+                if not bp or not dealer_name or not salesman or not category:
+                    continue
+
+                if program_type == 'Loyalty':
+                    cfg = LOYALTY_CATEGORY_CONFIG.get(category)
+                    if not cfg:
+                        raise ValueError(
+                            f'Kategori Loyalty tidak dikenali untuk BP {bp}: {category}'
+                        )
+                    target_value = cfg['target']
+                    reward_monthly = cfg['reward_monthly']
+                    reward_loyalty = cfg['reward_loyalty']
+                else:
+                    target_value = to_num(rr[target_col]) if target_col else 0
+                    reward_monthly = to_num(rr[monthly_reward_col]) if monthly_reward_col else None
+                    reward_loyalty = to_num(rr[loyalty_reward_col]) if loyalty_reward_col else None
+
+                program_records[(program_type, bp)] = {
+                    'month': target_month, 'program_type': program_type,
+                    'depo': depo, 'bp': bp, 'dealer': dealer_name,
+                    'salesman': salesman, 'category': category,
+                    'target': target_value, 'reward_monthly': reward_monthly,
+                    'reward_loyalty': reward_loyalty,
+                }
+
+            ProgramTarget.query.filter_by(month=target_month).delete(synchronize_session=False)
+            for rec in program_records.values():
+                db.session.add(ProgramTarget(**rec))
+            program_loaded = len(program_records)
+
         db.session.add(TargetUploadLog(
             month=target_month, filename=secure_filename(f.filename), uploaded_by=session.get('username'),
             rows_read=len(df), dealers_loaded=len(collapsed)
         ))
         db.session.commit()
-        flash(f'Target {target_month} berhasil: {len(collapsed)} dealer/BP dimuat.', 'success')
+        program_message = (
+            f' Sheet Program: {program_loaded} dealer dimuat.'
+            if program_loaded is not None else
+            ' Sheet Program tidak ditemukan; data Program sebelumnya dipertahankan.'
+        )
+        flash(
+            f'Target {target_month} berhasil: {len(collapsed)} dealer/BP dimuat.'
+            + program_message,
+            'success',
+        )
     except Exception as e:
         db.session.rollback()
         flash(f'Upload Target gagal: {e}', 'danger')
