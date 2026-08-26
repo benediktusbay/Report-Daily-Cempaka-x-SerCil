@@ -551,21 +551,21 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
         <div class="mobile-section-label">Device</div>
         <div class="mobile-grid-3">
           <div class="mobile-metric"><div class="mobile-metric-label">Target</div><div class="mobile-metric-value">{{ r.device_target|rupiah_short }}</div></div>
-          <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><div class="mobile-metric-value"><button type="button" class="sales-value-link">{{ r.device|rupiah_short }}</button></div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><div class="mobile-metric-value"><button type="button" class="sales-value-link" data-value-category="Device">{{ r.device|rupiah_short }}</button></div></div>
           <div class="mobile-metric"><div class="mobile-metric-label">%</div><div class="mobile-metric-value {% if r.device_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.device_pct) }}%</div></div>
         </div>
 
         <div class="mobile-section-label">Macbook</div>
         <div class="mobile-grid-3">
           <div class="mobile-metric"><div class="mobile-metric-label">Target</div><div class="mobile-metric-value">{{ r.macbook_target|rupiah_short }}</div></div>
-          <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><div class="mobile-metric-value"><button type="button" class="sales-value-link">{{ r.macbook|rupiah_short }}</button></div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><div class="mobile-metric-value"><button type="button" class="sales-value-link" data-value-category="Macbook">{{ r.macbook|rupiah_short }}</button></div></div>
           <div class="mobile-metric"><div class="mobile-metric-label">%</div><div class="mobile-metric-value {% if r.macbook_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.macbook_pct) }}%</div></div>
         </div>
 
         <div class="mobile-section-label">Accessories</div>
         <div class="mobile-grid-3">
           <div class="mobile-metric"><div class="mobile-metric-label">Target</div><div class="mobile-metric-value">{{ r.acc_target|rupiah_short }}</div></div>
-          <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><div class="mobile-metric-value"><button type="button" class="sales-value-link">{{ r.acc|rupiah_short }}</button></div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><div class="mobile-metric-value"><button type="button" class="sales-value-link" data-value-category="ACC">{{ r.acc|rupiah_short }}</button></div></div>
           <div class="mobile-metric"><div class="mobile-metric-label">%</div><div class="mobile-metric-value {% if r.acc_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.acc_pct) }}%</div></div>
         </div>
 
@@ -573,7 +573,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
           <div class="mobile-section-label">Grand Total Sales</div>
           <div class="mobile-grid-3">
             <div class="mobile-metric"><div class="mobile-metric-label">Target</div><div class="mobile-metric-value">{{ r.target_total|rupiah_short }}</div></div>
-            <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><div class="mobile-metric-value"><button type="button" class="sales-value-link">{{ r.total|rupiah_short }}</button></div></div>
+            <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><div class="mobile-metric-value"><button type="button" class="sales-value-link" data-value-category="Total">{{ r.total|rupiah_short }}</button></div></div>
             <div class="mobile-metric"><div class="mobile-metric-label">%</div><div class="mobile-metric-value {% if r.sales_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.sales_pct) }}%</div></div>
           </div>
         </div>
@@ -614,19 +614,19 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
           <td><strong>{{ r.salesman }}</strong></td>
 
           <td class="number">{{ r.device_target|rupiah_short }}</td>
-          <td class="number"><button type="button" class="sales-value-link">{{ r.device|rupiah_short }}</button></td>
+          <td class="number"><button type="button" class="sales-value-link" data-value-category="Device">{{ r.device|rupiah_short }}</button></td>
           <td class="center {% if r.device_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.device_pct) }}%</td>
 
           <td class="number">{{ r.macbook_target|rupiah_short }}</td>
-          <td class="number"><button type="button" class="sales-value-link">{{ r.macbook|rupiah_short }}</button></td>
+          <td class="number"><button type="button" class="sales-value-link" data-value-category="Macbook">{{ r.macbook|rupiah_short }}</button></td>
           <td class="center {% if r.macbook_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.macbook_pct) }}%</td>
 
           <td class="number">{{ r.acc_target|rupiah_short }}</td>
-          <td class="number"><button type="button" class="sales-value-link">{{ r.acc|rupiah_short }}</button></td>
+          <td class="number"><button type="button" class="sales-value-link" data-value-category="ACC">{{ r.acc|rupiah_short }}</button></td>
           <td class="center {% if r.acc_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.acc_pct) }}%</td>
 
           <td class="number">{{ r.target_total|rupiah_short }}</td>
-          <td class="number"><button type="button" class="sales-value-link">{{ r.total|rupiah_short }}</button></td>
+          <td class="number"><button type="button" class="sales-value-link" data-value-category="Total">{{ r.total|rupiah_short }}</button></td>
           <td class="center {% if r.sales_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.sales_pct) }}%</td>
         </tr>
         {% endfor %}
@@ -639,19 +639,19 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
           <td>GRAND TOTAL</td>
 
           <td class="number">{{ cards.device_target|rupiah_short }}</td>
-          <td class="number"><button type="button" class="sales-value-link">{{ cards.device|rupiah_short }}</button></td>
+          <td class="number"><button type="button" class="sales-value-link" data-value-category="Device">{{ cards.device|rupiah_short }}</button></td>
           <td class="center {% if cards.device_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(cards.device_pct) }}%</td>
 
           <td class="number">{{ cards.macbook_target|rupiah_short }}</td>
-          <td class="number"><button type="button" class="sales-value-link">{{ cards.macbook|rupiah_short }}</button></td>
+          <td class="number"><button type="button" class="sales-value-link" data-value-category="Macbook">{{ cards.macbook|rupiah_short }}</button></td>
           <td class="center {% if cards.macbook_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(cards.macbook_pct) }}%</td>
 
           <td class="number">{{ cards.acc_target|rupiah_short }}</td>
-          <td class="number"><button type="button" class="sales-value-link">{{ cards.acc|rupiah_short }}</button></td>
+          <td class="number"><button type="button" class="sales-value-link" data-value-category="ACC">{{ cards.acc|rupiah_short }}</button></td>
           <td class="center {% if cards.acc_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(cards.acc_pct) }}%</td>
 
           <td class="number">{{ cards.sales_target|rupiah_short }}</td>
-          <td class="number"><button type="button" class="sales-value-link">{{ cards.sales|rupiah_short }}</button></td>
+          <td class="number"><button type="button" class="sales-value-link" data-value-category="Total">{{ cards.sales|rupiah_short }}</button></td>
           <td class="center {% if cards.sales_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(cards.sales_pct) }}%</td>
         </tr>
       </tbody>
@@ -1222,14 +1222,20 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     const totalTarget=deviceTarget+macTarget+accTarget;
     const totalAch=deviceAch+macAch+accAch;
 
-    dealerTitle.textContent='Sales Performance Detail';
+    const selectedCategory=btn.dataset.valueCategory||'Total';
+    dealerTitle.textContent=selectedCategory==='Total'
+      ? 'Sales Performance Detail'
+      : selectedCategory+' Achievement Detail';
     dealerSubtitle.textContent=(source.dataset.salesman||'Grand Total')+' · angka exact tanpa pembulatan';
-    const rows=[
+    const allRows=[
       ['Device',deviceTarget,deviceAch],
       ['Macbook',macTarget,macAch],
       ['ACC',accTarget,accAch],
       ['GRAND TOTAL',totalTarget,totalAch]
     ];
+    const rows=selectedCategory==='Total'
+      ? allRows
+      : allRows.filter(function(row){return row[0]===selectedCategory;});
     dealerBody.innerHTML=rows.map(function(row){
       const isTotal=row[0]==='GRAND TOTAL';
       return '<tr class="'+(isTotal?'grand-total':'')+'">'+
