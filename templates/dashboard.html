@@ -38,6 +38,15 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 .sku-link:hover{background:#eff6ff;border-color:#93c5fd}
 .badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:10px;font-weight:900}
 .badge-target{background:#dcfce7;color:#166534}.badge-nontarget{background:#fee2e2;color:#991b1b}
+.program-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 12px}
+.program-tab{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:9px;padding:8px 13px;font-size:12px;font-weight:900;cursor:pointer}
+.program-tab.active{background:#0b2545;color:#fff;border-color:#0b2545}
+.program-panel{display:none}.program-panel.active{display:block}
+.program-below{color:#b91c1c!important;font-weight:900;background:#fff1f2}
+.program-achieved{color:#15803d;font-weight:900}
+.program-note{margin-top:12px;padding:14px;background:#fffbeb;border:1px solid #fde68a;border-radius:12px}
+.program-note h3{margin:0 0 9px;font-size:14px;color:#854d0e}
+.program-note table{min-width:680px}.program-note th{background:#fef3c7}.program-note td{background:#fffdf5}
 .dealer-salesman-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .dealer-salesman-tab{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:999px;padding:7px 11px;font-size:11px;font-weight:800;cursor:pointer}
 .dealer-salesman-tab:hover{background:#f8fafc}.dealer-salesman-tab.active{background:#0b2545;color:#fff;border-color:#0b2545}
@@ -517,6 +526,74 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
       {% endfor %}
     {% endif %}
   </select>
+</div>
+
+<div class="section" id="program-section">
+  <div class="section-title">
+    <h2>Dealer Program Achievement</h2>
+    <p>Achievement berdasarkan Total Net Amount With Tax. Target Loyalty mengikuti kategori dealer.</p>
+    <div class="program-tabs">
+      <button type="button" class="program-tab active" data-program-tab="loyalty">Program Loyalty</button>
+      <button type="button" class="program-tab" data-program-tab="ppg-paa">Program PPG/PAA</button>
+    </div>
+  </div>
+
+  <div class="program-panel active" data-program-panel="loyalty">
+    <div class="card table-card"><div class="table-wrap">
+      {% if program_loyalty %}
+      <table style="min-width:1080px">
+        <thead><tr>
+          <th>Depo</th><th>BP</th><th>Dealer</th><th>Category</th><th>Salesman</th>
+          <th class="number">Target</th><th class="number">Achievement</th><th class="center">%</th>
+        </tr></thead>
+        <tbody>
+        {% for p in program_loyalty %}
+          <tr>
+            <td>{{ p.depo }}</td><td>{{ p.bp }}</td><td><strong>{{ p.dealer }}</strong></td>
+            <td><span class="badge badge-target">{{ p.category }}</span></td>
+            <td>{{ p.salesman }}</td>
+            <td class="number">{{ p.target|rupiah }}</td>
+            <td class="number {% if p.below_target %}program-below{% else %}program-achieved{% endif %}">{{ p.achievement|rupiah }}</td>
+            <td class="center {% if p.below_target %}program-below{% else %}program-achieved{% endif %}">{{ '%.1f'|format(p.pct) }}%</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}<div class="empty">Belum ada dealer Program Loyalty untuk filter ini.</div>{% endif %}
+    </div></div>
+
+    <div class="program-note">
+      <h3>Note Reward Program Loyalty</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Category</th><th class="number">Target Loyalty</th><th class="center">Reward Monthly</th><th class="center">Reward Loyalty</th></tr></thead>
+        <tbody>{% for reward in loyalty_reward_notes %}<tr>
+          <td><strong>{{ reward.category }}</strong></td>
+          <td class="number">{{ reward.target|rupiah }}</td>
+          <td class="center">{{ '%.2f'|format(reward.reward_monthly * 100) }}%</td>
+          <td class="center">{% if reward.reward_loyalty is not none %}{{ '%.2f'|format(reward.reward_loyalty * 100) }}%{% else %}—{% endif %}</td>
+        </tr>{% endfor %}</tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <div class="program-panel" data-program-panel="ppg-paa">
+    <div class="card table-card"><div class="table-wrap">
+      {% if program_ppg_paa %}
+      <table style="min-width:1080px">
+        <thead><tr>
+          <th>Depo</th><th>BP</th><th>Dealer</th><th>Category</th><th>Salesman</th>
+          <th class="number">Target</th><th class="number">Achievement</th><th class="center">%</th>
+        </tr></thead>
+        <tbody>{% for p in program_ppg_paa %}<tr>
+          <td>{{ p.depo }}</td><td>{{ p.bp }}</td><td><strong>{{ p.dealer }}</strong></td>
+          <td>{{ p.category }}</td><td>{{ p.salesman }}</td><td class="number">{{ p.target|rupiah }}</td>
+          <td class="number {% if p.below_target %}program-below{% else %}program-achieved{% endif %}">{{ p.achievement|rupiah }}</td>
+          <td class="center {% if p.below_target %}program-below{% else %}program-achieved{% endif %}">{{ '%.1f'|format(p.pct) }}%</td>
+        </tr>{% endfor %}</tbody>
+      </table>
+      {% else %}<div class="empty">Data Program PPG/PAA belum diunggah.</div>{% endif %}
+    </div></div>
+  </div>
 </div>
 
 <div class="section">
@@ -1114,6 +1191,18 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 {% block scripts %}
 <script>
 (function(){
+  const programTabs=document.querySelectorAll('[data-program-tab]');
+  const programPanels=document.querySelectorAll('[data-program-panel]');
+  programTabs.forEach(function(tab){
+    tab.addEventListener('click',function(){
+      const selected=tab.dataset.programTab;
+      programTabs.forEach(function(item){item.classList.toggle('active',item===tab);});
+      programPanels.forEach(function(panel){
+        panel.classList.toggle('active',panel.dataset.programPanel===selected);
+      });
+    });
+  });
+
   const modal=document.getElementById('skuModal');
   const title=document.getElementById('skuModalTitle');
   const subtitle=document.getElementById('skuModalSubtitle');
