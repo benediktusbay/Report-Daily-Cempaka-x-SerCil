@@ -13,8 +13,6 @@
 .btn{border:0;border-radius:9px;padding:10px 16px;background:#0b3765;color:#fff;font-weight:900;cursor:pointer}
 .tabs{display:flex;gap:9px;margin:0 0 14px;flex-wrap:wrap}.tab{border:1px solid #cbd5e1;border-radius:9px;padding:9px 14px;background:#fff;color:#334155;font-weight:900;cursor:pointer}
 .tab.active{background:#0b3765;border-color:#0b3765;color:#fff}.panel{display:none}.panel.active{display:block}
-.summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:14px}.summary-card{padding:14px 16px}
-.summary-label{font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase}.summary-value{margin-top:6px;font-size:20px;font-weight:900;color:#0b3765}
 .table-wrap{overflow-x:auto}.card{overflow:hidden}table{width:100%;border-collapse:collapse;min-width:1050px}
 th{padding:11px 10px;background:#f1f5f9;border-bottom:1px solid #dbe3ee;color:#475569;font-size:11px;text-transform:uppercase;text-align:left;white-space:nowrap}
 td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-align:middle}.number{text-align:right;white-space:nowrap}.center{text-align:center}
@@ -22,13 +20,23 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 .below{color:#b91c1c!important;font-weight:900;background:#fff1f2}.achieved{color:#15803d;font-weight:900}
 .total td{background:#eaf1f8;border-top:2px solid #94a3b8;font-weight:900}.empty{padding:35px;text-align:center;color:#64748b}
 .reward-note{padding:15px;margin-top:15px}.reward-note h3{margin:0 0 10px;color:#854d0e;font-size:15px}.reward-note table{min-width:650px}.reward-note th{background:#fef3c7}
-@media(max-width:720px){.program-hero{display:block}.summary{grid-template-columns:1fr}.filters{padding:12px}.filter-form,.field,.field input,.field select,.btn{width:100%}.summary-value{font-size:18px}}
+@media(max-width:720px){
+  .program-hero{display:block}.filters{padding:12px}.filter-form,.field,.field input,.field select,.btn{width:100%}
+  .program-data-table th:nth-child(3),.program-data-table td:nth-child(3){
+    position:sticky;left:0;z-index:3;width:190px;min-width:190px;max-width:190px;background:#fff;
+  }
+  .program-data-table th:nth-child(4),.program-data-table td:nth-child(4){
+    position:sticky;left:190px;z-index:3;width:92px;min-width:92px;max-width:92px;background:#fff;
+    box-shadow:5px 0 8px rgba(15,23,42,.08);
+  }
+  .program-data-table th:nth-child(3),.program-data-table th:nth-child(4){z-index:5;background:#f1f5f9}
+}
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="program-hero">
-  <div><h1>Program</h1><p>Monitoring Program Loyalty dan PPG/PAA berdasarkan Billing Detail With Tax.</p></div>
+  <div><h1>Program</h1></div>
   {% if latest %}<div><strong>Billing through {{ latest.strftime('%d %b %Y') }}</strong></div>{% endif %}
 </div>
 
@@ -46,19 +54,10 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
   <button type="button" class="tab" data-program-tab="ppg-paa">Program PPG/PAA</button>
 </div>
 
-{% macro summary_cards(totals) %}
-<div class="summary">
-  <div class="card summary-card"><div class="summary-label">Total Target</div><div class="summary-value">{{ totals.target|rupiah }}</div></div>
-  <div class="card summary-card"><div class="summary-label">Total Achievement</div><div class="summary-value">{{ totals.achievement|rupiah }}</div></div>
-  <div class="card summary-card"><div class="summary-label">Achievement %</div><div class="summary-value">{{ '%.1f'|format(totals.pct) }}%</div></div>
-</div>
-{% endmacro %}
-
 {% macro program_table(rows, totals, loyalty=false) %}
-{{ summary_cards(totals) }}
 <div class="card"><div class="table-wrap">
 {% if rows %}
-<table><thead><tr><th>Depo</th><th>BP</th><th>Dealer</th><th>Category</th><th>Salesman</th><th class="number">Target</th><th class="number">Achievement</th><th class="center">%</th></tr></thead>
+<table class="program-data-table"><thead><tr><th>Depo</th><th>BP</th><th>Dealer</th><th>Category</th><th>Salesman</th><th class="number">Target</th><th class="number">Achievement</th><th class="center">%</th></tr></thead>
 <tbody>{% for p in rows %}<tr>
   <td>{{ p.depo }}</td><td>{{ p.bp }}</td><td><strong>{{ p.dealer }}</strong></td><td><span class="category">{{ p.category }}</span></td><td>{{ p.salesman }}</td>
   <td class="number">{{ p.target|rupiah }}</td><td class="number {% if p.below_target %}below{% else %}achieved{% endif %}">{{ p.achievement|rupiah }}</td>
