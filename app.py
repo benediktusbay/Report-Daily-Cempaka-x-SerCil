@@ -936,6 +936,12 @@ def ensure_db():
         db.session.commit()
 
 
+@app.route('/health')
+def health():
+    """Lightweight public endpoint for uptime checks; intentionally skips DB access."""
+    return jsonify(status='ok'), 200
+
+
 @app.route('/login', methods=['GET','POST'])
 def login():
     if request.method == 'GET' and session.get('user_id') and session.get('role') == 'admin':
