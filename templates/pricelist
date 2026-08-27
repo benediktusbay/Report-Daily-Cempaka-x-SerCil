@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Pricelist Apple | Daily Sales Report{% endblock %}
+
+{% block head %}
+<style>
+.pricelist-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}.pricelist-head h1{margin:0;font-size:28px}
+.price-admin{padding:15px;margin-bottom:16px}.price-admin summary{cursor:pointer;color:#0b3765;font-weight:800}.price-upload{display:grid;grid-template-columns:180px minmax(240px,1fr) auto;gap:10px;align-items:end;margin-top:14px}
+.price-field label{display:block;margin-bottom:6px;color:#64748b;font-size:11px;font-weight:800;text-transform:uppercase}.price-field select,.price-field input{width:100%;min-height:41px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;padding:8px 10px}
+.price-btn{min-height:41px;border:0;border-radius:9px;background:#0b3765;color:#fff;padding:9px 15px;font-weight:800;cursor:pointer}.price-btn.copy{background:#16884b}.price-btn:disabled{opacity:.6;cursor:wait}
+.price-progress{display:none;margin-top:12px;padding:10px 12px;border-radius:9px;background:#eef5fc;color:#0b3765;font-size:13px}.price-progress.error{background:#fff1f2;color:#b42318}.price-progress.success{background:#ecfdf3;color:#167044}
+.price-controls{padding:15px;margin-bottom:14px}.price-search{display:flex;gap:10px;align-items:end}.price-search .price-field{flex:1}
+.price-tabs{display:flex;gap:8px;overflow-x:auto;margin:0 0 12px}.price-tab{flex:0 0 auto;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#334155;padding:9px 14px;font-weight:800;cursor:pointer}.price-tab.active{background:#0b3765;border-color:#0b3765;color:#fff}
+.price-count{margin-left:auto;align-self:center;color:#64748b;font-size:12px;white-space:nowrap}.price-table-wrap{overflow-x:auto;border-radius:14px}.price-table{min-width:760px;background:#fff}.price-table th{background:#eaf2fb;color:#334155}.price-table td:nth-child(n+2){text-align:right;white-space:nowrap}.price-table th:nth-child(n+2){text-align:right}.price-table td:first-child{font-weight:700}.price-table td:last-child,.price-table th:last-child{text-align:center}.price-empty{text-align:center!important;padding:35px!important;color:#64748b;font-weight:400!important}
+@media(max-width:720px){.pricelist-head{display:block}.price-upload{grid-template-columns:1fr}.price-btn{width:100%}.price-search{display:block}.price-search .price-btn{margin-top:10px}.price-count{display:none}.price-table th:first-child,.price-table td:first-child{position:sticky;left:0;z-index:2;min-width:230px;background:#fff}.price-table th:first-child{z-index:3;background:#eaf2fb}}
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="pricelist-head"><h1>Pricelist Apple</h1></div>
+
+{% if session.get('role') == 'admin' %}
+<details class="card price-admin">
+  <summary>Perbarui pricelist dari JPG</summary>
+  <div class="price-upload">
+    <div class="price-field"><label>Kategori</label><select id="priceUploadCategory">{% for key,label in category_labels.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></div>
+    <div class="price-field"><label>Gambar pricelist</label><input id="priceUploadFile" type="file" accept="image/jpeg,.jpg,.jpeg"></div>
+    <button type="button" class="price-btn" id="priceUploadButton">Baca &amp; Simpan JPG</button>
+  </div>
+  <div class="price-progress" id="priceUploadProgress" role="status"></div>
+</details>
+{% endif %}
+
+<div class="card price-controls">
+  <div class="price-search">
+    <div class="price-field"><label>Cari produk</label><input type="search" id="priceSearch" placeholder="Ketik model atau kapasitas"></div>
+    <button type="button" class="price-btn copy" id="priceCopy">Copy untuk WhatsApp</button>
+  </div>
+</div>
+
+<div class="price-tabs" id="priceTabs">
+  {% for key,label in category_labels.items() %}<button type="button" class="price-tab {% if loop.first %}active{% endif %}" data-category="{{ key }}">{{ label }}</button>{% endfor %}
+  <span class="price-count" id="priceCount"></span>
+</div>
+
+<div class="card price-table-wrap">
+  <table class="price-table">
+    <thead><tr><th>Model</th><th>SRP Promo</th><th>STP Promo</th><th>Period</th></tr></thead>
+    <tbody id="priceTableBody"></tbody>
+  </table>
+</div>
+
+<script id="pricelistData" type="application/json">{
+{% for key,label in category_labels.items() %}
+  "{{ key }}":[{% for row in grouped[key] %}{"model":{{ row.model|tojson }},"srp_promo":{{ row.srp_promo or 0 }},"stp_promo":{{ row.stp_promo or 0 }},"period":{{ row.period|tojson }}}{% if not loop.last %},{% endif %}{% endfor %}]{% if not loop.last %},{% endif %}
+{% endfor %}
+}</script>
+{% endblock %}
+
+{% block scripts %}
+{% if session.get('role') == 'admin' %}<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>{% endif %}
+<script>
+(function(){
+  const dataNode=document.getElementById('pricelistData');
+  let data={iphone:[],mac:[],ipad:[],acc:[]};
+  try{data=JSON.parse(dataNode.textContent||'{}');}catch(error){}
+  let active='iphone';
+  const body=document.getElementById('priceTableBody');
+  const search=document.getElementById('priceSearch');
+  const count=document.getElementById('priceCount');
+  const tabs=document.querySelectorAll('.price-tab');
+  function money(value){return 'Rp'+Math.round(Number(value)||0).toLocaleString('id-ID');}
+  function visibleRows(){const q=(search.value||'').trim().toLowerCase();return (data[active]||[]).filter(row=>!q||String(row.model).toLowerCase().includes(q));}
+  function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
+  function render(){
+    const rows=visibleRows();count.textContent=rows.length+' produk';
+    body.innerHTML=rows.length?rows.map(row=>'<tr><td>'+esc(row.model)+'</td><td>'+money(row.srp_promo)+'</td><td>'+money(row.stp_promo)+'</td><td>'+esc(row.period)+'</td></tr>').join(''):'<tr><td colspan="4" class="price-empty">Belum ada pricelist untuk kategori ini.</td></tr>';
+  }
+  tabs.forEach(tab=>tab.addEventListener('click',function(){active=tab.dataset.category;tabs.forEach(x=>x.classList.toggle('active',x===tab));search.value='';render();}));
+  search.addEventListener('input',render);
+  document.getElementById('priceCopy').addEventListener('click',async function(){
+    const label={iphone:'IPHONE',mac:'MAC/MACBOOK',ipad:'IPAD',acc:'ACC'}[active];
+    const text=['*PRICELIST APPLE - '+label+'*',...visibleRows().map(row=>row.model+' | SRP Promo '+money(row.srp_promo)+' | STP Promo '+money(row.stp_promo)+' | '+row.period)].join('\n');
+    try{await navigator.clipboard.writeText(text);this.textContent='Berhasil disalin';setTimeout(()=>this.textContent='Copy untuk WhatsApp',1600);}catch(error){alert('Browser belum mengizinkan copy otomatis.');}
+  });
+  render();
+
+  const uploadButton=document.getElementById('priceUploadButton');
+  if(!uploadButton)return;
+  const uploadFile=document.getElementById('priceUploadFile');
+  const uploadCategory=document.getElementById('priceUploadCategory');
+  const progress=document.getElementById('priceUploadProgress');
+  function showProgress(message,type){progress.style.display='block';progress.className='price-progress'+(type?' '+type:'');progress.textContent=message;}
+  function numeric(value){const digits=String(value||'').replace(/[^0-9]/g,'');return digits?Number(digits):null;}
+  function parsePriceImage(text){
+    const rows=[];
+    const pricePattern=/\d{1,3}(?:[.,]\d{3}){2}/g;
+    String(text||'').split(/\r?\n/).forEach(raw=>{
+      let line=raw.replace(/\s+/g,' ').trim();
+      if(!line||/^(model|srp|promo sell out)/i.test(line))return;
+      const prices=line.match(pricePattern)||[];
+      if(prices.length<4)return;
+      const firstPrice=line.search(pricePattern);
+      const model=line.slice(0,firstPrice).replace(/[|:]+$/,'').trim();
+      let period='';
+      const periodMatch=line.match(/(?:\d{1,2}\s*)?(?:Aug|Agu)[^0-9]{0,5}\d{1,2}\s*(?:Sep|Scp)|\d{1,2}[^0-9]{0,3}\d{1,2}\s*(?:Aug|Agu)/i);
+      if(periodMatch)period=periodMatch[0].replace(/Scp/ig,'Sep').replace(/Agu/ig,'Aug').replace(/\s+/g,' ').trim();
+      if(model&&period)rows.push({model:model,srp_promo:numeric(prices[1]),stp_promo:numeric(prices[3]),period:period});
+    });
+    return rows;
+  }
+  uploadButton.addEventListener('click',async function(){
+    const file=uploadFile.files&&uploadFile.files[0];
+    if(!file){showProgress('Pilih gambar JPG terlebih dahulu.','error');return;}
+    if(!/image\/jpeg/.test(file.type)&&!/\.jpe?g$/i.test(file.name)){showProgress('Format gambar harus JPG/JPEG.','error');return;}
+    if(!window.Tesseract){showProgress('Pembaca JPG belum termuat. Muat ulang halaman lalu coba lagi.','error');return;}
+    uploadButton.disabled=true;showProgress('Membaca tabel harga dari JPG...');
+    try{
+      const result=await Tesseract.recognize(file,'eng',{logger:m=>{if(m.status==='recognizing text')showProgress('Membaca JPG '+Math.round((m.progress||0)*100)+'%...');}});
+      const rows=parsePriceImage(result.data.text);
+      if(!rows.length)throw new Error('Tidak ada baris lengkap yang terbaca. Pastikan gambar memakai format tabel pricelist yang sama dan tidak buram.');
+      showProgress(rows.length+' baris terbaca. Menyimpan pricelist...');
+      const response=await fetch('{{ url_for("upload_pricelist_image") }}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({category:uploadCategory.value,filename:file.name,rows:rows})});
+      const resultJson=await response.json();
+      if(!response.ok||!resultJson.ok)throw new Error(resultJson.message||'Pricelist gagal disimpan.');
+      showProgress(resultJson.message,'success');setTimeout(()=>window.location.href=resultJson.redirect,700);
+    }catch(error){showProgress(error.message||'JPG gagal dibaca.','error');}
+    finally{uploadButton.disabled=false;}
+  });
+})();
+</script>
+{% endblock %}
