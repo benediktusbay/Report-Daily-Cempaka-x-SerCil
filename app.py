@@ -15,7 +15,6 @@ from functools import wraps
 import pandas as pd
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import inspect, text
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
@@ -40,45 +39,6 @@ WEEK_PCTS = {1: 0.75, 2: 0.90, 3: 1.00, 4: 1.00}
 WEEK_END_DAY = {1: 7, 2: 14, 3: 21, 4: 31}
 WEEK_START_DAY = {1: 1, 2: 8, 3: 15, 4: 22}
 SKU_TARGETS = {'2-3': 13, '4-6': 6, '7-10': 5, '>10': 2}
-
-# Program targets are independent from Target Master. Loyalty targets and
-# rewards are determined by dealer category.
-LOYALTY_CATEGORY_CONFIG = {
-    'CROWN':   {'target': 5_000_000_000, 'reward_monthly': 0.0100, 'reward_loyalty': 0.0090},
-    'DIAMOND': {'target': 2_000_000_000, 'reward_monthly': 0.0100, 'reward_loyalty': 0.0060},
-    'GOLD':    {'target':   500_000_000, 'reward_monthly': 0.0075, 'reward_loyalty': 0.0035},
-    'SILVER':  {'target':   350_000_000, 'reward_monthly': 0.0050, 'reward_loyalty': 0.0035},
-    'BRONZE':  {'target':    50_000_000, 'reward_monthly': 0.0050, 'reward_loyalty': None},
-}
-
-# Initial Program Loyalty Cempaka supplied on 26 Aug 2026. These rows are a
-# fallback until a Program sheet is uploaded; uploaded rows override them by BP.
-DEFAULT_LOYALTY_CEMPAKA = [
-    ('10028000', 'PT SINAR ARTHA MAHAMAKMUR', 'CROWN', 'Rafhyski Alhasan'),
-    ('10072814', 'PT. DIGITAL KOMUNIKASI PINTAR', 'DIAMOND', 'Zefanya Septania Simorangkir'),
-    ('10028005', 'PT UNIVERSAL GLOBAL SEJAHTERA', 'CROWN', 'Rafhyski Alhasan'),
-    ('10002175', 'PT BUMI ASIA JAYA', 'CROWN', 'Rafhyski Alhasan'),
-    ('10002353', 'PT GUDANG DIGITAL KOMERSIAL', 'GOLD', 'Zefanya Septania Simorangkir'),
-    ('10005878', 'PT TUJUH BINTANG SINAR DUNIA', 'GOLD', 'Zefanya Septania Simorangkir'),
-    ('10082147', 'PT KOMUNIKASI RENTAL BERSAMA', 'SILVER', 'Zefanya Septania Simorangkir'),
-    ('10045600', 'MITRA PHONE CELL', 'BRONZE', 'Rafhyski Alhasan'),
-    ('10003006', 'HERO CELL - ITC CEMPAKA MAS', 'BRONZE', 'Rafhyski Alhasan'),
-    ('10066523', 'PT. MANSION BINTANG ELEKTRO', 'GOLD', 'Zefanya Septania Simorangkir'),
-    ('10044035', 'PT.LEON SELLULAR INDONESIA', 'BRONZE', 'Rafhyski Alhasan'),
-    ('10056785', 'CAHAYA CELL', 'BRONZE', 'Rafhyski Alhasan'),
-    ('10080178', 'PT DDD JAYA BERSAMA', 'SILVER', 'Rafhyski Alhasan'),
-    ('10006541', 'VIVI CELLULAR - ITC CEMPAKA MAS', 'BRONZE', 'Rafhyski Alhasan'),
-    ('10004520', 'DJADAYAT CELL', 'BRONZE', 'Rafhyski Alhasan'),
-    ('10073725', 'PT. SENANG BERBAGI REJEKI', 'BRONZE', 'Zefanya Septania Simorangkir'),
-    ('10054986', 'PT. NINETOLOGY INDONESIA', 'SILVER', 'Rafhyski Alhasan'),
-    ('10000677', 'ABADI CELLULAR', 'BRONZE', 'Zefanya Septania Simorangkir'),
-    ('10005697', 'CV SENTRAL ABADI JAYA', 'BRONZE', 'Zefanya Septania Simorangkir'),
-    ('10038759', 'PT. REJEKI PAHALA MANDIRI', 'GOLD', 'Zefanya Septania Simorangkir'),
-    ('10028075', 'IDOLA CELLULAR - ITC CEMPAKA MAS', 'BRONZE', 'Zefanya Septania Simorangkir'),
-    ('10027998', 'PT SELULAR INDO PRATAMA', 'DIAMOND', 'Zefanya Septania Simorangkir'),
-    ('10034424', 'PT LESTARI JAYA ELEKTRIK', 'GOLD', 'Zefanya Septania Simorangkir'),
-    ('10034388', 'PT INDO MITRA SENTOSA', 'GOLD', 'Rafhyski Alhasan'),
-]
 
 # Public Viewer is intentionally limited to these depots.
 # Admin continues to see every depot available in Monthly Target / Billing.
@@ -276,8 +236,6 @@ SALESMAN_ALIASES = {
     'edi suyitno': 'Edi Suyitno',
     'muhamad fajri': 'Muhamad Fajri',
     'muhamad fajri deactive': 'Muhamad Fajri',
-    'rafhy': 'Rafhyski Alhasan',
-    'zefa': 'Zefanya Septania Simorangkir',
 }
 
 # Fallback only when a BP is not found in Monthly Target. Ikmah intentionally has no
@@ -366,23 +324,6 @@ class TargetUploadLog(db.Model):
     dealers_loaded = db.Column(db.Integer, default=0)
 
 
-class ProgramTarget(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    month = db.Column(db.String(7), nullable=False, index=True)
-    program_type = db.Column(db.String(30), nullable=False, index=True)
-    depo = db.Column(db.String(80), nullable=False, index=True)
-    bp = db.Column(db.String(80), nullable=False, index=True)
-    dealer = db.Column(db.String(255), nullable=False)
-    salesman = db.Column(db.String(160), nullable=False, index=True)
-    category = db.Column(db.String(40), nullable=False)
-    target = db.Column(db.Float, default=0)
-    reward_monthly = db.Column(db.Float, nullable=True)
-    reward_loyalty = db.Column(db.Float, nullable=True)
-    __table_args__ = (
-        db.UniqueConstraint('month', 'program_type', 'bp', name='uq_program_month_type_bp'),
-    )
-
-
 class Billing(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     row_hash = db.Column(db.String(64), unique=True, nullable=False)
@@ -394,7 +335,6 @@ class Billing(db.Model):
     article = db.Column(db.String(500), nullable=False)
     quantity = db.Column(db.Float, default=0)
     nett_amount = db.Column(db.Float, default=0)
-    net_amount_with_tax = db.Column(db.Float, default=0)
     category = db.Column(db.String(20), nullable=False)
     sku_key = db.Column(db.String(300))
 
@@ -419,6 +359,30 @@ class StockItem(db.Model):
     __table_args__ = (
         db.UniqueConstraint('snapshot_id', 'material', 'depot', name='uq_stock_snapshot_material_depot'),
     )
+
+
+class PricelistItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    category = db.Column(db.String(30), nullable=False, index=True)
+    model = db.Column(db.String(500), nullable=False, index=True)
+    srp_promo = db.Column(db.Float, default=0)
+    stp_promo = db.Column(db.Float, default=0)
+    period = db.Column(db.String(100), nullable=False)
+    sort_order = db.Column(db.Integer, default=0)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_by = db.Column(db.String(160))
+    __table_args__ = (
+        db.UniqueConstraint('category', 'model', name='uq_pricelist_category_model'),
+    )
+
+
+class PricelistUploadLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    category = db.Column(db.String(30), nullable=False)
+    filename = db.Column(db.String(255), nullable=False)
+    rows_loaded = db.Column(db.Integer, default=0)
+    uploaded_by = db.Column(db.String(160))
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
 
 def login_required(fn):
@@ -559,11 +523,7 @@ BILLING_ALIASES = {
         'total net amount no tax', 'total nett amount no tax',
         'net amount no tax', 'nett amount no tax',
         'total net amount without tax', 'total nett amount without tax',
-    ],
-    'net_amount_with_tax': [
-        'total net amount with tax', 'total nett amount with tax',
-        'net amount with tax', 'nett amount with tax',
-    ],
+    ]
 }
 
 TARGET_ALIASES = {
@@ -576,15 +536,6 @@ TARGET_ALIASES = {
     'macbook_target': ['mac total', 'macbook total', 'mac target', 'target mac'],
     'bo_target': ['target bo', 'bo target'],
     'qvo_target': ['target qvo', 'qvo target'],
-}
-
-PROGRAM_ALIASES = {
-    'program_type': ['program type', 'nama program', 'program'],
-    'depo': ['depo', 'depot'],
-    'bp': ['bp', 'bp number', 'nomor bp vendor', 'sold to party code'],
-    'dealer': ['dealer name', 'nama vendor', 'dealer', 'sold to party name'],
-    'salesman': ['salesman', 'sales', 'sc name', 'salesman name'],
-    'category': ['category', 'kategori dealer', 'kategori'],
 }
 
 
@@ -600,15 +551,6 @@ def map_columns(columns, aliases, label='file'):
     if missing:
         raise ValueError(f'Kolom wajib tidak ditemukan di {label}: ' + ', '.join(missing))
     return mapped
-
-
-def find_column(columns, choices):
-    normalized = {normalize_col(c): c for c in columns}
-    for choice in choices:
-        found = normalized.get(normalize_col(choice))
-        if found is not None:
-            return found
-    return None
 
 
 def classify(item_group):
@@ -921,25 +863,11 @@ app.jinja_env.filters['number_id'] = number_id
 @app.before_request
 def ensure_db():
     db.create_all()
-    # db.create_all() does not add columns to an existing table. Add the new
-    # with-tax field safely for deployments that already have Billing data.
-    billing_columns = {c['name'] for c in inspect(db.engine).get_columns('billing')}
-    if 'net_amount_with_tax' not in billing_columns:
-        db.session.execute(text(
-            'ALTER TABLE billing ADD COLUMN net_amount_with_tax FLOAT DEFAULT 0'
-        ))
-        db.session.commit()
     if User.query.count() == 0:
         username = os.environ.get('ADMIN_USERNAME', 'admin')
         password = os.environ.get('ADMIN_PASSWORD', 'admin123')
         db.session.add(User(username=username, password_hash=generate_password_hash(password), role='admin'))
         db.session.commit()
-
-
-@app.route('/health')
-def health():
-    """Lightweight public endpoint for uptime checks; intentionally skips DB access."""
-    return jsonify(status='ok'), 200
 
 
 @app.route('/login', methods=['GET','POST'])
@@ -979,78 +907,6 @@ def target_lookup_for_month(month):
     return targets, {normalize_bp(t.bp): t for t in targets}
 
 
-def normalize_program_type(value):
-    key = normalize_text(value).upper().replace(' ', '')
-    if key in ('LOYALTY', 'PROGRAMLOYALTY'):
-        return 'Loyalty'
-    if key in ('PPG/PAA', 'PPGPAA', 'PPG', 'PAA', 'PROGRAMPPG/PAA'):
-        return 'PPG/PAA'
-    return normalize_text(value) or 'Loyalty'
-
-
-def program_rows_for_month(month):
-    """Return uploaded program rows plus the initial Cempaka Loyalty list."""
-    uploaded = ProgramTarget.query.filter_by(month=month).all()
-    rows = {(p.program_type, normalize_bp(p.bp)): p for p in uploaded}
-    for bp, dealer, category, salesman in DEFAULT_LOYALTY_CEMPAKA:
-        key = ('Loyalty', normalize_bp(bp))
-        if key in rows:
-            continue
-        cfg = LOYALTY_CATEGORY_CONFIG[category]
-        rows[key] = ProgramTarget(
-            month=month, program_type='Loyalty', depo='Cempaka', bp=bp,
-            dealer=dealer, salesman=salesman, category=category,
-            target=cfg['target'], reward_monthly=cfg['reward_monthly'],
-            reward_loyalty=cfg['reward_loyalty'],
-        )
-    return list(rows.values())
-
-
-def build_program_achievement(month, salesman_filter='', depo_filters=None):
-    """Build the standalone Program page rows using Billing With Tax by BP."""
-    start, end = month_range(month)
-    billing_rows = Billing.query.filter(
-        Billing.billing_date >= start,
-        Billing.billing_date <= end,
-    ).all()
-    actual_by_bp = {}
-    for billing in billing_rows:
-        bp = normalize_bp(billing.sold_to_code)
-        actual_by_bp[bp] = actual_by_bp.get(bp, 0.0) + float(
-            billing.net_amount_with_tax or 0
-        )
-
-    loyalty = []
-    ppg_paa = []
-    for program in program_rows_for_month(month):
-        if not matches_scope(
-            program.salesman, program.depo, salesman_filter, depo_filters or []
-        ):
-            continue
-        achievement = actual_by_bp.get(normalize_bp(program.bp), 0.0)
-        target = float(program.target or 0)
-        item = {
-            'program_type': program.program_type,
-            'depo': program.depo,
-            'bp': normalize_bp(program.bp),
-            'dealer': program.dealer,
-            'salesman': program.salesman,
-            'category': program.category,
-            'target': target,
-            'achievement': achievement,
-            'pct': achievement / target * 100 if target else 0,
-            'below_target': achievement < target if target else False,
-            'reward_monthly': program.reward_monthly,
-            'reward_loyalty': program.reward_loyalty,
-        }
-        (ppg_paa if program.program_type == 'PPG/PAA' else loyalty).append(item)
-
-    sort_key = lambda row: (-row['target'], row['depo'], row['dealer'])
-    loyalty.sort(key=sort_key)
-    ppg_paa.sort(key=sort_key)
-    return loyalty, ppg_paa
-
-
 def resolve_billing_owner(row, target_by_bp):
     bp = normalize_bp(row.sold_to_code)
     target = target_by_bp.get(bp)
@@ -1072,10 +928,7 @@ def resolve_billing_owner(row, target_by_bp):
 def matches_scope(salesman, depo, salesman_filter, depo_filters):
     if salesman_filter and salesman != salesman_filter:
         return False
-    # Billing ownership follows Salesman Name. A BP that is not yet present in
-    # Target Master must still contribute to that salesman's achievement even
-    # though its depo cannot be resolved yet.
-    if depo_filters and depo not in depo_filters and depo != 'Unmapped':
+    if depo_filters and depo not in depo_filters:
         return False
     return True
 
@@ -1463,7 +1316,7 @@ def dashboard():
             salesman_options.add(t.salesman)
     for r in billing_rows:
         owner, depo, _, _ = resolve_billing_owner(r, target_by_bp)
-        if owner and (not depo_filters or depo in depo_filters or depo == 'Unmapped'):
+        if owner and (not depo_filters or depo in depo_filters):
             salesman_options.add(owner)
     # Do not allow unexpected/raw billing names to create extra dashboard rows.
     salesmen = [s for s in LOCKED_SALESMEN if s in salesman_options]
@@ -1479,12 +1332,11 @@ def dashboard():
     # Dealer master starts with all monthly target dealers so zero-achievement dealers remain visible.
     dealer = {}
     for t in scoped_targets:
-        # BP can move between salesmen. Keep target ownership separate from
-        # Billing ownership so actual sales always follow Salesman Name in Billing.
-        key = (normalize_bp(t.bp), t.salesman)
+        key = normalize_bp(t.bp)
         dealer[key] = {
-            'salesman': t.salesman, 'depo': t.depo, 'bp': normalize_bp(t.bp), 'dealer': t.dealer,
+            'salesman': t.salesman, 'depo': t.depo, 'bp': key, 'dealer': t.dealer,
             'Device': 0.0, 'Macbook': 0.0, 'ACC': 0.0, 'skus': set(), 'last_date': None,
+            'device_items': {},
             'device_target': float(t.device_target or 0), 'macbook_target': float(t.macbook_target or 0),
             'acc_target': float(t.acc_target or 0), 'bo_target': int(t.bo_target or 0), 'qvo_target': int(t.qvo_target or 0),
             'is_target': True
@@ -1497,20 +1349,26 @@ def dashboard():
             continue
         scoped_billing.append((r, owner, depo))
         bp = normalize_bp(r.sold_to_code)
-        key = (bp, owner)
-        target_belongs_to_owner = bool(target and target.salesman == owner)
-        d = dealer.setdefault(key, {
+        d = dealer.setdefault(bp, {
             'salesman': owner, 'depo': depo, 'bp': bp, 'dealer': dealer_name,
             'Device': 0.0, 'Macbook': 0.0, 'ACC': 0.0, 'skus': set(), 'last_date': None,
-            'device_target': float(target.device_target or 0) if target_belongs_to_owner else 0,
-            'macbook_target': float(target.macbook_target or 0) if target_belongs_to_owner else 0,
-            'acc_target': float(target.acc_target or 0) if target_belongs_to_owner else 0,
-            'bo_target': int(target.bo_target or 0) if target_belongs_to_owner else 0,
-            'qvo_target': int(target.qvo_target or 0) if target_belongs_to_owner else 0,
-            'is_target': target_belongs_to_owner
+            'device_items': {},
+            'device_target': float(target.device_target or 0) if target else 0,
+            'macbook_target': float(target.macbook_target or 0) if target else 0,
+            'acc_target': float(target.acc_target or 0) if target else 0,
+            'bo_target': int(target.bo_target or 0) if target else 0,
+            'qvo_target': int(target.qvo_target or 0) if target else 0,
+            'is_target': bool(target)
         })
         if r.category in ('Device','Macbook','ACC'):
             d[r.category] += float(r.nett_amount or 0)
+        if r.category == 'Device':
+            item_name = normalize_text(r.article) or '(Tanpa deskripsi)'
+            item = d['device_items'].setdefault(item_name, {
+                'type': item_name, 'qty': 0.0, 'value': 0.0,
+            })
+            item['qty'] += float(r.quantity or 0)
+            item['value'] += float(r.nett_amount or 0)
         # Recalculate SKU from Article Description on every dashboard load.
         # KPI SKU includes Device + Macbook + ACC. Historical stored sku_key
         # values are intentionally ignored so the latest normalization rule
@@ -1537,8 +1395,7 @@ def dashboard():
     sku_detail = []
     dealer_detail = []
     active_dealers = 0
-    for _, d in dealer.items():
-        bp = d['bp']
+    for bp, d in dealer.items():
         total = d['Device'] + d['Macbook'] + d['ACC']
         bo = (d['Device'] + d['Macbook']) > 0
         qvo = total >= QVO_THRESHOLD
@@ -1566,6 +1423,10 @@ def dashboard():
             'device_target': d['device_target'], 'macbook_target': d['macbook_target'], 'acc_target': d['acc_target'],
             'bo': bo, 'qvo': qvo, 'sku': sku_count,
             'sku_list': sorted(d['skus']),
+            'device_items': sorted(
+                d['device_items'].values(),
+                key=lambda item: (-item['value'], item['type'].lower()),
+            ),
             'is_target': d['is_target']
         })
 
@@ -1674,65 +1535,107 @@ def dashboard():
 
 @app.route('/program')
 def program():
-    # Program is a separate top-level page. Access scope follows Dashboard.
+    """Keep the Program menu available in this consolidated build."""
+    month = request.args.get('month', datetime.now().strftime('%Y-%m'))
+    depo_filter = normalize_text(request.args.get('depo'))
+    salesman_filter = normalize_text(request.args.get('salesman'))
+    latest = db.session.query(db.func.max(Billing.billing_date)).scalar()
+    targets = MonthlyTarget.query.filter_by(month=month).all()
+    depos = sorted({row.depo for row in targets if row.depo})
+    salesmen = [name for name in LOCKED_SALESMEN if any(row.salesman == name for row in targets)]
+    zero_totals = {'target': 0, 'achievement': 0, 'pct': 0}
+    reward_notes = [
+        {'category': 'CROWN', 'target': 5_000_000_000, 'reward_monthly': .01, 'reward_loyalty': .009},
+        {'category': 'DIAMOND', 'target': 2_000_000_000, 'reward_monthly': .01, 'reward_loyalty': .006},
+        {'category': 'GOLD', 'target': 500_000_000, 'reward_monthly': .0075, 'reward_loyalty': .0035},
+        {'category': 'SILVER', 'target': 350_000_000, 'reward_monthly': .005, 'reward_loyalty': .0035},
+        {'category': 'BRONZE', 'target': 50_000_000, 'reward_monthly': .005, 'reward_loyalty': None},
+    ]
+    return render_template(
+        'program.html', month=month, latest=latest, depos=depos, salesmen=salesmen,
+        depo_filter=depo_filter, salesman_filter=salesman_filter,
+        program_loyalty=[], program_ppg_paa=[], loyalty_totals=zero_totals,
+        ppg_paa_totals=zero_totals, loyalty_reward_notes=reward_notes,
+    )
+
+
+PRICELIST_CATEGORIES = {
+    'iphone': 'iPhone',
+    'mac': 'Mac/MacBook',
+    'ipad': 'iPad',
+    'acc': 'ACC',
+}
+
+
+@app.route('/pricelist')
+def pricelist():
     if 'user_id' not in session:
         session['username'] = 'Viewer'
         session['role'] = 'viewer'
-
-    latest = db.session.query(db.func.max(Billing.billing_date)).scalar()
-    latest_program_month = db.session.query(db.func.max(ProgramTarget.month)).scalar()
-    latest_target_month = db.session.query(db.func.max(MonthlyTarget.month)).scalar()
-    default_month = (
-        latest.strftime('%Y-%m')
-        if latest else (latest_program_month or latest_target_month or datetime.now().strftime('%Y-%m'))
-    )
-    month = request.args.get('month', default_month)
-
-    all_programs = program_rows_for_month(month)
-    available_depos = sorted({p.depo for p in all_programs if p.depo})
-    requested_depo = canonical_depo(request.args.get('depo', '').strip())
-    if session.get('role') == 'admin':
-        allowed_depos = available_depos
-    else:
-        allowed_depos = [d for d in VIEWER_ALLOWED_DEPOS if d in available_depos]
-
-    depo_filters = [requested_depo] if requested_depo in allowed_depos else allowed_depos
-    salesman_options = [
-        name for name in LOCKED_SALESMEN
-        if any(
-            p.salesman == name and (not depo_filters or p.depo in depo_filters)
-            for p in all_programs
-        )
-    ]
-    salesman_filter = request.args.get('salesman', '').strip()
-    if salesman_filter not in salesman_options:
-        salesman_filter = ''
-
-    loyalty, ppg_paa = build_program_achievement(
-        month, salesman_filter=salesman_filter, depo_filters=depo_filters
-    )
-    reward_notes = [
-        {'category': category, **values}
-        for category, values in LOYALTY_CATEGORY_CONFIG.items()
-    ]
-
-    def totals(rows):
-        target = sum(r['target'] for r in rows)
-        achievement = sum(r['achievement'] for r in rows)
-        return {
-            'target': target,
-            'achievement': achievement,
-            'pct': achievement / target * 100 if target else 0,
-        }
-
+    grouped = {key: [] for key in PRICELIST_CATEGORIES}
+    rows = PricelistItem.query.order_by(PricelistItem.category, PricelistItem.sort_order, PricelistItem.id).all()
+    for row in rows:
+        if row.category in grouped:
+            grouped[row.category].append(row)
+    latest_uploads = {
+        key: PricelistUploadLog.query.filter_by(category=key).order_by(PricelistUploadLog.uploaded_at.desc()).first()
+        for key in PRICELIST_CATEGORIES
+    }
     return render_template(
-        'program.html', month=month, depos=allowed_depos,
-        depo_filter=(requested_depo if requested_depo in allowed_depos else ''),
-        salesmen=salesman_options, salesman_filter=salesman_filter,
-        program_loyalty=loyalty, program_ppg_paa=ppg_paa,
-        loyalty_totals=totals(loyalty), ppg_paa_totals=totals(ppg_paa),
-        loyalty_reward_notes=reward_notes, latest=latest,
+        'pricelist.html', grouped=grouped, category_labels=PRICELIST_CATEGORIES,
+        latest_uploads=latest_uploads,
     )
+
+
+@app.route('/pricelist/upload-image', methods=['POST'])
+@admin_required
+def upload_pricelist_image():
+    payload = request.get_json(silent=True) or {}
+    category = normalize_text(payload.get('category')).lower()
+    filename = secure_filename(normalize_text(payload.get('filename')) or 'pricelist.jpg')
+    rows = payload.get('rows') or []
+    if category not in PRICELIST_CATEGORIES:
+        return jsonify({'ok': False, 'message': 'Kategori pricelist tidak valid.'}), 400
+    if not filename.lower().endswith(('.jpg', '.jpeg')):
+        return jsonify({'ok': False, 'message': 'Format gambar harus JPG/JPEG.'}), 400
+    if not isinstance(rows, list) or not rows:
+        return jsonify({'ok': False, 'message': 'Tidak ada baris pricelist yang berhasil dibaca.'}), 400
+    cleaned = []
+    for index, raw in enumerate(rows):
+        model = normalize_text(raw.get('model'))
+        period = normalize_text(raw.get('period'))
+        srp_promo = to_num(raw.get('srp_promo'), default=-1)
+        stp_promo = to_num(raw.get('stp_promo'), default=-1)
+        if not model or not period or srp_promo < 0 or stp_promo < 0:
+            return jsonify({
+                'ok': False,
+                'message': f'Baris {index + 1} belum lengkap. Pastikan Model, SRP Promo, STP Promo, dan Period terbaca.',
+            }), 400
+        cleaned.append({
+            'model': model, 'period': period,
+            'srp_promo': srp_promo, 'stp_promo': stp_promo,
+            'sort_order': index,
+        })
+    try:
+        PricelistItem.query.filter_by(category=category).delete(synchronize_session=False)
+        now = datetime.utcnow()
+        for row in cleaned:
+            db.session.add(PricelistItem(
+                category=category, updated_at=now, updated_by=session.get('username'), **row,
+            ))
+        db.session.add(PricelistUploadLog(
+            category=category, filename=filename, rows_loaded=len(cleaned),
+            uploaded_by=session.get('username'), uploaded_at=now,
+        ))
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return jsonify({'ok': False, 'message': f'Pricelist gagal disimpan: {exc}'}), 500
+    return jsonify({
+        'ok': True,
+        'message': f'{len(cleaned)} baris {PRICELIST_CATEGORIES[category]} berhasil diperbarui.',
+        'redirect': url_for('pricelist'),
+    })
 
 
 @app.route('/incentive')
@@ -1848,7 +1751,6 @@ def upload():
             article = normalize_text(rr[cmap['article']])
             qty = to_num(rr[cmap['quantity']])
             amount = to_num(rr[cmap['nett_amount']])
-            amount_with_tax = to_num(rr[cmap['net_amount_with_tax']])
             if not salesman_raw or not code or salesman_raw.lower() == 'nan':
                 continue
             # Billing Document + Bill Item No uniquely identify a source line.
@@ -1856,13 +1758,12 @@ def upload():
             # article, quantity and amount were incorrectly discarded as duplicates.
             h = row_hash([
                 billing_document, bill_item_no, dt.date().isoformat(),
-                salesman_raw, code_raw, name, group, article, qty, amount, amount_with_tax,
+                salesman_raw, code_raw, name, group, article, qty, amount,
             ])
             parsed_rows.append({
                 'row_hash': h, 'billing_date': dt.date(), 'salesman': salesman_raw,
                 'sold_to_code': code, 'sold_to_name': name, 'item_group': group,
                 'article': article, 'quantity': qty, 'nett_amount': amount,
-                'net_amount_with_tax': amount_with_tax,
                 'category': classify(group), 'sku_key': sku_from_article(article, group),
             })
 
@@ -1894,7 +1795,7 @@ def upload():
         ))
         db.session.commit()
         flash(
-            f'Billing berhasil: {added} baris No Tax + With Tax disinkronkan untuk '
+            f'Billing berhasil: {added} baris No Tax disinkronkan untuk '
             f'{first_date.strftime("%d %b %Y")}–{last_date.strftime("%d %b %Y")}. '
             f'{replaced} baris lama diganti.',
             'success'
@@ -1917,13 +1818,7 @@ def upload_target():
         flash('Format Target harus Excel (.xlsx/.xls).', 'danger')
         return redirect(url_for('dashboard', month=target_month))
     try:
-        file_bytes = f.read()
-        excel = pd.ExcelFile(io.BytesIO(file_bytes))
-        target_sheet = next(
-            (name for name in excel.sheet_names if normalize_col(name) == 'target master'),
-            excel.sheet_names[0],
-        )
-        df = pd.read_excel(excel, sheet_name=target_sheet)
+        df = pd.read_excel(f, sheet_name=0)
         cmap = map_columns(df.columns, TARGET_ALIASES, 'Target Bulanan')
         collapsed = {}
         for _, rr in df.iterrows():
@@ -1952,89 +1847,12 @@ def upload_target():
         MonthlyTarget.query.filter_by(month=target_month).delete(synchronize_session=False)
         for rec in collapsed.values():
             db.session.add(MonthlyTarget(month=target_month, **rec))
-
-        program_loaded = None
-        program_sheet = next(
-            (name for name in excel.sheet_names if normalize_col(name) == 'program'),
-            None,
-        )
-        if program_sheet:
-            program_df = pd.read_excel(excel, sheet_name=program_sheet)
-            # Ignore completely blank rows and section-title rows.
-            program_df = program_df.dropna(how='all')
-            program_cmap = {}
-            for key, choices in PROGRAM_ALIASES.items():
-                column = find_column(program_df.columns, choices)
-                if column is not None:
-                    program_cmap[key] = column
-            required = ['depo', 'bp', 'dealer', 'salesman', 'category']
-            missing = [key for key in required if key not in program_cmap]
-            if missing:
-                raise ValueError(
-                    'Kolom wajib tidak ditemukan di sheet Program: ' + ', '.join(missing)
-                )
-            target_col = find_column(
-                program_df.columns,
-                ['target program', 'target loyalty', 'target'],
-            )
-            monthly_reward_col = find_column(program_df.columns, ['reward monthly'])
-            loyalty_reward_col = find_column(program_df.columns, ['reward loyalty'])
-            program_records = {}
-            for _, rr in program_df.iterrows():
-                bp = normalize_bp(rr[program_cmap['bp']])
-                dealer_name = normalize_text(rr[program_cmap['dealer']])
-                salesman = canonical_salesman(rr[program_cmap['salesman']])
-                depo = canonical_depo(rr[program_cmap['depo']])
-                category = normalize_text(rr[program_cmap['category']]).upper()
-                program_type = normalize_program_type(
-                    rr[program_cmap['program_type']]
-                    if 'program_type' in program_cmap else 'Loyalty'
-                )
-                if not bp or not dealer_name or not salesman or not category:
-                    continue
-
-                if program_type == 'Loyalty':
-                    cfg = LOYALTY_CATEGORY_CONFIG.get(category)
-                    if not cfg:
-                        raise ValueError(
-                            f'Kategori Loyalty tidak dikenali untuk BP {bp}: {category}'
-                        )
-                    target_value = cfg['target']
-                    reward_monthly = cfg['reward_monthly']
-                    reward_loyalty = cfg['reward_loyalty']
-                else:
-                    target_value = to_num(rr[target_col]) if target_col else 0
-                    reward_monthly = to_num(rr[monthly_reward_col]) if monthly_reward_col else None
-                    reward_loyalty = to_num(rr[loyalty_reward_col]) if loyalty_reward_col else None
-
-                program_records[(program_type, bp)] = {
-                    'month': target_month, 'program_type': program_type,
-                    'depo': depo, 'bp': bp, 'dealer': dealer_name,
-                    'salesman': salesman, 'category': category,
-                    'target': target_value, 'reward_monthly': reward_monthly,
-                    'reward_loyalty': reward_loyalty,
-                }
-
-            ProgramTarget.query.filter_by(month=target_month).delete(synchronize_session=False)
-            for rec in program_records.values():
-                db.session.add(ProgramTarget(**rec))
-            program_loaded = len(program_records)
-
         db.session.add(TargetUploadLog(
             month=target_month, filename=secure_filename(f.filename), uploaded_by=session.get('username'),
             rows_read=len(df), dealers_loaded=len(collapsed)
         ))
         db.session.commit()
-        program_message = (
-            f' Sheet Program: {program_loaded} dealer dimuat.'
-            if program_loaded is not None else
-            ' Sheet Program tidak ditemukan; data Program sebelumnya dipertahankan.'
-        )
-        flash(
-            f'Target {target_month} berhasil: {len(collapsed)} dealer/BP dimuat.'
-            + program_message,
-            'success',
-        )
+        flash(f'Target {target_month} berhasil: {len(collapsed)} dealer/BP dimuat.', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Upload Target gagal: {e}', 'danger')
