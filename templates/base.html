@@ -3,46 +3,306 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <title>{% block title %}Daily Sales Report{% endblock %}</title>
+
   <style>
-    :root{--navy:#0b2545;--navy2:#133c65;--blue:#2563eb;--bg:#f4f7fb;--card:#fff;--text:#172033;--muted:#6b7280;--border:#e5e7eb;--green:#16a34a;--amber:#d97706;--red:#dc2626}
-    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}a{text-decoration:none}
-    .topbar{min-height:72px;background:linear-gradient(135deg,var(--navy),var(--navy2));color:#fff;display:flex;align-items:center;padding:12px 28px;gap:22px;box-shadow:0 3px 12px rgba(0,0,0,.12)}
-    .brand{display:flex;align-items:center;gap:12px;color:#fff;min-width:250px}.brand-logo{width:42px;height:42px;border-radius:12px;background:#fff;color:var(--navy);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px}
-    .brand-title{font-weight:800;font-size:17px}.brand-subtitle{font-size:12px;opacity:.75;margin-top:2px}.navlinks{display:flex;align-items:center;gap:8px;flex:1}.navlinks a{color:rgba(255,255,255,.88);padding:9px 13px;border-radius:9px;font-size:14px;font-weight:600;white-space:nowrap}.navlinks a:hover{background:rgba(255,255,255,.12);color:#fff}
-    .user-area{display:flex;align-items:center;gap:14px}.user-info{text-align:right;font-size:12px;line-height:1.4;color:rgba(255,255,255,.82)}.logout{border:1px solid rgba(255,255,255,.65);color:#fff;padding:8px 13px;border-radius:9px;font-size:13px;font-weight:700}.logout:hover{background:#fff;color:var(--navy)}
-    .page{width:min(1500px,calc(100% - 40px));margin:26px auto 50px}.flash{background:#fff;border:1px solid var(--border);border-left:5px solid var(--blue);padding:13px 16px;margin-bottom:14px;border-radius:10px;box-shadow:0 2px 8px rgba(15,23,42,.04)}.flash.success{border-left-color:var(--green)}.flash.warning{border-left-color:var(--amber)}.flash.danger,.flash.error{border-left-color:var(--red)}
-    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;box-shadow:0 3px 14px rgba(15,23,42,.05)}table{border-collapse:collapse;width:100%}th{text-align:left;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}th,td{padding:11px 12px;border-bottom:1px solid var(--border)}button,input,select{font:inherit}
-    @media(max-width:900px){.topbar{align-items:flex-start;flex-wrap:wrap;padding:14px 18px}.brand{min-width:0}.navlinks{order:3;width:100%;overflow-x:auto}.user-area{margin-left:auto}.page{width:min(100% - 24px,1500px);margin-top:18px}}
+    :root {
+      --navy: #0b2545;
+      --navy2: #133c65;
+      --blue: #2563eb;
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --green: #16a34a;
+      --amber: #d97706;
+      --red: #dc2626;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+                   Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    a {
+      text-decoration: none;
+    }
+
+    .topbar {
+      min-height: 72px;
+      background: linear-gradient(135deg, var(--navy), var(--navy2));
+      color: white;
+      display: flex;
+      align-items: center;
+      padding: 12px 28px;
+      gap: 22px;
+      box-shadow: 0 3px 12px rgba(0,0,0,.12);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: white;
+      min-width: 250px;
+    }
+
+    .brand-logo {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: white;
+      color: var(--navy);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 18px;
+    }
+
+    .brand-title {
+      font-weight: 800;
+      font-size: 17px;
+    }
+
+    .brand-subtitle {
+      font-size: 12px;
+      opacity: .75;
+      margin-top: 2px;
+    }
+
+    .navlinks {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .navlinks a {
+      color: rgba(255,255,255,.88);
+      padding: 9px 13px;
+      border-radius: 9px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .navlinks a:hover {
+      background: rgba(255,255,255,.12);
+      color: white;
+    }
+
+    .user-area {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .user-info {
+      text-align: right;
+      font-size: 12px;
+      line-height: 1.4;
+      color: rgba(255,255,255,.82);
+    }
+
+    .logout {
+      border: 1px solid rgba(255,255,255,.65);
+      color: white;
+      padding: 8px 13px;
+      border-radius: 9px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .logout:hover {
+      background: white;
+      color: var(--navy);
+    }
+
+    .page {
+      width: min(1500px, calc(100% - 40px));
+      margin: 26px auto 50px;
+    }
+
+    .flash {
+      background: white;
+      border: 1px solid var(--border);
+      border-left: 5px solid var(--blue);
+      padding: 13px 16px;
+      margin-bottom: 14px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(15,23,42,.04);
+    }
+
+    .flash.success {
+      border-left-color: var(--green);
+    }
+
+    .flash.warning {
+      border-left-color: var(--amber);
+    }
+
+    .flash.danger,
+    .flash.error {
+      border-left-color: var(--red);
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 3px 14px rgba(15,23,42,.05);
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+
+    th {
+      text-align: left;
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .03em;
+    }
+
+    th,
+    td {
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    @media (max-width: 900px) {
+      .topbar {
+        align-items: flex-start;
+        flex-wrap: wrap;
+        padding: 14px 18px;
+      }
+
+      .brand {
+        min-width: 0;
+      }
+
+      .navlinks {
+        order: 3;
+        width: 100%;
+        overflow-x: auto;
+      }
+
+      .user-area {
+        margin-left: auto;
+      }
+
+      .page {
+        width: min(100% - 24px, 1500px);
+        margin-top: 18px;
+      }
+    }
   </style>
+
   {% block head %}{% endblock %}
 </head>
+
 <body>
+
   <header class="topbar">
+
     <a class="brand" href="{{ url_for('dashboard') }}">
       <div class="brand-logo">R5</div>
-      <div><div class="brand-title">Daily Sales Report</div><div class="brand-subtitle">Cempaka × SerCil</div></div>
+
+      <div>
+        <div class="brand-title">Daily Sales Report</div>
+        <div class="brand-subtitle">Cempaka × SerCil</div>
+      </div>
     </a>
+
     <nav class="navlinks">
-      <a href="{{ url_for('dashboard') }}">Dashboard</a>
-      <a href="{{ url_for('incentive') }}">Incentive</a>
-      <a href="{{ url_for('program') }}">Program</a>
+
+      <a href="{{ url_for('dashboard') }}">
+        Dashboard
+      </a>
+
+      <a href="{{ url_for('program') }}">
+        Program
+      </a>
+
+      <a href="{{ url_for('pricelist') }}">
+        Pricelist
+      </a>
+
+      <a href="{{ url_for('incentive') }}">
+        Incentive
+      </a>
+
       {% if session.get('role') == 'admin' %}
-        <a href="{{ url_for('targets') }}">Target Master</a>
-        <a href="{{ url_for('users') }}">Users</a>
+
+        <a href="{{ url_for('targets') }}">
+          Target Master
+        </a>
+
+        <a href="{{ url_for('users') }}">
+          Users
+        </a>
+
       {% endif %}
+
     </nav>
+
     <div class="user-area">
-      <div class="user-info"><strong>{{ session.get('username','') }}</strong><br>{{ session.get('role','') }}</div>
-      <a class="logout" href="{{ url_for('logout') }}">Logout</a>
+
+      <div class="user-info">
+        <strong>{{ session.get('username', '') }}</strong><br>
+        {{ session.get('role', '') }}
+      </div>
+
+      <a class="logout" href="{{ url_for('logout') }}">
+        Logout
+      </a>
+
     </div>
+
   </header>
+
   <main class="page">
+
     {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}{% for category,message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}{% endif %}
+
+      {% if messages %}
+
+        {% for category, message in messages %}
+
+          <div class="flash {{ category }}">
+            {{ message }}
+          </div>
+
+        {% endfor %}
+
+      {% endif %}
+
     {% endwith %}
-    {% block body %}{% block content %}{% endblock %}{% endblock %}
+
+
+    {% block body %}{% endblock %}
+
   </main>
+
+
   {% block scripts %}{% endblock %}
+
 </body>
 </html>
