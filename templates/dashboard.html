@@ -36,11 +36,10 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 .sku-target{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}.sku-target span{background:#eef2f7;padding:6px 9px;border-radius:7px;font-size:12px;font-weight:700}
 .sku-link{display:inline-flex;align-items:center;justify-content:center;min-width:36px;height:32px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#0b2545;font-weight:900;cursor:pointer}
 .sku-link:hover{background:#eff6ff;border-color:#93c5fd}
-.sales-value-link{appearance:none;border:0;background:transparent;color:inherit;font:inherit;font-weight:800;padding:2px 4px;border-radius:6px;cursor:pointer;white-space:nowrap;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
-.sales-value-link:hover{background:#e0efff;color:#0b4f8a}.mobile-metric-value .sales-value-link{font-size:inherit;max-width:100%}
 .badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:10px;font-weight:900}
 .badge-target{background:#dcfce7;color:#166534}.badge-nontarget{background:#fee2e2;color:#991b1b}
-.qvo-achieved{background:#dcfce7!important;color:#166534!important;font-weight:900;border-radius:7px}
+.dealer-device-link,.dealer-total-link{border:0;background:transparent;color:inherit;font:inherit;font-weight:inherit;cursor:pointer;padding:0;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
+.dealer-device-link:hover,.dealer-total-link:hover{color:#0b5ca8}
 .dealer-salesman-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .dealer-salesman-tab{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:999px;padding:7px 11px;font-size:11px;font-weight:800;cursor:pointer}
 .dealer-salesman-tab:hover{background:#f8fafc}.dealer-salesman-tab.active{background:#0b2545;color:#fff;border-color:#0b2545}
@@ -194,6 +193,8 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     gap:10px;
     align-items:center
   }
+  .dealer-mobile-card button.sales-total{width:100%;border:0;text-decoration:none;cursor:pointer;color:#0f172a;font:inherit}
+  .dealer-mobile-card .dealer-device-link{font-size:12px;font-weight:900}
   .dealer-mobile-card .sales-total strong{font-size:14px}
 
   .sku-mobile-row{
@@ -537,10 +538,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     <div class="mobile-swipe-hint">Geser ke samping <span>→</span></div>
     <div class="mobile-card-list mobile-swipe">
       {% for r in table %}
-      <div class="mobile-kpi-card mobile-salesman-kpi" data-salesman="{{ r.salesman|e }}" data-value-detail
-           data-device-target="{{ r.device_target }}" data-device-ach="{{ r.device }}"
-           data-macbook-target="{{ r.macbook_target }}" data-macbook-ach="{{ r.macbook }}"
-           data-acc-target="{{ r.acc_target }}" data-acc-ach="{{ r.acc }}">
+      <div class="mobile-kpi-card mobile-salesman-kpi" data-salesman="{{ r.salesman|e }}">
         <div class="mobile-card-head">
           <div>
             <div class="mobile-card-title">{{ r.salesman }}</div>
@@ -552,21 +550,21 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
         <div class="mobile-section-label">Device</div>
         <div class="mobile-grid-3">
           <div class="mobile-metric"><div class="mobile-metric-label">Target</div><div class="mobile-metric-value">{{ r.device_target|rupiah_short }}</div></div>
-          <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><div class="mobile-metric-value"><button type="button" class="sales-value-link" data-value-category="Device">{{ r.device|rupiah_short }}</button></div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><div class="mobile-metric-value">{{ r.device|rupiah_short }}</div></div>
           <div class="mobile-metric"><div class="mobile-metric-label">%</div><div class="mobile-metric-value {% if r.device_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.device_pct) }}%</div></div>
         </div>
 
         <div class="mobile-section-label">Macbook</div>
         <div class="mobile-grid-3">
           <div class="mobile-metric"><div class="mobile-metric-label">Target</div><div class="mobile-metric-value">{{ r.macbook_target|rupiah_short }}</div></div>
-          <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><div class="mobile-metric-value"><button type="button" class="sales-value-link" data-value-category="Macbook">{{ r.macbook|rupiah_short }}</button></div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><div class="mobile-metric-value">{{ r.macbook|rupiah_short }}</div></div>
           <div class="mobile-metric"><div class="mobile-metric-label">%</div><div class="mobile-metric-value {% if r.macbook_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.macbook_pct) }}%</div></div>
         </div>
 
         <div class="mobile-section-label">Accessories</div>
         <div class="mobile-grid-3">
           <div class="mobile-metric"><div class="mobile-metric-label">Target</div><div class="mobile-metric-value">{{ r.acc_target|rupiah_short }}</div></div>
-          <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><div class="mobile-metric-value"><button type="button" class="sales-value-link" data-value-category="ACC">{{ r.acc|rupiah_short }}</button></div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><div class="mobile-metric-value">{{ r.acc|rupiah_short }}</div></div>
           <div class="mobile-metric"><div class="mobile-metric-label">%</div><div class="mobile-metric-value {% if r.acc_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.acc_pct) }}%</div></div>
         </div>
 
@@ -574,7 +572,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
           <div class="mobile-section-label">Grand Total Sales</div>
           <div class="mobile-grid-3">
             <div class="mobile-metric"><div class="mobile-metric-label">Target</div><div class="mobile-metric-value">{{ r.target_total|rupiah_short }}</div></div>
-            <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><div class="mobile-metric-value"><button type="button" class="sales-value-link" data-value-category="Total">{{ r.total|rupiah_short }}</button></div></div>
+            <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><div class="mobile-metric-value">{{ r.total|rupiah_short }}</div></div>
             <div class="mobile-metric"><div class="mobile-metric-label">%</div><div class="mobile-metric-value {% if r.sales_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.sales_pct) }}%</div></div>
           </div>
         </div>
@@ -607,52 +605,46 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 
       <tbody>
         {% for r in table %}
-        <tr data-value-detail data-salesman="{{ r.salesman|e }}"
-            data-device-target="{{ r.device_target }}" data-device-ach="{{ r.device }}"
-            data-macbook-target="{{ r.macbook_target }}" data-macbook-ach="{{ r.macbook }}"
-            data-acc-target="{{ r.acc_target }}" data-acc-ach="{{ r.acc }}">
+        <tr>
           <td class="center"><strong>{{ r.rank }}</strong></td>
           <td><strong>{{ r.salesman }}</strong></td>
 
           <td class="number">{{ r.device_target|rupiah_short }}</td>
-          <td class="number"><button type="button" class="sales-value-link" data-value-category="Device">{{ r.device|rupiah_short }}</button></td>
+          <td class="number">{{ r.device|rupiah_short }}</td>
           <td class="center {% if r.device_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.device_pct) }}%</td>
 
           <td class="number">{{ r.macbook_target|rupiah_short }}</td>
-          <td class="number"><button type="button" class="sales-value-link" data-value-category="Macbook">{{ r.macbook|rupiah_short }}</button></td>
+          <td class="number">{{ r.macbook|rupiah_short }}</td>
           <td class="center {% if r.macbook_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.macbook_pct) }}%</td>
 
           <td class="number">{{ r.acc_target|rupiah_short }}</td>
-          <td class="number"><button type="button" class="sales-value-link" data-value-category="ACC">{{ r.acc|rupiah_short }}</button></td>
+          <td class="number">{{ r.acc|rupiah_short }}</td>
           <td class="center {% if r.acc_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.acc_pct) }}%</td>
 
           <td class="number">{{ r.target_total|rupiah_short }}</td>
-          <td class="number"><button type="button" class="sales-value-link" data-value-category="Total">{{ r.total|rupiah_short }}</button></td>
+          <td class="number">{{ r.total|rupiah_short }}</td>
           <td class="center {% if r.sales_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.sales_pct) }}%</td>
         </tr>
         {% endfor %}
 
-        <tr class="grand-total" data-value-detail data-salesman="Grand Total"
-            data-device-target="{{ cards.device_target }}" data-device-ach="{{ cards.device }}"
-            data-macbook-target="{{ cards.macbook_target }}" data-macbook-ach="{{ cards.macbook }}"
-            data-acc-target="{{ cards.acc_target }}" data-acc-ach="{{ cards.acc }}">
+        <tr class="grand-total">
           <td></td>
           <td>GRAND TOTAL</td>
 
           <td class="number">{{ cards.device_target|rupiah_short }}</td>
-          <td class="number"><button type="button" class="sales-value-link" data-value-category="Device">{{ cards.device|rupiah_short }}</button></td>
+          <td class="number">{{ cards.device|rupiah_short }}</td>
           <td class="center {% if cards.device_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(cards.device_pct) }}%</td>
 
           <td class="number">{{ cards.macbook_target|rupiah_short }}</td>
-          <td class="number"><button type="button" class="sales-value-link" data-value-category="Macbook">{{ cards.macbook|rupiah_short }}</button></td>
+          <td class="number">{{ cards.macbook|rupiah_short }}</td>
           <td class="center {% if cards.macbook_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(cards.macbook_pct) }}%</td>
 
           <td class="number">{{ cards.acc_target|rupiah_short }}</td>
-          <td class="number"><button type="button" class="sales-value-link" data-value-category="ACC">{{ cards.acc|rupiah_short }}</button></td>
+          <td class="number">{{ cards.acc|rupiah_short }}</td>
           <td class="center {% if cards.acc_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(cards.acc_pct) }}%</td>
 
           <td class="number">{{ cards.sales_target|rupiah_short }}</td>
-          <td class="number"><button type="button" class="sales-value-link" data-value-category="Total">{{ cards.sales|rupiah_short }}</button></td>
+          <td class="number">{{ cards.sales|rupiah_short }}</td>
           <td class="center {% if cards.sales_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(cards.sales_pct) }}%</td>
         </tr>
       </tbody>
@@ -936,21 +928,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 
           <div>
             {% if d.is_target %}
-            <button
-              type="button"
-              class="badge badge-target dealer-target-link"
-              style="border:0;cursor:pointer"
-              data-bp="{{ d.bp|e }}"
-              data-dealer="{{ d.dealer|e }}"
-              data-salesman="{{ d.salesman|e }}"
-              data-depo="{{ d.depo|e }}"
-              data-device-target="{{ d.device_target }}"
-              data-device-ach="{{ d.device }}"
-              data-macbook-target="{{ d.macbook_target }}"
-              data-macbook-ach="{{ d.macbook }}"
-              data-acc-target="{{ d.acc_target }}"
-              data-acc-ach="{{ d.acc }}"
-            >Target</button>
+            <span class="badge badge-target">Target</span>
             {% else %}
             <span class="badge badge-nontarget">Non Target</span>
             {% endif %}
@@ -959,15 +937,19 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 
         <div class="mobile-section-label">Achievement</div>
         <div class="mobile-grid-3">
-          <div class="mobile-metric"><div class="mobile-metric-label">Device</div><div class="mobile-metric-value">{{ d.device|rupiah_short }}</div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">Device</div><button type="button" class="mobile-metric-value dealer-device-link" data-bp="{{ d.bp|e }}" data-dealer="{{ d.dealer|e }}" data-items='{{ d.device_items|tojson }}'>{{ d.device|rupiah_short }}</button></div>
           <div class="mobile-metric"><div class="mobile-metric-label">Macbook</div><div class="mobile-metric-value">{{ d.macbook|rupiah_short }}</div></div>
           <div class="mobile-metric"><div class="mobile-metric-label">ACC</div><div class="mobile-metric-value">{{ d.acc|rupiah_short }}</div></div>
         </div>
 
-        <div class="sales-total">
+        <button type="button" class="sales-total dealer-total-link"
+          data-bp="{{ d.bp|e }}" data-dealer="{{ d.dealer|e }}" data-salesman="{{ d.salesman|e }}" data-depo="{{ d.depo|e }}"
+          data-device-target="{{ d.device_target }}" data-device-ach="{{ d.device }}"
+          data-macbook-target="{{ d.macbook_target }}" data-macbook-ach="{{ d.macbook }}"
+          data-acc-target="{{ d.acc_target }}" data-acc-ach="{{ d.acc }}">
           <span>Total Sales</span>
           <strong>{{ d.total|rupiah_short }}</strong>
-        </div>
+        </button>
 
         <div class="mobile-grid-3" style="margin-top:8px">
           <div class="mobile-metric">
@@ -979,7 +961,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
             </button>
           </div>
           <div class="mobile-metric"><div class="mobile-metric-label">BO</div><div class="mobile-metric-value">{% if d.bo %}1{% else %}0{% endif %}</div></div>
-          <div class="mobile-metric {% if d.qvo %}qvo-achieved{% endif %}"><div class="mobile-metric-label">QVO</div><div class="mobile-metric-value">{% if d.qvo %}1{% else %}0{% endif %}</div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">QVO</div><div class="mobile-metric-value">{% if d.qvo %}1{% else %}0{% endif %}</div></div>
         </div>
       </div>
       {% endfor %}
@@ -1017,30 +999,20 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 
           <td class="center">
             {% if d.is_target %}
-            <button
-              type="button"
-              class="badge badge-target dealer-target-link"
-              style="border:0;cursor:pointer"
-              data-bp="{{ d.bp|e }}"
-              data-dealer="{{ d.dealer|e }}"
-              data-salesman="{{ d.salesman|e }}"
-              data-depo="{{ d.depo|e }}"
-              data-device-target="{{ d.device_target }}"
-              data-device-ach="{{ d.device }}"
-              data-macbook-target="{{ d.macbook_target }}"
-              data-macbook-ach="{{ d.macbook }}"
-              data-acc-target="{{ d.acc_target }}"
-              data-acc-ach="{{ d.acc }}"
-            >Target</button>
+            <span class="badge badge-target">Target</span>
             {% else %}
             <span class="badge badge-nontarget">Non Target</span>
             {% endif %}
           </td>
 
-          <td class="number">{{ d.device|rupiah_short }}</td>
+          <td class="number"><button type="button" class="dealer-device-link" data-bp="{{ d.bp|e }}" data-dealer="{{ d.dealer|e }}" data-items='{{ d.device_items|tojson }}'>{{ d.device|rupiah_short }}</button></td>
           <td class="number">{{ d.macbook|rupiah_short }}</td>
           <td class="number">{{ d.acc|rupiah_short }}</td>
-          <td class="number"><strong>{{ d.total|rupiah_short }}</strong></td>
+          <td class="number"><button type="button" class="dealer-total-link"
+            data-bp="{{ d.bp|e }}" data-dealer="{{ d.dealer|e }}" data-salesman="{{ d.salesman|e }}" data-depo="{{ d.depo|e }}"
+            data-device-target="{{ d.device_target }}" data-device-ach="{{ d.device }}"
+            data-macbook-target="{{ d.macbook_target }}" data-macbook-ach="{{ d.macbook }}"
+            data-acc-target="{{ d.acc_target }}" data-acc-ach="{{ d.acc }}"><strong>{{ d.total|rupiah_short }}</strong></button></td>
           <td class="center">
             <button type="button"
                     class="sku-link dealer-sku-popup-btn"
@@ -1049,7 +1021,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
             </button>
           </td>
           <td class="center">{% if d.bo %}1{% else %}0{% endif %}</td>
-          <td class="center {% if d.qvo %}qvo-achieved{% endif %}">{% if d.qvo %}1{% else %}0{% endif %}</td>
+          <td class="center">{% if d.qvo %}1{% else %}0{% endif %}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -1065,7 +1037,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   <div class="modal-card-custom" style="width:min(820px,100%)">
     <div class="modal-head-custom">
       <div>
-        <h3 id="dealerTargetTitle">Dealer Target Detail</h3>
+        <h3 id="dealerTargetTitle">Dealer Sales Detail</h3>
         <p id="dealerTargetSubtitle"></p>
       </div>
       <button type="button" class="modal-close-custom" id="dealerTargetClose">×</button>
@@ -1086,6 +1058,18 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
         </table>
       </div>
     </div>
+  </div>
+</div>
+
+<div id="dealerDeviceModal" class="modal-backdrop-custom" aria-hidden="true">
+  <div class="modal-card-custom" style="width:min(860px,100%)">
+    <div class="modal-head-custom">
+      <div><h3>Device Purchase Detail</h3><p id="dealerDeviceSubtitle"></p></div>
+      <button type="button" class="modal-close-custom" id="dealerDeviceClose">×</button>
+    </div>
+    <div class="modal-body-custom"><div class="table-wrap">
+      <table style="min-width:650px"><thead><tr><th>Type</th><th class="center">Qty</th><th class="number">Value</th></tr></thead><tbody id="dealerDeviceBody"></tbody></table>
+    </div></div>
   </div>
 </div>
 
@@ -1137,6 +1121,10 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   const dealerSubtitle=document.getElementById('dealerTargetSubtitle');
   const dealerBody=document.getElementById('dealerTargetBody');
   const dealerCloseBtn=document.getElementById('dealerTargetClose');
+  const deviceModal=document.getElementById('dealerDeviceModal');
+  const deviceSubtitle=document.getElementById('dealerDeviceSubtitle');
+  const deviceBody=document.getElementById('dealerDeviceBody');
+  const deviceCloseBtn=document.getElementById('dealerDeviceClose');
 
   function rupiahShortJs(value){
     let n=Number(value||0);
@@ -1164,7 +1152,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     return (ach/target*100).toFixed(1)+'%';
   }
 
-  function openDealerTargetModal(btn){
+  function openDealerSalesModal(btn){
     const deviceTarget=Number(btn.dataset.deviceTarget||0);
     const deviceAch=Number(btn.dataset.deviceAch||0);
     const macTarget=Number(btn.dataset.macbookTarget||0);
@@ -1175,7 +1163,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     const totalTarget=deviceTarget+macTarget+accTarget;
     const totalAch=deviceAch+macAch+accAch;
 
-    dealerTitle.textContent='Dealer Target Detail';
+    dealerTitle.textContent='Dealer Sales Detail';
     dealerSubtitle.textContent=
       btn.dataset.bp+' · '+btn.dataset.dealer+' · '+btn.dataset.salesman+' · '+btn.dataset.depo;
 
@@ -1200,64 +1188,40 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     dealerModal.setAttribute('aria-hidden','false');
   }
 
-  function closeDealerTargetModal(){
+  function closeDealerSalesModal(){
     dealerModal.style.display='none';
     dealerModal.setAttribute('aria-hidden','true');
   }
 
-  document.querySelectorAll('.dealer-target-link').forEach(function(btn){
+  document.querySelectorAll('.dealer-total-link').forEach(function(btn){
     btn.addEventListener('click',function(){
-      openDealerTargetModal(btn);
+      openDealerSalesModal(btn);
     });
   });
 
-  function openSalesValueModal(btn){
-    const source=btn.closest('[data-value-detail]');
-    if(!source) return;
-    const deviceTarget=Number(source.dataset.deviceTarget||0);
-    const deviceAch=Number(source.dataset.deviceAch||0);
-    const macTarget=Number(source.dataset.macbookTarget||0);
-    const macAch=Number(source.dataset.macbookAch||0);
-    const accTarget=Number(source.dataset.accTarget||0);
-    const accAch=Number(source.dataset.accAch||0);
-    const totalTarget=deviceTarget+macTarget+accTarget;
-    const totalAch=deviceAch+macAch+accAch;
-
-    const selectedCategory=btn.dataset.valueCategory||'Total';
-    dealerTitle.textContent=selectedCategory==='Total'
-      ? 'Sales Performance Detail'
-      : selectedCategory+' Achievement Detail';
-    dealerSubtitle.textContent=(source.dataset.salesman||'Grand Total')+' · angka exact tanpa pembulatan';
-    const allRows=[
-      ['Device',deviceTarget,deviceAch],
-      ['Macbook',macTarget,macAch],
-      ['ACC',accTarget,accAch],
-      ['GRAND TOTAL',totalTarget,totalAch]
-    ];
-    const rows=selectedCategory==='Total'
-      ? allRows
-      : allRows.filter(function(row){return row[0]===selectedCategory;});
-    dealerBody.innerHTML=rows.map(function(row){
-      const isTotal=row[0]==='GRAND TOTAL';
-      return '<tr class="'+(isTotal?'grand-total':'')+'">'+
-        '<td><strong>'+row[0]+'</strong></td>'+
-        '<td class="number">'+rupiahExactJs(row[1])+'</td>'+
-        '<td class="number">'+rupiahExactJs(row[2])+'</td>'+
-        '<td class="center">'+pctJs(row[2],row[1])+'</td>'+
-      '</tr>';
-    }).join('');
-    dealerModal.style.display='block';
-    dealerModal.setAttribute('aria-hidden','false');
-  }
-
-  document.querySelectorAll('.sales-value-link').forEach(function(btn){
-    btn.addEventListener('click',function(){openSalesValueModal(btn);});
-  });
-
-  dealerCloseBtn.addEventListener('click',closeDealerTargetModal);
+  dealerCloseBtn.addEventListener('click',closeDealerSalesModal);
   dealerModal.addEventListener('click',function(e){
-    if(e.target===dealerModal) closeDealerTargetModal();
+    if(e.target===dealerModal) closeDealerSalesModal();
   });
+
+  function openDeviceModal(btn){
+    let items=[];
+    try{items=JSON.parse(btn.dataset.items||'[]');}catch(e){items=[];}
+    deviceSubtitle.textContent=btn.dataset.bp+' · '+btn.dataset.dealer;
+    let totalQty=0,totalValue=0;
+    const rows=items.map(function(item){
+      const qty=Number(item.qty||0),value=Number(item.value||0);
+      totalQty+=qty;totalValue+=value;
+      return '<tr><td><strong>'+String(item.type||'—').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c];})+'</strong></td><td class="center">'+qty.toLocaleString('id-ID')+'</td><td class="number">'+rupiahExactJs(value)+'</td></tr>';
+    }).join('');
+    deviceBody.innerHTML=(rows||'<tr><td colspan="3" class="empty">Belum ada detail pembelian Device.</td></tr>')+
+      (items.length?'<tr class="grand-total"><td>TOTAL</td><td class="center">'+totalQty.toLocaleString('id-ID')+'</td><td class="number">'+rupiahExactJs(totalValue)+'</td></tr>':'');
+    deviceModal.style.display='block';deviceModal.setAttribute('aria-hidden','false');
+  }
+  function closeDeviceModal(){deviceModal.style.display='none';deviceModal.setAttribute('aria-hidden','true');}
+  document.querySelectorAll('.dealer-device-link').forEach(function(btn){btn.addEventListener('click',function(){openDeviceModal(btn);});});
+  deviceCloseBtn.addEventListener('click',closeDeviceModal);
+  deviceModal.addEventListener('click',function(e){if(e.target===deviceModal) closeDeviceModal();});
 
   const multiDepo=document.getElementById('multiDepo');
   const multiDepoButton=document.getElementById('multiDepoButton');
@@ -1525,12 +1489,12 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   }
   function dealerTableHtml(tableRows,title){
     const heading=title?'<h3 class="jpg-depo-title">DEPO '+esc(title)+'</h3>':'';
-    const header='<table class="jpg-table"><thead><tr><th rowspan="2">BP</th><th rowspan="2">Dealer</th><th colspan="3" class="group-head">Target</th><th colspan="3" class="group-head">Achievement</th><th colspan="3" class="group-head">Grand Total</th></tr><tr><th class="sub-head">Device</th><th class="sub-head">MacBook</th><th class="sub-head">ACC</th><th class="sub-head">Device</th><th class="sub-head">MacBook</th><th class="sub-head">ACC</th><th class="sub-head">Target</th><th class="sub-head">Achievement</th><th class="sub-head">%</th></tr></thead><tbody>';
+    const header='<table class="jpg-table"><thead><tr><th rowspan="2">BP</th><th rowspan="2">Dealer</th><th colspan="3" class="group-head">Achievement</th><th colspan="3" class="group-head">Grand Total</th><th rowspan="2" class="center">BO</th><th rowspan="2" class="center">QVO</th></tr><tr><th class="sub-head">Device</th><th class="sub-head">MacBook</th><th class="sub-head">ACC</th><th class="sub-head">Target</th><th class="sub-head">Achievement</th><th class="sub-head">%</th></tr></thead><tbody>';
     const body=tableRows.map(function(d){
       const target=dealerTargetTotal(d);
       const actual=dealerActualTotal(d);
       const percentage=pct(actual,target);
-      return '<tr><td>'+esc(d.bp)+'</td><td class="dealer-cell">'+esc(d.dealer)+'</td><td class="number">'+money(d.device_target)+'</td><td class="number">'+money(d.macbook_target)+'</td><td class="number">'+money(d.acc_target)+'</td><td class="number">'+money(d.device)+'</td><td class="number">'+money(d.macbook)+'</td><td class="number">'+money(d.acc)+'</td><td class="number total-cell">'+money(target)+'</td><td class="number total-cell">'+money(actual)+'</td><td class="pct-cell '+pctClass(percentage)+'">'+pctText(percentage)+'</td></tr>';
+      return '<tr><td>'+esc(d.bp)+'</td><td class="dealer-cell">'+esc(d.dealer)+'</td><td class="number">'+money(d.device)+'</td><td class="number">'+money(d.macbook)+'</td><td class="number">'+money(d.acc)+'</td><td class="number total-cell">'+money(target)+'</td><td class="number total-cell">'+money(actual)+'</td><td class="pct-cell '+pctClass(percentage)+'">'+pctText(percentage)+'</td><td class="center total-cell">'+(d.bo?1:0)+'</td><td class="center total-cell '+(d.qvo?'qvo-ok':'')+'">'+(d.qvo?1:0)+'</td></tr>';
     }).join('');
     return heading+header+body+'</tbody></table>';
   }
@@ -1564,7 +1528,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     const stage=document.createElement('div');
     stage.style.cssText='position:fixed;left:-10000px;top:0;width:2400px;background:#f4f7fb;color:#14213a;font-family:Arial,sans-serif;z-index:-1';
     stage.innerHTML='<style>'+
-      '.jpg-sheet{width:2400px;background:#f4f7fb}.jpg-head{position:relative;background:#0b315b;color:#fff;padding:34px 38px 30px}.jpg-kicker{font-size:13px;font-weight:800;letter-spacing:1.8px;opacity:.75}.jpg-head h1{font-size:36px;line-height:1.15;margin:9px 0 5px}.jpg-period{font-size:15px;opacity:.82}.jpg-logo{position:absolute;right:38px;top:34px;width:55px;height:55px;border-radius:14px;background:#fff;color:#0b315b;display:flex;align-items:center;justify-content:center;font-size:27px}.jpg-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:18px;background:#eaf2fb}.jpg-metric{background:#fff;border:1px solid #d9e2ed;border-radius:13px;padding:15px 17px}.jpg-metric span{display:block;font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:#64748b;font-weight:800;margin-bottom:6px}.jpg-metric strong{font-size:22px}.jpg-table-wrap{padding:18px}.jpg-depo-title{margin:5px 0 10px;padding:10px 14px;border-left:6px solid #0b315b;background:#dfeaf6;color:#0b315b;font-size:18px}.jpg-table+.jpg-depo-title{margin-top:22px}.jpg-table{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border:1px solid #dbe4ee;border-radius:14px;overflow:hidden}.jpg-table th{background:#edf3fa;color:#334155;font-size:14px;text-transform:uppercase;letter-spacing:.5px;padding:15px 16px;text-align:left;border-bottom:1px solid #dbe4ee;white-space:nowrap}.jpg-table td{font-size:17px;padding:15px 16px;border-bottom:1px solid #e6ebf1;vertical-align:middle}.jpg-table tr:last-child td{border-bottom:0}.jpg-table .dealer-cell{font-weight:800;width:24%}.jpg-table .group-head{text-align:center;background:#dfeaf6;color:#0b315b;font-size:15px;font-weight:900}.jpg-table .sub-head{text-align:right;background:#f5f8fc;font-size:12px}.jpg-table .pct-cell{text-align:right;white-space:nowrap;font-weight:900}.jpg-table .number{text-align:right;white-space:nowrap}.jpg-table .total-cell{font-weight:900}.ok{color:#167044}.mid{color:#9a6700}.low{color:#b42318}.jpg-foot{display:flex;justify-content:space-between;background:#eaf2fb;color:#64748b;padding:14px 28px;font-size:11px}'+
+      '.jpg-sheet{width:2400px;background:#f4f7fb}.jpg-head{position:relative;background:#0b315b;color:#fff;padding:34px 38px 30px}.jpg-kicker{font-size:13px;font-weight:800;letter-spacing:1.8px;opacity:.75}.jpg-head h1{font-size:36px;line-height:1.15;margin:9px 0 5px}.jpg-period{font-size:15px;opacity:.82}.jpg-logo{position:absolute;right:38px;top:34px;width:55px;height:55px;border-radius:14px;background:#fff;color:#0b315b;display:flex;align-items:center;justify-content:center;font-size:27px}.jpg-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:18px;background:#eaf2fb}.jpg-metric{background:#fff;border:1px solid #d9e2ed;border-radius:13px;padding:15px 17px}.jpg-metric span{display:block;font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:#64748b;font-weight:800;margin-bottom:6px}.jpg-metric strong{font-size:22px}.jpg-table-wrap{padding:18px}.jpg-depo-title{margin:5px 0 10px;padding:10px 14px;border-left:6px solid #0b315b;background:#dfeaf6;color:#0b315b;font-size:18px}.jpg-table+.jpg-depo-title{margin-top:22px}.jpg-table{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border:1px solid #dbe4ee;border-radius:14px;overflow:hidden}.jpg-table th{background:#edf3fa;color:#334155;font-size:14px;text-transform:uppercase;letter-spacing:.5px;padding:15px 16px;text-align:left;border-bottom:1px solid #dbe4ee;white-space:nowrap}.jpg-table td{font-size:17px;padding:15px 16px;border-bottom:1px solid #e6ebf1;vertical-align:middle}.jpg-table tr:last-child td{border-bottom:0}.jpg-table .dealer-cell{font-weight:800;width:28%}.jpg-table .group-head{text-align:center;background:#dfeaf6;color:#0b315b;font-size:15px;font-weight:900}.jpg-table .sub-head{text-align:right;background:#f5f8fc;font-size:12px}.jpg-table .pct-cell{text-align:right;white-space:nowrap;font-weight:900}.jpg-table .number{text-align:right;white-space:nowrap}.jpg-table .center{text-align:center}.jpg-table .total-cell{font-weight:900}.jpg-table .qvo-ok{background:#dcfce7;color:#166534}.ok{color:#167044}.mid{color:#9a6700}.low{color:#b42318}.jpg-foot{display:flex;justify-content:space-between;background:#eaf2fb;color:#64748b;padding:14px 28px;font-size:11px}'+
       '</style><article class="jpg-sheet"><header class="jpg-head"><div class="jpg-kicker">DEALER ACHIEVEMENT DETAIL</div><h1>'+esc(salesman)+'</h1><div class="jpg-period">Billing through '+esc(reportDate)+'</div><div class="jpg-logo">▦</div></header>'+
       '<section class="jpg-summary"><div class="jpg-metric"><span>Total Target</span><strong>'+money(totals.target)+'</strong></div><div class="jpg-metric"><span>Total Achievement</span><strong>'+money(totals.actual)+'</strong></div><div class="jpg-metric"><span>Achievement %</span><strong class="'+pctClass(totalPct)+'">'+pctText(totalPct)+'</strong></div></section>'+
       '<section class="jpg-table-wrap">'+allDealerTablesHtml(rows,salesman)+'</section><footer class="jpg-foot"><span>Daily Sales Report Apple</span><span>Target &amp; Achievement per Dealer</span></footer></article>';
