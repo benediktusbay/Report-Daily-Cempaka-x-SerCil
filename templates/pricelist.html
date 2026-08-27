@@ -5,7 +5,7 @@
 {% block head %}
 <style>
 .pricelist-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}.pricelist-head h1{margin:0;font-size:28px}
-.price-admin{padding:15px;margin-bottom:16px}.price-admin summary{cursor:pointer;color:#0b3765;font-weight:800}.price-upload{display:grid;grid-template-columns:180px minmax(240px,1fr) auto;gap:10px;align-items:end;margin-top:14px}
+.price-admin{padding:15px;margin-bottom:16px}.price-admin summary{cursor:pointer;color:#0b3765;font-weight:800}.price-upload{display:grid;grid-template-columns:minmax(240px,1fr) auto;gap:10px;align-items:end;margin-top:14px}
 .price-field label{display:block;margin-bottom:6px;color:#64748b;font-size:11px;font-weight:800;text-transform:uppercase}.price-field select,.price-field input{width:100%;min-height:41px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;padding:8px 10px}
 .price-btn{min-height:41px;border:0;border-radius:9px;background:#0b3765;color:#fff;padding:9px 15px;font-weight:800;cursor:pointer}.price-btn.copy{background:#16884b}.price-btn:disabled{opacity:.6;cursor:wait}
 .price-progress{display:none;margin-top:12px;padding:10px 12px;border-radius:9px;background:#eef5fc;color:#0b3765;font-size:13px}.price-progress.error{background:#fff1f2;color:#b42318}.price-progress.success{background:#ecfdf3;color:#167044}
@@ -23,9 +23,8 @@
 <details class="card price-admin">
   <summary>Perbarui pricelist dari JPG</summary>
   <div class="price-upload">
-    <div class="price-field"><label>Kategori</label><select id="priceUploadCategory">{% for key,label in category_labels.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></div>
-    <div class="price-field"><label>Gambar pricelist</label><input id="priceUploadFile" type="file" accept="image/jpeg,.jpg,.jpeg"></div>
-    <button type="button" class="price-btn" id="priceUploadButton">Baca &amp; Simpan JPG</button>
+    <div class="price-field"><label>Gambar pricelist—maksimal 4 JPG</label><input id="priceUploadFile" type="file" accept="image/jpeg,.jpg,.jpeg" multiple></div>
+    <button type="button" class="price-btn" id="priceUploadButton">Baca &amp; Simpan Semua JPG</button>
   </div>
   <div class="price-progress" id="priceUploadProgress" role="status"></div>
 </details>
@@ -88,10 +87,17 @@
   const uploadButton=document.getElementById('priceUploadButton');
   if(!uploadButton)return;
   const uploadFile=document.getElementById('priceUploadFile');
-  const uploadCategory=document.getElementById('priceUploadCategory');
   const progress=document.getElementById('priceUploadProgress');
   function showProgress(message,type){progress.style.display='block';progress.className='price-progress'+(type?' '+type:'');progress.textContent=message;}
   function numeric(value){const digits=String(value||'').replace(/[^0-9]/g,'');return digits?Number(digits):null;}
+  function detectCategory(text){
+    const value=String(text||'').toLowerCase();
+    if(/mac\s*\/\s*macbook|macbook|\bmb[apn]\b/.test(value))return 'mac';
+    if(/\bipad\b/.test(value))return 'ipad';
+    if(/\biphone\b/.test(value))return 'iphone';
+    if(/airpods|apple\s*pencil|power\s*adapter|watch\s*(?:se|s\d|series)|accessor/.test(value))return 'acc';
+    return '';
+  }
   function parsePriceImage(text){
     const rows=[];
     const pricePattern=/\d{1,3}(?:[.,]\d{3}){2}/g;
@@ -110,20 +116,37 @@
     return rows;
   }
   uploadButton.addEventListener('click',async function(){
-    const file=uploadFile.files&&uploadFile.files[0];
-    if(!file){showProgress('Pilih gambar JPG terlebih dahulu.','error');return;}
-    if(!/image\/jpeg/.test(file.type)&&!/\.jpe?g$/i.test(file.name)){showProgress('Format gambar harus JPG/JPEG.','error');return;}
+    const files=Array.from(uploadFile.files||[]);
+    if(!files.length){showProgress('Pilih satu sampai empat gambar JPG terlebih dahulu.','error');return;}
+    if(files.length>4){showProgress('Maksimal empat gambar JPG dalam sekali upload.','error');return;}
+    if(files.some(file=>!/image\/jpeg/.test(file.type)&&!/\.jpe?g$/i.test(file.name))){showProgress('Semua gambar harus berformat JPG/JPEG.','error');return;}
     if(!window.Tesseract){showProgress('Pembaca JPG belum termuat. Muat ulang halaman lalu coba lagi.','error');return;}
-    uploadButton.disabled=true;showProgress('Membaca tabel harga dari JPG...');
+    uploadButton.disabled=true;
     try{
-      const result=await Tesseract.recognize(file,'eng',{logger:m=>{if(m.status==='recognizing text')showProgress('Membaca JPG '+Math.round((m.progress||0)*100)+'%...');}});
-      const rows=parsePriceImage(result.data.text);
-      if(!rows.length)throw new Error('Tidak ada baris lengkap yang terbaca. Pastikan gambar memakai format tabel pricelist yang sama dan tidak buram.');
-      showProgress(rows.length+' baris terbaca. Menyimpan pricelist...');
-      const response=await fetch('{{ url_for("upload_pricelist_image") }}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({category:uploadCategory.value,filename:file.name,rows:rows})});
-      const resultJson=await response.json();
-      if(!response.ok||!resultJson.ok)throw new Error(resultJson.message||'Pricelist gagal disimpan.');
-      showProgress(resultJson.message,'success');setTimeout(()=>window.location.href=resultJson.redirect,700);
+      const processed=[];
+      const categories=new Set();
+      for(let index=0;index<files.length;index++){
+        const file=files[index];
+        showProgress('Membaca '+file.name+' ('+(index+1)+'/'+files.length+')...');
+        const result=await Tesseract.recognize(file,'eng',{logger:m=>{if(m.status==='recognizing text')showProgress('Membaca '+file.name+' · '+Math.round((m.progress||0)*100)+'%');}});
+        const category=detectCategory(result.data.text);
+        if(!category)throw new Error('Kategori '+file.name+' tidak dikenali. Pastikan judul atau nama produknya terlihat jelas.');
+        if(categories.has(category))throw new Error('Ada dua gambar yang terbaca sebagai kategori '+category+'. Gunakan satu gambar per kategori.');
+        const rows=parsePriceImage(result.data.text);
+        if(!rows.length)throw new Error('Baris harga pada '+file.name+' belum berhasil dibaca. Pastikan gambar tidak buram.');
+        categories.add(category);processed.push({file:file,category:category,rows:rows});
+      }
+      let totalRows=0;
+      for(let index=0;index<processed.length;index++){
+        const item=processed[index];
+        showProgress('Menyimpan '+item.file.name+' ('+(index+1)+'/'+processed.length+')...');
+        const response=await fetch('{{ url_for("upload_pricelist_image") }}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({category:item.category,filename:item.file.name,rows:item.rows})});
+        const resultJson=await response.json();
+        if(!response.ok||!resultJson.ok)throw new Error(resultJson.message||('Pricelist '+item.file.name+' gagal disimpan.'));
+        totalRows+=item.rows.length;
+      }
+      showProgress(processed.length+' gambar dan '+totalRows+' baris pricelist berhasil diperbarui.','success');
+      setTimeout(()=>window.location.reload(),900);
     }catch(error){showProgress(error.message||'JPG gagal dibaca.','error');}
     finally{uploadButton.disabled=false;}
   });
