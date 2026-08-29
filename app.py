@@ -1323,6 +1323,33 @@ def dashboard():
     if salesman_filter and salesman_filter not in salesmen:
         salesman_filter = ''
 
+    # BO belongs to the salesman, not to a depo mapping. Calculate it from all
+    # billing rows in the selected month before applying any depo filter, so a
+    # BP remains part of the salesman's BO whether it is mapped or UNMAPPED.
+    # The (salesman, BP) key also prevents the same BP from being counted twice.
+    bo_billing = []
+    bo_amounts_by_owner_bp = {}
+    for r in billing_rows:
+        owner, _, _, _ = resolve_billing_owner(r, target_by_bp)
+        if not owner or (salesman_filter and owner != salesman_filter):
+            continue
+        bp = normalize_bp(r.sold_to_code)
+        if not bp:
+            continue
+        bo_billing.append((r, owner))
+        amounts = bo_amounts_by_owner_bp.setdefault(
+            (owner, bp), {'device': 0.0, 'macbook': 0.0}
+        )
+        if r.category == 'Device':
+            amounts['device'] += float(r.nett_amount or 0)
+        elif r.category == 'Macbook':
+            amounts['macbook'] += float(r.nett_amount or 0)
+
+    bo_actual_by_salesman = {}
+    for (owner, _), amounts in bo_amounts_by_owner_bp.items():
+        if is_bo_amounts(amounts['device'], amounts['macbook']):
+            bo_actual_by_salesman[owner] = bo_actual_by_salesman.get(owner, 0) + 1
+
     # Target rows in the active scope.
     scoped_targets = [
         t for t in monthly_targets
@@ -1430,6 +1457,17 @@ def dashboard():
             'is_target': d['is_target']
         })
 
+    # Replace the depo-scoped BO subtotal with the salesman-owned BO total.
+    # Revenue, QVO, SKU, and dealer detail intentionally remain depo-scoped.
+    for salesman, actual_bo in bo_actual_by_salesman.items():
+        if salesman not in salesmen:
+            continue
+        s = salesman_actual.setdefault(salesman, {
+            'device':0.0,'macbook':0.0,'acc':0.0,'bo':0,'qvo':0,
+            'sku_bins':{'1':0,'2-3':0,'4-6':0,'7-10':0,'>10':0}
+        })
+        s['bo'] = actual_bo
+
     all_people_found = set(salesman_target) | set(salesman_actual)
     all_people = [s for s in LOCKED_SALESMEN if s in all_people_found]
     table = []
@@ -1439,7 +1477,7 @@ def dashboard():
         total = a['device'] + a['macbook'] + a['acc']
         target_total = t['device'] + t['macbook'] + t['acc']
         bo_target = t['bo'] or 25
-        current_week = min(4, max(1, ((max([r.billing_date.day for r,owner,depo in scoped_billing if owner == salesman], default=1)-1)//7)+1))
+        current_week = min(4, max(1, ((max([r.billing_date.day for r,owner in bo_billing if owner == salesman], default=1)-1)//7)+1))
         current_speed_target = weekly_targets(bo_target)[current_week]
         device_pct = a['device']/t['device']*100 if t['device'] else 0
         mac_pct = a['macbook']/t['macbook']*100 if t['macbook'] else 0
@@ -1477,7 +1515,9 @@ def dashboard():
     for x in table:
         wk_targets = weekly_targets(x['bo_target'])
         weekly = {}
-        person_rows = [(r,owner,depo) for r,owner,depo in scoped_billing if owner == x['salesman']]
+        # Speed Distribution follows the same salesman-owned BO rule and must
+        # therefore include both mapped and UNMAPPED BP rows.
+        person_rows = [(r, owner) for r, owner in bo_billing if owner == x['salesman']]
         for w in range(1,5):
             is_active = bool(latest_in_scope and latest_in_scope.day >= WEEK_START_DAY[w])
             if not is_active:
@@ -1486,7 +1526,7 @@ def dashboard():
             cutoff_day = min(WEEK_END_DAY[w], end.day, latest_in_scope.day)
             cutoff = start.replace(day=cutoff_day)
             bo_by_bp = {}
-            for r,owner,depo in person_rows:
+            for r,owner in person_rows:
                 if r.billing_date > cutoff:
                     continue
                 bp = normalize_bp(r.sold_to_code)
