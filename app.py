@@ -8,6 +8,7 @@ import json
 import secrets
 import urllib.error
 import urllib.request
+from sqlalchemy import inspect, text
 from datetime import datetime, timedelta
 import datetime as dt
 from functools import wraps
@@ -74,6 +75,28 @@ LOCKED_SALESMEN = [
     'Rafhyski Alhasan',
     'Ikmah Novtianingrum',
 ]
+
+LOYALTY_TARGETS = {
+    'CROWN': 5_000_000_000,
+    'DIAMOND': 2_000_000_000,
+    'GOLD': 500_000_000,
+    'SILVER': 350_000_000,
+    'BRONZE': 50_000_000,
+}
+
+# Program Loyalty master supplied by the business team for Cempaka.
+# Dealer/depo/salesman labels are resolved from Monthly Target by BP so an
+# updated target master remains the single source for ownership metadata.
+LOYALTY_CEMPAKA_BP = {
+    '10028000': 'CROWN', '10072814': 'DIAMOND', '10028005': 'CROWN',
+    '10002175': 'CROWN', '10002353': 'GOLD', '10005878': 'GOLD',
+    '10082147': 'SILVER', '10045600': 'BRONZE', '10003006': 'BRONZE',
+    '10066523': 'GOLD', '10044035': 'BRONZE', '10056785': 'BRONZE',
+    '10080178': 'SILVER', '10006541': 'BRONZE', '10004520': 'BRONZE',
+    '10073725': 'BRONZE', '10054986': 'SILVER', '10000677': 'BRONZE',
+    '10005697': 'BRONZE', '10038759': 'GOLD', '10028075': 'BRONZE',
+    '10027998': 'DIAMOND', '10034424': 'GOLD', '10034388': 'GOLD',
+}
 
 
 # Incentive organization structure.
@@ -335,6 +358,7 @@ class Billing(db.Model):
     article = db.Column(db.String(500), nullable=False)
     quantity = db.Column(db.Float, default=0)
     nett_amount = db.Column(db.Float, default=0)
+    nett_amount_with_tax = db.Column(db.Float, default=0)
     category = db.Column(db.String(20), nullable=False)
     sku_key = db.Column(db.String(300))
 
@@ -523,7 +547,11 @@ BILLING_ALIASES = {
         'total net amount no tax', 'total nett amount no tax',
         'net amount no tax', 'nett amount no tax',
         'total net amount without tax', 'total nett amount without tax',
-    ]
+    ],
+    'nett_amount_with_tax': [
+        'total net amount with tax', 'total nett amount with tax',
+        'net amount with tax', 'nett amount with tax',
+    ],
 }
 
 TARGET_ALIASES = {
@@ -657,6 +685,17 @@ def sku_from_article(article, item_group):
     # Tablets Accessories, Wearable.
     if group in ACC_GROUPS:
         cleaned = s.upper()
+
+        # Watch S11 SKU follows series + case size. Colour, material and band
+        # variants do not create additional SKU records.
+        if group == 'wearable':
+            watch_s11 = re.search(
+                r'\b(?:APP(?:LE)?\s+)?WATCH\s+S?\s*11\s+(42|46)(?:\s*MM)?\b',
+                cleaned,
+                flags=re.I,
+            )
+            if watch_s11:
+                return f'APP WATCH 11 {watch_s11.group(1)}MM'
 
         # Remove known multi-word accessory colour names first.
         for phrase in ACC_COLOR_PHRASES:
@@ -863,6 +902,14 @@ app.jinja_env.filters['number_id'] = number_id
 @app.before_request
 def ensure_db():
     db.create_all()
+    # db.create_all() does not add columns to an existing Render database.
+    # Apply this small backward-compatible migration automatically.
+    billing_columns = {c['name'] for c in inspect(db.engine).get_columns('billing')}
+    if 'nett_amount_with_tax' not in billing_columns:
+        db.session.execute(text(
+            'ALTER TABLE billing ADD COLUMN nett_amount_with_tax FLOAT DEFAULT 0'
+        ))
+        db.session.commit()
     if User.query.count() == 0:
         username = os.environ.get('ADMIN_USERNAME', 'admin')
         password = os.environ.get('ADMIN_PASSWORD', 'admin123')
@@ -1575,14 +1622,57 @@ def dashboard():
 
 @app.route('/program')
 def program():
-    """Keep the Program menu available in this consolidated build."""
+    """Program achievement based on Billing Detail Total Net Amount With Tax."""
     month = request.args.get('month', datetime.now().strftime('%Y-%m'))
     depo_filter = normalize_text(request.args.get('depo'))
     salesman_filter = normalize_text(request.args.get('salesman'))
     latest = db.session.query(db.func.max(Billing.billing_date)).scalar()
     targets = MonthlyTarget.query.filter_by(month=month).all()
+    target_by_bp = {normalize_bp(row.bp): row for row in targets}
     depos = sorted({row.depo for row in targets if row.depo})
     salesmen = [name for name in LOCKED_SALESMEN if any(row.salesman == name for row in targets)]
+    start, end = month_range(month)
+    achievement_by_bp = {
+        normalize_bp(bp): float(total or 0)
+        for bp, total in db.session.query(
+            Billing.sold_to_code,
+            db.func.sum(Billing.nett_amount_with_tax),
+        ).filter(
+            Billing.billing_date >= start,
+            Billing.billing_date <= end,
+        ).group_by(Billing.sold_to_code).all()
+    }
+
+    program_loyalty = []
+    for bp, category in LOYALTY_CEMPAKA_BP.items():
+        master = target_by_bp.get(bp)
+        depo = master.depo if master else 'Cempaka'
+        salesman = master.salesman if master else ''
+        if depo_filter and depo != depo_filter:
+            continue
+        if salesman_filter and salesman != salesman_filter:
+            continue
+        target_value = LOYALTY_TARGETS[category]
+        achievement = achievement_by_bp.get(bp, 0.0)
+        program_loyalty.append({
+            'depo': depo,
+            'bp': bp,
+            'dealer': master.dealer if master else bp,
+            'category': category,
+            'salesman': salesman,
+            'target': target_value,
+            'achievement': achievement,
+            'pct': achievement / target_value * 100 if target_value else 0,
+            'below_target': achievement < target_value,
+        })
+    program_loyalty.sort(key=lambda row: (-row['target'], row['dealer']))
+    loyalty_target = sum(row['target'] for row in program_loyalty)
+    loyalty_achievement = sum(row['achievement'] for row in program_loyalty)
+    loyalty_totals = {
+        'target': loyalty_target,
+        'achievement': loyalty_achievement,
+        'pct': loyalty_achievement / loyalty_target * 100 if loyalty_target else 0,
+    }
     zero_totals = {'target': 0, 'achievement': 0, 'pct': 0}
     reward_notes = [
         {'category': 'CROWN', 'target': 5_000_000_000, 'reward_monthly': .01, 'reward_loyalty': .009},
@@ -1594,7 +1684,7 @@ def program():
     return render_template(
         'program.html', month=month, latest=latest, depos=depos, salesmen=salesmen,
         depo_filter=depo_filter, salesman_filter=salesman_filter,
-        program_loyalty=[], program_ppg_paa=[], loyalty_totals=zero_totals,
+        program_loyalty=program_loyalty, program_ppg_paa=[], loyalty_totals=loyalty_totals,
         ppg_paa_totals=zero_totals, loyalty_reward_notes=reward_notes,
     )
 
@@ -1791,6 +1881,7 @@ def upload():
             article = normalize_text(rr[cmap['article']])
             qty = to_num(rr[cmap['quantity']])
             amount = to_num(rr[cmap['nett_amount']])
+            amount_with_tax = to_num(rr[cmap['nett_amount_with_tax']])
             if not salesman_raw or not code or salesman_raw.lower() == 'nan':
                 continue
             # Billing Document + Bill Item No uniquely identify a source line.
@@ -1798,12 +1889,13 @@ def upload():
             # article, quantity and amount were incorrectly discarded as duplicates.
             h = row_hash([
                 billing_document, bill_item_no, dt.date().isoformat(),
-                salesman_raw, code_raw, name, group, article, qty, amount,
+                salesman_raw, code_raw, name, group, article, qty, amount, amount_with_tax,
             ])
             parsed_rows.append({
                 'row_hash': h, 'billing_date': dt.date(), 'salesman': salesman_raw,
                 'sold_to_code': code, 'sold_to_name': name, 'item_group': group,
                 'article': article, 'quantity': qty, 'nett_amount': amount,
+                'nett_amount_with_tax': amount_with_tax,
                 'category': classify(group), 'sku_key': sku_from_article(article, group),
             })
 
