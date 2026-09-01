@@ -1122,7 +1122,11 @@ def incentive_pct(actual, target):
 def build_incentive_metrics(month, member_salesmen):
     """
     Aggregate target + actual by the SC names covered by one incentive recipient.
-    Dealer-based KPIs use BP as the unique dealer key.
+    Dealer-based KPIs use (salesman, BP) as the unique dealer key.
+
+    A BP remains owned by the Salesman Name from Billing Detail, including
+    UNMAPPED rows.  Using BP alone would incorrectly merge the same dealer when
+    it appears under two different salesmen in one hierarchy calculation.
     """
     start, end = month_range(month)
     member_salesmen = {canonical_salesman(x) for x in member_salesmen}
@@ -1159,7 +1163,8 @@ def build_incentive_metrics(month, member_salesmen):
         bp = normalize_bp(t.bp)
         if not bp:
             continue
-        dealer[bp] = {
+        target_owner = canonical_salesman(t.salesman)
+        dealer[(target_owner, bp)] = {
             'Device': 0.0, 'Macbook': 0.0, 'ACC': 0.0,
             'skus': set(),
         }
@@ -1172,7 +1177,10 @@ def build_incentive_metrics(month, member_salesmen):
 
         relevant_billing.append((r, owner, depo))
         bp = normalize_bp(r.sold_to_code)
-        d = dealer.setdefault(bp, {
+        if not bp:
+            continue
+        dealer_key = (owner, bp)
+        d = dealer.setdefault(dealer_key, {
             'Device': 0.0, 'Macbook': 0.0, 'ACC': 0.0,
             'skus': set(),
         })
@@ -1188,7 +1196,7 @@ def build_incentive_metrics(month, member_salesmen):
     qvo_actual = 0
     sku_bins = {'1': 0, '2-3': 0, '4-6': 0, '7-10': 0, '>10': 0}
 
-    for bp, d in dealer.items():
+    for dealer_key, d in dealer.items():
         for cat in revenue_actual:
             revenue_actual[cat] += d[cat]
 
@@ -1222,20 +1230,25 @@ def build_incentive_metrics(month, member_salesmen):
 
         cutoff_day = min(WEEK_END_DAY[cycle], end.day, latest_date.day)
         cutoff = start.replace(day=cutoff_day)
-        bo_by_bp = {}
+        bo_by_owner_bp = {}
 
         for r, owner, depo in relevant_billing:
             if r.billing_date > cutoff:
                 continue
             bp = normalize_bp(r.sold_to_code)
-            vals = bo_by_bp.setdefault(bp, {'Device': 0.0, 'Macbook': 0.0})
+            if not bp:
+                continue
+            vals = bo_by_owner_bp.setdefault(
+                (owner, bp),
+                {'Device': 0.0, 'Macbook': 0.0},
+            )
             if r.category == 'Device':
                 vals['Device'] += float(r.nett_amount or 0)
             elif r.category == 'Macbook':
                 vals['Macbook'] += float(r.nett_amount or 0)
 
         speed_actual[cycle] = sum(
-            1 for vals in bo_by_bp.values()
+            1 for vals in bo_by_owner_bp.values()
             if is_bo_amounts(vals['Device'], vals['Macbook'])
         )
 
@@ -1382,7 +1395,8 @@ def dashboard():
     ]
 
     if session.get('role') == 'admin':
-        depo_filters = requested_depos
+        # Dashboard awal selalu menampilkan tiga depo operasional utama.
+        depo_filters = requested_depos or VIEWER_ALLOWED_DEPOS.copy()
     else:
         allowed = set(VIEWER_ALLOWED_DEPOS)
         depo_filters = [d for d in requested_depos if d in allowed]
@@ -1457,9 +1471,10 @@ def dashboard():
     # Dealer master starts with all monthly target dealers so zero-achievement dealers remain visible.
     dealer = {}
     for t in scoped_targets:
-        key = normalize_bp(t.bp)
+        bp = normalize_bp(t.bp)
+        key = (canonical_salesman(t.salesman), bp)
         dealer[key] = {
-            'salesman': t.salesman, 'depo': t.depo, 'bp': key, 'dealer': t.dealer,
+            'salesman': t.salesman, 'depo': t.depo, 'bp': bp, 'dealer': t.dealer,
             'Device': 0.0, 'Macbook': 0.0, 'ACC': 0.0, 'skus': set(), 'last_date': None,
             'device_items': {},
             'device_target': float(t.device_target or 0), 'macbook_target': float(t.macbook_target or 0),
@@ -1474,7 +1489,8 @@ def dashboard():
             continue
         scoped_billing.append((r, owner, depo))
         bp = normalize_bp(r.sold_to_code)
-        d = dealer.setdefault(bp, {
+        dealer_key = (canonical_salesman(owner), bp)
+        d = dealer.setdefault(dealer_key, {
             'salesman': owner, 'depo': depo, 'bp': bp, 'dealer': dealer_name,
             'Device': 0.0, 'Macbook': 0.0, 'ACC': 0.0, 'skus': set(), 'last_date': None,
             'device_items': {},
@@ -1520,7 +1536,8 @@ def dashboard():
     sku_detail = []
     dealer_detail = []
     active_dealers = 0
-    for bp, d in dealer.items():
+    for dealer_key, d in dealer.items():
+        bp = d['bp']
         total = d['Device'] + d['Macbook'] + d['ACC']
         bo = (d['Device'] + d['Macbook']) > 0
         qvo = total >= QVO_THRESHOLD
@@ -1679,9 +1696,60 @@ def program():
     salesman_filter = normalize_text(request.args.get('salesman'))
     latest = db.session.query(db.func.max(Billing.billing_date)).scalar()
     targets = MonthlyTarget.query.filter_by(month=month).all()
-    target_by_bp = {normalize_bp(row.bp): row for row in targets}
-    depos = sorted({row.depo for row in targets if row.depo})
-    salesmen = [name for name in LOCKED_SALESMEN if any(row.salesman == name for row in targets)]
+    program_bps = set(LOYALTY_CEMPAKA_BP)
+
+    # Program tetap harus memiliki nama dealer dan salesman walaupun target bulan
+    # yang dipilih baru berisi BP saja. Ambil metadata terbaru yang lengkap dari
+    # Target Master, lalu gunakan Billing sebagai fallback terakhir.
+    target_history = MonthlyTarget.query.order_by(
+        MonthlyTarget.month.desc(), MonthlyTarget.id.desc()
+    ).all()
+    history_by_bp = {}
+    for row in target_history:
+        bp = normalize_bp(row.bp)
+        if bp in program_bps:
+            history_by_bp.setdefault(bp, []).append(row)
+
+    billing_meta = {}
+    recent_billing = Billing.query.filter(
+        Billing.sold_to_code.in_(list(program_bps))
+    ).order_by(Billing.billing_date.desc(), Billing.id.desc()).all()
+    for row in recent_billing:
+        bp = normalize_bp(row.sold_to_code)
+        if bp not in billing_meta:
+            billing_meta[bp] = row
+
+    def program_metadata(bp):
+        candidates = history_by_bp.get(bp, [])
+        dealer = ''
+        salesman = ''
+        depo = ''
+        for candidate in candidates:
+            candidate_dealer = normalize_text(candidate.dealer)
+            if not dealer and candidate_dealer and normalize_bp(candidate_dealer) != bp:
+                dealer = candidate_dealer
+            candidate_salesman = canonical_salesman(candidate.salesman)
+            if not salesman and candidate_salesman:
+                salesman = candidate_salesman
+                depo = normalize_text(candidate.depo)
+            if dealer and salesman:
+                break
+        billing_row = billing_meta.get(bp)
+        if billing_row:
+            if not dealer:
+                dealer = normalize_text(billing_row.sold_to_name)
+            if not salesman:
+                salesman = canonical_salesman(billing_row.salesman)
+        return {
+            'dealer': dealer or bp,
+            'salesman': salesman,
+            'depo': depo or 'Cempaka',
+        }
+
+    metadata_by_bp = {bp: program_metadata(bp) for bp in program_bps}
+    depos = sorted({meta['depo'] for meta in metadata_by_bp.values() if meta['depo']})
+    available_salesmen = {meta['salesman'] for meta in metadata_by_bp.values() if meta['salesman']}
+    salesmen = [name for name in LOCKED_SALESMEN if name in available_salesmen]
     start, end = month_range(month)
     achievement_by_bp = {
         normalize_bp(bp): float(total or 0)
@@ -1696,9 +1764,9 @@ def program():
 
     program_loyalty = []
     for bp, category in LOYALTY_CEMPAKA_BP.items():
-        master = target_by_bp.get(bp)
-        depo = master.depo if master else 'Cempaka'
-        salesman = master.salesman if master else ''
+        meta = metadata_by_bp[bp]
+        depo = meta['depo']
+        salesman = meta['salesman']
         if depo_filter and depo != depo_filter:
             continue
         if salesman_filter and salesman != salesman_filter:
@@ -1708,7 +1776,7 @@ def program():
         program_loyalty.append({
             'depo': depo,
             'bp': bp,
-            'dealer': master.dealer if master else bp,
+            'dealer': meta['dealer'],
             'category': category,
             'salesman': salesman,
             'target': target_value,
