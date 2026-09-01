@@ -14,6 +14,7 @@ import datetime as dt
 from functools import wraps
 
 import pandas as pd
+from openpyxl import load_workbook
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -722,6 +723,56 @@ def month_range(month):
 def to_num(value, default=0):
     v = pd.to_numeric(value, errors='coerce')
     return default if pd.isna(v) else float(v)
+
+
+def billing_date_value(value):
+    """Return a date from an Excel billing cell without creating a DataFrame."""
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, dt.date):
+        return value
+    parsed = pd.to_datetime(value, errors='coerce')
+    return None if pd.isna(parsed) else parsed.date()
+
+
+def iter_billing_xlsx(stream):
+    """Stream Billing Detail rows from sheet Export in read-only mode."""
+    stream.seek(0)
+    workbook = load_workbook(stream, read_only=True, data_only=True)
+    try:
+        if 'Export' not in workbook.sheetnames:
+            raise ValueError('Sheet Export tidak ditemukan di Billing Detail.')
+        worksheet = workbook['Export']
+        rows = worksheet.iter_rows(values_only=True)
+        column_indexes = None
+
+        # Normally the header is the first row. Searching a few rows also
+        # supports exports that contain a title line above the real header.
+        for _ in range(30):
+            candidate = next(rows, None)
+            if candidate is None:
+                break
+            try:
+                mapped = map_columns(candidate, BILLING_ALIASES, 'Billing Detail / sheet Export')
+            except ValueError:
+                continue
+            header = list(candidate)
+            column_indexes = {
+                key: header.index(source_column)
+                for key, source_column in mapped.items()
+            }
+            break
+
+        if column_indexes is None:
+            raise ValueError('Header Billing Detail tidak ditemukan pada sheet Export.')
+
+        for row in rows:
+            yield {
+                key: row[index] if index < len(row) else None
+                for key, index in column_indexes.items()
+            }
+    finally:
+        workbook.close()
 
 
 def number_id(value):
@@ -1864,66 +1915,87 @@ def upload():
         flash('Format Billing Detail harus Excel (.xlsx/.xls).', 'danger')
         return redirect(url_for('dashboard', month=return_month))
     try:
-        df = pd.read_excel(f, sheet_name='Export')
-        cmap = map_columns(df.columns, BILLING_ALIASES, 'Billing Detail / sheet Export')
-        parsed_rows = []
-        for _, rr in df.iterrows():
-            dt = pd.to_datetime(rr[cmap['billing_date']], errors='coerce')
-            if pd.isna(dt):
+        if not f.filename.lower().endswith('.xlsx'):
+            raise ValueError('Upload ringan hanya mendukung format .xlsx. Simpan ulang file .xls sebagai .xlsx.')
+
+        # Pass 1 only discovers the valid row count and replacement date range.
+        # Nothing from the worksheet is retained in memory.
+        rows_read = 0
+        first_date = None
+        last_date = None
+        for rr in iter_billing_xlsx(f.stream):
+            rows_read += 1
+            billing_date = billing_date_value(rr['billing_date'])
+            salesman_raw = normalize_text(rr['salesman'])
+            code = normalize_bp(rr['sold_to_code'])
+            if not billing_date or not salesman_raw or not code or salesman_raw.lower() == 'nan':
                 continue
-            salesman_raw = normalize_text(rr[cmap['salesman']])
-            billing_document = normalize_text(rr[cmap['billing_document']])
-            bill_item_no = normalize_text(rr[cmap['bill_item_no']])
-            code_raw = normalize_text(rr[cmap['sold_to_code']])
+            first_date = billing_date if first_date is None else min(first_date, billing_date)
+            last_date = billing_date if last_date is None else max(last_date, billing_date)
+
+        if first_date is None or last_date is None:
+            raise ValueError('Tidak ada baris Billing Detail valid yang dapat diimpor.')
+
+        # Billing exports are snapshots. Replace the uploaded date range so old
+        # with-tax values and records removed from the latest export cannot remain.
+        replaced = Billing.query.filter(
+            Billing.billing_date >= first_date,
+            Billing.billing_date <= last_date,
+        ).delete(synchronize_session=False)
+
+        # Pass 2 parses and inserts in small batches. This keeps memory usage
+        # nearly constant even when the Billing Detail contains many rows.
+        seen_hashes = set()
+        batch = []
+        added = 0
+        batch_size = 500
+        for rr in iter_billing_xlsx(f.stream):
+            billing_date = billing_date_value(rr['billing_date'])
+            if not billing_date:
+                continue
+            salesman_raw = normalize_text(rr['salesman'])
+            billing_document = normalize_text(rr['billing_document'])
+            bill_item_no = normalize_text(rr['bill_item_no'])
+            code_raw = normalize_text(rr['sold_to_code'])
             code = normalize_bp(code_raw)
-            name = normalize_text(rr[cmap['sold_to_name']])
-            group = normalize_text(rr[cmap['item_group']])
-            article = normalize_text(rr[cmap['article']])
-            qty = to_num(rr[cmap['quantity']])
-            amount = to_num(rr[cmap['nett_amount']])
-            amount_with_tax = to_num(rr[cmap['nett_amount_with_tax']])
+            name = normalize_text(rr['sold_to_name'])
+            group = normalize_text(rr['item_group'])
+            article = normalize_text(rr['article'])
+            qty = to_num(rr['quantity'])
+            amount = to_num(rr['nett_amount'])
+            amount_with_tax = to_num(rr['nett_amount_with_tax'])
             if not salesman_raw or not code or salesman_raw.lower() == 'nan':
                 continue
             # Billing Document + Bill Item No uniquely identify a source line.
             # Without them, separate legitimate transactions with identical BP,
             # article, quantity and amount were incorrectly discarded as duplicates.
             h = row_hash([
-                billing_document, bill_item_no, dt.date().isoformat(),
+                billing_document, bill_item_no, billing_date.isoformat(),
                 salesman_raw, code_raw, name, group, article, qty, amount, amount_with_tax,
             ])
-            parsed_rows.append({
-                'row_hash': h, 'billing_date': dt.date(), 'salesman': salesman_raw,
+            if h in seen_hashes:
+                continue
+            seen_hashes.add(h)
+            batch.append({
+                'row_hash': h, 'billing_date': billing_date, 'salesman': salesman_raw,
                 'sold_to_code': code, 'sold_to_name': name, 'item_group': group,
                 'article': article, 'quantity': qty, 'nett_amount': amount,
                 'nett_amount_with_tax': amount_with_tax,
                 'category': classify(group), 'sku_key': sku_from_article(article, group),
             })
+            if len(batch) >= batch_size:
+                db.session.bulk_insert_mappings(Billing, batch)
+                added += len(batch)
+                batch.clear()
+        if batch:
+            db.session.bulk_insert_mappings(Billing, batch)
+            added += len(batch)
 
-        if not parsed_rows:
+        if not added:
             raise ValueError('Tidak ada baris Billing Detail valid yang dapat diimpor.')
-
-        # Billing exports are snapshots. Replace the uploaded date range so old
-        # with-tax values and records removed from the latest export cannot remain.
-        first_date = min(r['billing_date'] for r in parsed_rows)
-        last_date = max(r['billing_date'] for r in parsed_rows)
-        replaced = Billing.query.filter(
-            Billing.billing_date >= first_date,
-            Billing.billing_date <= last_date,
-        ).delete(synchronize_session=False)
-
-        seen_hashes = set()
-        added = 0
-        for values in parsed_rows:
-            if values['row_hash'] in seen_hashes:
-                continue
-            seen_hashes.add(values['row_hash'])
-            db.session.add(Billing(
-                **values
-            ))
-            added += 1
         db.session.add(UploadLog(
             filename=secure_filename(f.filename), uploaded_by=session.get('username'),
-            rows_read=len(df), rows_added=added
+            rows_read=rows_read, rows_added=added
         ))
         db.session.commit()
         flash(
