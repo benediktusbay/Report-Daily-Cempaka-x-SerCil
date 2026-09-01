@@ -1468,6 +1468,18 @@ def dashboard():
         if matches_scope(t.salesman, t.depo, salesman_filter, depo_filters)
     ]
 
+    # Saat ketiga depo operasional utama ditampilkan bersama, achievement harus
+    # mengikuti Salesman Name pada Billing Detail. Jangan membuang transaksi
+    # hanya karena BP belum ada di Target Master atau metadata depo BP berbeda.
+    # Filter depo tetap dipakai saat pengguna memilih sebagian depo supaya
+    # pembagian Serang/Cilegon (khususnya untuk Ikmah) tetap akurat.
+    full_operational_scope = set(depo_filters) == set(VIEWER_ALLOWED_DEPOS)
+    scoped_salesmen = {
+        canonical_salesman(t.salesman)
+        for t in scoped_targets
+        if canonical_salesman(t.salesman)
+    }
+
     # Dealer master starts with all monthly target dealers so zero-achievement dealers remain visible.
     dealer = {}
     for t in scoped_targets:
@@ -1485,7 +1497,17 @@ def dashboard():
     scoped_billing = []
     for r in billing_rows:
         owner, depo, dealer_name, target = resolve_billing_owner(r, target_by_bp)
-        if not matches_scope(owner, depo, salesman_filter, depo_filters):
+        if full_operational_scope:
+            billing_matches_scope = (
+                bool(owner)
+                and owner in scoped_salesmen
+                and (not salesman_filter or owner == salesman_filter)
+            )
+        else:
+            billing_matches_scope = matches_scope(
+                owner, depo, salesman_filter, depo_filters
+            )
+        if not billing_matches_scope:
             continue
         scoped_billing.append((r, owner, depo))
         bp = normalize_bp(r.sold_to_code)
