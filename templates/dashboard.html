@@ -23,6 +23,11 @@
 .kpi-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:22px}.kpi-card{padding:16px;min-height:112px}
 .kpi-label{font-size:11px;font-weight:800;text-transform:uppercase;color:#64748b;letter-spacing:.04em}
 .kpi-value{margin-top:8px;font-size:22px;font-weight:900;color:#0b2545}.kpi-sub{margin-top:4px;color:#64748b;font-size:11px}
+.kpi-card-exact{cursor:pointer;transition:transform .15s ease,box-shadow .15s ease}.kpi-card-exact:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(15,23,42,.10)}
+.achievement-layout{display:grid;grid-template-columns:minmax(0,2fr) minmax(310px,1fr);gap:14px;margin-bottom:22px}.achievement-layout .kpi-grid{margin:0}
+.category-card{padding:18px}.category-card h3{margin:0 0 14px;font-size:15px}.category-content{display:flex;align-items:center;gap:20px}
+.category-donut{width:132px;height:132px;border-radius:50%;position:relative;flex:0 0 auto}.category-donut:after{content:"";position:absolute;inset:25px;border-radius:50%;background:#fff}
+.category-legend{display:grid;gap:9px;flex:1}.category-row{display:grid;grid-template-columns:12px 1fr auto;align-items:center;gap:8px;font-size:12px}.category-dot{width:10px;height:10px;border-radius:3px}
 .section{margin-top:22px}.section-title{margin-bottom:12px}.section-title h2{margin:0 0 4px;font-size:20px}.section-title p{margin:0;color:#6b7280;font-size:13px}
 .timegone-box{display:inline-flex;align-items:center;gap:8px;margin-top:8px;padding:7px 10px;border-radius:9px;background:#fff7ed;color:#9a3412;font-size:12px;font-weight:800;border:1px solid #fed7aa}
 .table-card{overflow:hidden}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:1000px}
@@ -55,6 +60,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 .modal-body-custom{max-height:70vh;overflow:auto}.sku-list{margin:0;padding-left:18px}.sku-list li{margin:2px 0}
 @media(max-width:1200px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:850px){.upload-grid{grid-template-columns:1fr}.hero{flex-direction:column}.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:1050px){.achievement-layout{grid-template-columns:1fr}}
 @media(max-width:560px){.kpi-grid{grid-template-columns:1fr}}
 
 /* ===== MOBILE RESPONSIVE V2 ===== */
@@ -426,8 +432,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 
 <div class="hero">
   <div>
-    <h1>Daily Sales Management Dashboard</h1>
-    <p>Sales Achievement · Billed Outlet · QVO · Speed Distribution · SKU Penetration</p>
+    <h1>Daily Monitoring Dashboard</h1>
   </div>
   <a class="btn" href="{{ url_for('stock') }}">Stock Apple</a>
 </div>
@@ -502,13 +507,29 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 </div>
 {% endif %}
 
+{% set category_total = cards.device + cards.macbook + cards.acc %}
+{% set device_share = (cards.device / category_total * 100) if category_total else 0 %}
+{% set macbook_share = (cards.macbook / category_total * 100) if category_total else 0 %}
+{% set device_display = device_share|round(1) %}
+{% set macbook_display = macbook_share|round(1) %}
+{% set acc_display = 100 - device_display - macbook_display if category_total else 0 %}
+<div class="achievement-layout">
 <div class="kpi-grid">
-  <div class="card kpi-card"><div class="kpi-label">Net Sales</div><div class="kpi-value">{{ cards.sales|rupiah_short }}</div><div class="kpi-sub">Target {{ cards.sales_target|rupiah_short }} · {{ '%.1f'|format(cards.sales_pct) }}%</div></div>
-  <div class="card kpi-card"><div class="kpi-label">Device</div><div class="kpi-value">{{ cards.device|rupiah_short }}</div><div class="kpi-sub">Target {{ cards.device_target|rupiah_short }} · {{ '%.1f'|format(cards.device_pct) }}%</div></div>
-  <div class="card kpi-card"><div class="kpi-label">Macbook</div><div class="kpi-value">{{ cards.macbook|rupiah_short }}</div><div class="kpi-sub">Target {{ cards.macbook_target|rupiah_short }} · {{ '%.1f'|format(cards.macbook_pct) }}%</div></div>
-  <div class="card kpi-card"><div class="kpi-label">Accessories</div><div class="kpi-value">{{ cards.acc|rupiah_short }}</div><div class="kpi-sub">Target {{ cards.acc_target|rupiah_short }} · {{ '%.1f'|format(cards.acc_pct) }}%</div></div>
-  <div class="card kpi-card"><div class="kpi-label">BO</div><div class="kpi-value">{{ cards.bo }}</div><div class="kpi-sub">Target {{ cards.bo_target }} · {{ '%.1f'|format(cards.bo_rate) }}%</div></div>
-  <div class="card kpi-card"><div class="kpi-label">QVO</div><div class="kpi-value">{{ cards.qvo }}</div><div class="kpi-sub">Target {{ cards.qvo_target }} · {{ '%.1f'|format(cards.qvo_rate) }}%</div></div>
+  <div class="card kpi-card kpi-card-exact" data-bp="" data-dealer="Achievement" data-salesman="All Salesman" data-depo="All Depo" data-device-target="{{ cards.device_target }}" data-device-ach="{{ cards.device }}" data-macbook-target="{{ cards.macbook_target }}" data-macbook-ach="{{ cards.macbook }}" data-acc-target="{{ cards.acc_target }}" data-acc-ach="{{ cards.acc }}"><div class="kpi-label">Achievement</div><div class="kpi-value">{{ cards.sales|rupiah_short }}</div><div class="kpi-sub">Target {{ cards.sales_target|rupiah_short }} · {{ '%.1f'|format(cards.sales_pct) }}%</div></div>
+  <div class="card kpi-card kpi-card-exact" data-bp="" data-dealer="Device" data-salesman="All Salesman" data-depo="All Depo" data-device-target="{{ cards.device_target }}" data-device-ach="{{ cards.device }}" data-macbook-target="0" data-macbook-ach="0" data-acc-target="0" data-acc-ach="0"><div class="kpi-label" style="color:#16a34a">Device</div><div class="kpi-value">{{ cards.device|rupiah_short }}</div><div class="kpi-sub">Target {{ cards.device_target|rupiah_short }} · {{ '%.1f'|format(cards.device_pct) }}%</div></div>
+  <div class="card kpi-card kpi-card-exact" data-bp="" data-dealer="Macbook" data-salesman="All Salesman" data-depo="All Depo" data-device-target="0" data-device-ach="0" data-macbook-target="{{ cards.macbook_target }}" data-macbook-ach="{{ cards.macbook }}" data-acc-target="0" data-acc-ach="0"><div class="kpi-label" style="color:#dc2626">Macbook</div><div class="kpi-value">{{ cards.macbook|rupiah_short }}</div><div class="kpi-sub">Target {{ cards.macbook_target|rupiah_short }} · {{ '%.1f'|format(cards.macbook_pct) }}%</div></div>
+  <div class="card kpi-card kpi-card-exact" data-bp="" data-dealer="Accessories" data-salesman="All Salesman" data-depo="All Depo" data-device-target="0" data-device-ach="0" data-macbook-target="0" data-macbook-ach="0" data-acc-target="{{ cards.acc_target }}" data-acc-ach="{{ cards.acc }}"><div class="kpi-label" style="color:#f97316">Accessories</div><div class="kpi-value">{{ cards.acc|rupiah_short }}</div><div class="kpi-sub">Target {{ cards.acc_target|rupiah_short }} · {{ '%.1f'|format(cards.acc_pct) }}%</div></div>
+  <div class="card kpi-card"><div class="kpi-label">BO</div><div class="kpi-value">{{ cards.bo }}</div><div class="kpi-sub">Target {{ cards.bo_target }}</div></div>
+  <div class="card kpi-card"><div class="kpi-label">QVO</div><div class="kpi-value">{{ cards.qvo }}</div><div class="kpi-sub">Target {{ cards.qvo_target }}</div></div>
+</div>
+<div class="card category-card"><h3>Achievement by Category</h3><div class="category-content">
+  <div class="category-donut" style="background:conic-gradient(#16a34a 0 {{ device_share }}%,#dc2626 {{ device_share }}% {{ device_share + macbook_share }}%,#f97316 {{ device_share + macbook_share }}% 100%)"></div>
+  <div class="category-legend">
+    <div class="category-row"><span class="category-dot" style="background:#16a34a"></span><span>Device</span><strong>{{ '%.1f'|format(device_display) }}%</strong></div>
+    <div class="category-row"><span class="category-dot" style="background:#dc2626"></span><span>Macbook</span><strong>{{ '%.1f'|format(macbook_display) }}%</strong></div>
+    <div class="category-row"><span class="category-dot" style="background:#f97316"></span><span>Accessories</span><strong>{{ '%.1f'|format(acc_display) }}%</strong></div>
+  </div>
+</div></div>
 </div>
 
 
@@ -525,7 +546,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 
 <div class="section">
   <div class="section-title">
-    <h2>Sales Performance — Value</h2>
+    <h2>Sales Achievement</h2>
         <div class="timegone-box">
       Time Gone: {{ '%.1f'|format(timegone_pct) }}% · {{ working_days_elapsed }} / {{ working_days_total }} Working Days
       {% if latest_in_scope %} · Billing through {{ latest_in_scope.strftime('%d %b %Y') }}{% endif %}
@@ -657,7 +678,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 
 <div class="section">
   <div class="section-title">
-    <h2>Outlet Performance — BO & QVO</h2>
+    <h2>Distribution Quality</h2>
       </div>
 
   
@@ -1193,7 +1214,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     dealerModal.setAttribute('aria-hidden','true');
   }
 
-  document.querySelectorAll('.dealer-total-link').forEach(function(btn){
+  document.querySelectorAll('.dealer-total-link,.kpi-card-exact').forEach(function(btn){
     btn.addEventListener('click',function(){
       openDealerSalesModal(btn);
     });
