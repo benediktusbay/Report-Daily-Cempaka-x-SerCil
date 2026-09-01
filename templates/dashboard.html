@@ -425,24 +425,50 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   .mobile-metric-value{font-size:14px}
 }
 
+/* ===== DAILY MONITORING DASHBOARD — CARD LAYOUT ===== */
+body{background:linear-gradient(145deg,#f7faff 0%,#eef4ff 55%,#f8fafc 100%)}
+.topbar{display:none}
+.page{width:min(1080px,calc(100% - 32px));margin:24px auto 54px}
+.monitor-head{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:24px}
+.monitor-brand{display:flex;align-items:center;gap:16px}.monitor-logo{width:70px;height:70px;border-radius:17px;background:linear-gradient(145deg,#2877f4,#0755db);box-shadow:0 10px 28px rgba(37,99,235,.25);display:flex;align-items:center;justify-content:center;color:#fff}
+.monitor-logo svg{width:40px;height:40px}.monitor-title h1{margin:0;color:#10264a;font-size:34px;line-height:1.08;letter-spacing:-.035em}.monitor-title p{margin:6px 0 0;color:#6b7c99;font-size:16px}
+.monitor-user{display:flex;align-items:center;gap:10px}.monitor-user span{color:#64748b;font-size:12px;text-align:right}.monitor-logout{padding:9px 13px;border:1px solid #d8e1ef;border-radius:10px;background:#fff;color:#17345c;font-size:12px;font-weight:800}
+.monitor-tools{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:22px}.monitor-tool{min-height:64px;background:#fff;border:1px solid #dbe5f2;border-radius:16px;display:flex;align-items:center;justify-content:center;gap:12px;color:#18345d;font-size:17px;font-weight:800;box-shadow:0 5px 18px rgba(15,23,42,.04);cursor:pointer}.monitor-tool svg{width:22px;height:22px}.monitor-period input{border:0;background:transparent;color:inherit;font-weight:inherit;width:150px;outline:0}
+.monitor-nav{display:flex;align-items:center;gap:7px;padding:9px;background:#fff;border:1px solid #dbe5f2;border-radius:16px;margin-bottom:26px;overflow-x:auto;box-shadow:0 5px 18px rgba(15,23,42,.035)}.monitor-nav a{padding:11px 18px;border-radius:11px;color:#64748b;font-weight:800;white-space:nowrap}.monitor-nav a.active{background:#1262df;color:#fff;box-shadow:0 6px 16px rgba(18,98,223,.22)}
+.filter-drawer{display:none;margin:-10px 0 20px}.filter-drawer.open{display:block}.filter-drawer .filters{margin:0}.filter-drawer .filter-form{justify-content:center}.admin-upload-wrap{margin-bottom:22px}.admin-upload-wrap summary{cursor:pointer;color:#49617f;font-size:12px;font-weight:800;list-style:none;text-align:right;margin-bottom:10px}.admin-upload-wrap summary::-webkit-details-marker{display:none}
+.achievement-heading{display:flex;align-items:center;gap:10px;margin:0 0 14px;color:#10264a}.achievement-heading svg{width:27px;height:27px;color:#2877f4}.achievement-heading h2{margin:0;font-size:22px}
+.achievement-layout{display:block;margin-bottom:24px}.achievement-layout .kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.achievement-layout .category-card{margin-top:18px}
+.kpi-card.monitor-kpi{position:relative;min-height:218px;padding:20px 18px;border-radius:19px;border-color:#dce5ef;display:grid;grid-template-columns:52px minmax(0,1fr);column-gap:12px;align-content:start;overflow:hidden}.kpi-card.monitor-kpi.primary{border-color:#94bfff;box-shadow:0 9px 28px rgba(37,99,235,.10)}
+.monitor-kpi-icon{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;grid-row:1/3}.monitor-kpi-icon svg{width:26px;height:26px}.monitor-kpi.primary .monitor-kpi-icon{background:#e8f1ff;color:#1262df}.monitor-kpi.device .monitor-kpi-icon{background:#e9f9ef;color:#16a34a}.monitor-kpi.macbook .monitor-kpi-icon{background:#ffedef;color:#ef3e46}.monitor-kpi.accessories .monitor-kpi-icon{background:#fff2e5;color:#f97316}
+.monitor-kpi-main{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:8px}.monitor-kpi .kpi-label{font-size:12px;margin-bottom:11px}.monitor-kpi .kpi-value{font-size:24px;line-height:1.05;margin:0;letter-spacing:-.035em}.monitor-kpi-target{border-left:1px solid #dce5ef;padding-left:8px;color:#6b7c99;font-size:9px;min-width:72px}.monitor-kpi-target strong{display:block;color:#243b61;font-size:11px;margin-top:5px;white-space:nowrap}.monitor-kpi-pct{grid-column:1/3;margin-top:22px;font-size:22px;font-weight:900}.monitor-kpi-pct small{font-size:11px;color:#6b7c99;font-weight:600}.monitor-kpi.primary .monitor-kpi-pct{color:#1262df}.monitor-kpi.device .monitor-kpi-pct{color:#16a34a}.monitor-kpi.macbook .monitor-kpi-pct{color:#ef3e46}.monitor-kpi.accessories .monitor-kpi-pct{color:#f97316}.monitor-progress{grid-column:1/3;height:9px;border-radius:999px;background:#e8edf4;margin-top:20px;overflow:hidden}.monitor-progress span{display:block;height:100%;border-radius:inherit}.monitor-kpi.primary .monitor-progress span{background:#1262df}.monitor-kpi.device .monitor-progress span{background:#16a34a}.monitor-kpi.macbook .monitor-progress span{background:#ef3e46}.monitor-kpi.accessories .monitor-progress span{background:#f97316}
+.quality-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:18px 0 24px}.quality-card{padding:20px;display:flex;align-items:center;gap:16px}.quality-icon{width:52px;height:52px;border-radius:50%;background:#f0eaff;color:#6d36c8;display:flex;align-items:center;justify-content:center;font-weight:900}.quality-card .kpi-value{font-size:28px;margin:4px 0}.quality-card .kpi-sub{font-size:12px}
+@media(max-width:900px){.achievement-layout .kpi-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:768px){.page{width:min(100% - 20px,1080px);margin-top:14px}.monitor-head{margin-bottom:16px}.monitor-logo{width:54px;height:54px;border-radius:14px}.monitor-logo svg{width:31px}.monitor-title h1{font-size:22px}.monitor-title p{font-size:12px}.monitor-user span{display:none}.monitor-tools{grid-template-columns:1fr 1fr;gap:9px}.monitor-tool{min-height:54px;font-size:13px;border-radius:13px}.monitor-nav{padding:7px;margin-bottom:20px}.monitor-nav a{padding:9px 13px;font-size:12px}.kpi-card.monitor-kpi{min-height:180px;padding:17px;grid-template-columns:45px minmax(0,1fr);gap:10px}.monitor-kpi-icon{width:43px;height:43px}.monitor-kpi-icon svg{width:23px;height:23px}.monitor-kpi .kpi-label{font-size:10px;margin-bottom:9px}.monitor-kpi-main{display:block}.monitor-kpi .kpi-value{font-size:22px}.monitor-kpi-target{border-left:0;padding:6px 0 0;font-size:9px;min-width:0}.monitor-kpi-target strong{font-size:12px;margin-top:2px}.monitor-kpi-pct{margin-top:13px;font-size:18px}.monitor-kpi-pct small{font-size:9px}.monitor-progress{height:7px;margin-top:15px}.quality-grid{grid-template-columns:1fr 1fr;gap:10px}.quality-card{padding:14px}.category-content{align-items:flex-start;flex-direction:column}}
+@media(max-width:420px){.monitor-title h1{font-size:18px}.monitor-title p{font-size:11px}.monitor-logout{padding:8px;font-size:10px}.monitor-tools{grid-template-columns:1fr}.achievement-layout .kpi-grid{gap:9px}.kpi-card.monitor-kpi{padding:13px;grid-template-columns:1fr;min-height:172px}.monitor-kpi-icon{display:none}.monitor-kpi-main{grid-column:1}.monitor-kpi-pct,.monitor-progress{grid-column:1}.monitor-kpi .kpi-value{font-size:19px}.quality-grid{grid-template-columns:1fr}}
+
 </style>
 {% endblock %}
 
 {% block body %}
+<header class="monitor-head">
+  <a class="monitor-brand" href="{{ url_for('dashboard') }}">
+    <span class="monitor-logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 19v-5M10 19V9M15 19V5M20 19V2"/></svg></span>
+    <span class="monitor-title"><h1>Daily Monitoring Dashboard</h1><p>Daily Sales Report Apple</p></span>
+  </a>
+  <div class="monitor-user"><span><strong>{{ session.get('username','') }}</strong><br>{{ session.get('role','') }}</span><a class="monitor-logout" href="{{ url_for('logout') }}">Logout</a></div>
+</header>
 
-<div class="hero">
-  <div>
-    <h1>Daily Monitoring Dashboard</h1>
-  </div>
-  <a class="btn" href="{{ url_for('stock') }}">Stock Apple</a>
+<div class="monitor-tools">
+  <label class="monitor-tool monitor-period"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg><input form="dashboardFilter" type="month" name="month" value="{{ month }}" aria-label="Period"></label>
+  <button type="button" class="monitor-tool" id="monitorFilterToggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16l-6 7v6l-4 2v-8z"/></svg>Filter</button>
 </div>
 
-<div class="filters">
-  <form class="filter-form" method="get" action="{{ url_for('dashboard') }}">
-    <div class="field">
-      <label>Period</label>
-      <input type="month" name="month" value="{{ month }}" required>
-    </div>
+<nav class="monitor-nav">
+  <a class="active" href="{{ url_for('dashboard') }}">Dashboard</a><a href="{{ url_for('program') }}">Program</a><a href="{{ url_for('pricelist') }}">Pricelist</a><a href="{{ url_for('incentive') }}">Incentive</a>{% if session.get('role') == 'admin' %}<a href="{{ url_for('targets') }}">Target Master</a><a href="{{ url_for('users') }}">Users</a>{% endif %}
+</nav>
+
+<div class="filter-drawer" id="monitorFilterDrawer"><div class="filters">
+  <form id="dashboardFilter" class="filter-form" method="get" action="{{ url_for('dashboard') }}">
 
     <div class="field">
       <label>Depo</label>
@@ -481,9 +507,11 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 
     <button type="submit" class="btn">Apply</button>
   </form>
-</div>
+</div></div>
 
 {% if session.get('role') == 'admin' %}
+<details class="admin-upload-wrap">
+  <summary>▾ Admin Upload</summary>
 <div class="upload-grid">
   <div class="upload-card">
     <h3>Upload Billing Detail</h3>
@@ -505,6 +533,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     </form>
   </div>
 </div>
+</details>
 {% endif %}
 
 {% set category_total = cards.device + cards.macbook + cards.acc %}
@@ -513,14 +542,17 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 {% set device_display = device_share|round(1) %}
 {% set macbook_display = macbook_share|round(1) %}
 {% set acc_display = 100 - device_display - macbook_display if category_total else 0 %}
+<div class="achievement-heading"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/><path d="m3 9 6-6 6 8 6-6"/></svg><h2>Sales Achievement</h2></div>
+{% set sales_bar = 100 if cards.sales_pct > 100 else cards.sales_pct %}
+{% set device_bar = 100 if cards.device_pct > 100 else cards.device_pct %}
+{% set macbook_bar = 100 if cards.macbook_pct > 100 else cards.macbook_pct %}
+{% set acc_bar = 100 if cards.acc_pct > 100 else cards.acc_pct %}
 <div class="achievement-layout">
 <div class="kpi-grid">
-  <div class="card kpi-card kpi-card-exact" data-bp="" data-dealer="Achievement" data-salesman="All Salesman" data-depo="All Depo" data-device-target="{{ cards.device_target }}" data-device-ach="{{ cards.device }}" data-macbook-target="{{ cards.macbook_target }}" data-macbook-ach="{{ cards.macbook }}" data-acc-target="{{ cards.acc_target }}" data-acc-ach="{{ cards.acc }}"><div class="kpi-label">Achievement</div><div class="kpi-value">{{ cards.sales|rupiah_short }}</div><div class="kpi-sub">Target {{ cards.sales_target|rupiah_short }} · {{ '%.1f'|format(cards.sales_pct) }}%</div></div>
-  <div class="card kpi-card kpi-card-exact" data-bp="" data-dealer="Device" data-salesman="All Salesman" data-depo="All Depo" data-device-target="{{ cards.device_target }}" data-device-ach="{{ cards.device }}" data-macbook-target="0" data-macbook-ach="0" data-acc-target="0" data-acc-ach="0"><div class="kpi-label" style="color:#16a34a">Device</div><div class="kpi-value">{{ cards.device|rupiah_short }}</div><div class="kpi-sub">Target {{ cards.device_target|rupiah_short }} · {{ '%.1f'|format(cards.device_pct) }}%</div></div>
-  <div class="card kpi-card kpi-card-exact" data-bp="" data-dealer="Macbook" data-salesman="All Salesman" data-depo="All Depo" data-device-target="0" data-device-ach="0" data-macbook-target="{{ cards.macbook_target }}" data-macbook-ach="{{ cards.macbook }}" data-acc-target="0" data-acc-ach="0"><div class="kpi-label" style="color:#dc2626">Macbook</div><div class="kpi-value">{{ cards.macbook|rupiah_short }}</div><div class="kpi-sub">Target {{ cards.macbook_target|rupiah_short }} · {{ '%.1f'|format(cards.macbook_pct) }}%</div></div>
-  <div class="card kpi-card kpi-card-exact" data-bp="" data-dealer="Accessories" data-salesman="All Salesman" data-depo="All Depo" data-device-target="0" data-device-ach="0" data-macbook-target="0" data-macbook-ach="0" data-acc-target="{{ cards.acc_target }}" data-acc-ach="{{ cards.acc }}"><div class="kpi-label" style="color:#f97316">Accessories</div><div class="kpi-value">{{ cards.acc|rupiah_short }}</div><div class="kpi-sub">Target {{ cards.acc_target|rupiah_short }} · {{ '%.1f'|format(cards.acc_pct) }}%</div></div>
-  <div class="card kpi-card"><div class="kpi-label">BO</div><div class="kpi-value">{{ cards.bo }}</div><div class="kpi-sub">Target {{ cards.bo_target }}</div></div>
-  <div class="card kpi-card"><div class="kpi-label">QVO</div><div class="kpi-value">{{ cards.qvo }}</div><div class="kpi-sub">Target {{ cards.qvo_target }}</div></div>
+  <div class="card kpi-card monitor-kpi primary kpi-card-exact" data-bp="" data-dealer="Achievement" data-salesman="All Salesman" data-depo="All Depo" data-device-target="{{ cards.device_target }}" data-device-ach="{{ cards.device }}" data-macbook-target="{{ cards.macbook_target }}" data-macbook-ach="{{ cards.macbook }}" data-acc-target="{{ cards.acc_target }}" data-acc-ach="{{ cards.acc }}"><span class="monitor-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m4 17 5-5 4 4 7-9"/><path d="M15 7h5v5"/></svg></span><div><div class="kpi-label" style="color:#1262df">Achievement</div><div class="monitor-kpi-main"><div class="kpi-value">{{ cards.sales|rupiah_short }}</div><div class="monitor-kpi-target">Target<strong>{{ cards.sales_target|rupiah_short }}</strong></div></div></div><div class="monitor-kpi-pct">{{ '%.1f'|format(cards.sales_pct) }}% <small>of target</small></div><div class="monitor-progress"><span style="width:{{ sales_bar }}%"></span></div></div>
+  <div class="card kpi-card monitor-kpi device kpi-card-exact" data-bp="" data-dealer="Device" data-salesman="All Salesman" data-depo="All Depo" data-device-target="{{ cards.device_target }}" data-device-ach="{{ cards.device }}" data-macbook-target="0" data-macbook-ach="0" data-acc-target="0" data-acc-ach="0"><span class="monitor-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></span><div><div class="kpi-label" style="color:#16a34a">Device</div><div class="monitor-kpi-main"><div class="kpi-value">{{ cards.device|rupiah_short }}</div><div class="monitor-kpi-target">Target<strong>{{ cards.device_target|rupiah_short }}</strong></div></div></div><div class="monitor-kpi-pct">{{ '%.1f'|format(cards.device_pct) }}% <small>of target</small></div><div class="monitor-progress"><span style="width:{{ device_bar }}%"></span></div></div>
+  <div class="card kpi-card monitor-kpi macbook kpi-card-exact" data-bp="" data-dealer="Macbook" data-salesman="All Salesman" data-depo="All Depo" data-device-target="0" data-device-ach="0" data-macbook-target="{{ cards.macbook_target }}" data-macbook-ach="{{ cards.macbook }}" data-acc-target="0" data-acc-ach="0"><span class="monitor-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="12" rx="1"/><path d="M2 20h20M9 16v4M15 16v4"/></svg></span><div><div class="kpi-label" style="color:#ef3e46">Macbook</div><div class="monitor-kpi-main"><div class="kpi-value">{{ cards.macbook|rupiah_short }}</div><div class="monitor-kpi-target">Target<strong>{{ cards.macbook_target|rupiah_short }}</strong></div></div></div><div class="monitor-kpi-pct">{{ '%.1f'|format(cards.macbook_pct) }}% <small>of target</small></div><div class="monitor-progress"><span style="width:{{ macbook_bar }}%"></span></div></div>
+  <div class="card kpi-card monitor-kpi accessories kpi-card-exact" data-bp="" data-dealer="Accessories" data-salesman="All Salesman" data-depo="All Depo" data-device-target="0" data-device-ach="0" data-macbook-target="0" data-macbook-ach="0" data-acc-target="{{ cards.acc_target }}" data-acc-ach="{{ cards.acc }}"><span class="monitor-kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="13" width="4" height="7" rx="2"/><rect x="17" y="13" width="4" height="7" rx="2"/></svg></span><div><div class="kpi-label" style="color:#f97316">Accessories</div><div class="monitor-kpi-main"><div class="kpi-value">{{ cards.acc|rupiah_short }}</div><div class="monitor-kpi-target">Target<strong>{{ cards.acc_target|rupiah_short }}</strong></div></div></div><div class="monitor-kpi-pct">{{ '%.1f'|format(cards.acc_pct) }}% <small>of target</small></div><div class="monitor-progress"><span style="width:{{ acc_bar }}%"></span></div></div>
 </div>
 <div class="card category-card"><h3>Achievement by Category</h3><div class="category-content">
   <div class="category-donut" style="background:conic-gradient(#16a34a 0 {{ device_share }}%,#dc2626 {{ device_share }}% {{ device_share + macbook_share }}%,#f97316 {{ device_share + macbook_share }}% 100%)"></div>
@@ -531,6 +563,8 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   </div>
 </div></div>
 </div>
+
+<div class="quality-grid"><div class="card quality-card"><div class="quality-icon">BO</div><div><div class="kpi-label">BO</div><div class="kpi-value">{{ cards.bo }}</div><div class="kpi-sub">Target {{ cards.bo_target }}</div></div></div><div class="card quality-card"><div class="quality-icon">QVO</div><div><div class="kpi-label">QVO</div><div class="kpi-value">{{ cards.qvo }}</div><div class="kpi-sub">Target {{ cards.qvo_target }}</div></div></div></div>
 
 
 <div class="mobile-salesman-focus">
@@ -1131,6 +1165,14 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 {% block scripts %}
 <script>
 (function(){
+  const monitorFilterToggle=document.getElementById('monitorFilterToggle');
+  const monitorFilterDrawer=document.getElementById('monitorFilterDrawer');
+  if(monitorFilterToggle && monitorFilterDrawer){
+    monitorFilterToggle.addEventListener('click', function(){
+      monitorFilterDrawer.classList.toggle('open');
+    });
+  }
+
   const modal=document.getElementById('skuModal');
   const title=document.getElementById('skuModalTitle');
   const subtitle=document.getElementById('skuModalSubtitle');
