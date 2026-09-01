@@ -1733,12 +1733,19 @@ def program():
             history_by_bp.setdefault(bp, []).append(row)
 
     billing_meta = {}
-    recent_billing = Billing.query.filter(
-        Billing.sold_to_code.in_(list(program_bps))
-    ).order_by(Billing.billing_date.desc(), Billing.id.desc()).all()
+    # Do not filter the database using the raw BP value. Excel sometimes stores
+    # the same BP as text, decimal-looking text, or a number. Normalise first in
+    # Python so dealer and salesman metadata is found in every case.
+    recent_billing = db.session.query(
+        Billing.sold_to_code,
+        Billing.sold_to_name,
+        Billing.salesman,
+        Billing.billing_date,
+        Billing.id,
+    ).order_by(Billing.billing_date.desc(), Billing.id.desc()).yield_per(1000)
     for row in recent_billing:
         bp = normalize_bp(row.sold_to_code)
-        if bp not in billing_meta:
+        if bp in program_bps and bp not in billing_meta:
             billing_meta[bp] = row
 
     def program_metadata(bp):
@@ -1773,16 +1780,16 @@ def program():
     available_salesmen = {meta['salesman'] for meta in metadata_by_bp.values() if meta['salesman']}
     salesmen = [name for name in LOCKED_SALESMEN if name in available_salesmen]
     start, end = month_range(month)
-    achievement_by_bp = {
-        normalize_bp(bp): float(total or 0)
-        for bp, total in db.session.query(
+    achievement_by_bp = {}
+    for raw_bp, total in db.session.query(
             Billing.sold_to_code,
             db.func.sum(Billing.nett_amount_with_tax),
         ).filter(
             Billing.billing_date >= start,
             Billing.billing_date <= end,
-        ).group_by(Billing.sold_to_code).all()
-    }
+        ).group_by(Billing.sold_to_code).all():
+        bp = normalize_bp(raw_bp)
+        achievement_by_bp[bp] = achievement_by_bp.get(bp, 0.0) + float(total or 0)
 
     program_loyalty = []
     for bp, category in LOYALTY_CEMPAKA_BP.items():
