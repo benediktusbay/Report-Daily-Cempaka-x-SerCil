@@ -67,14 +67,13 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: 800;
-      font-size: 0;
+      gap: 4px;
       box-shadow: 0 10px 24px rgba(37,99,235,.22);
     }
-    .brand-logo::before {
-      content: "▥";
-      font-size: 25px;
-    }
+    .brand-logo span { width: 5px; border-radius: 4px; background: #fff; display: block; }
+    .brand-logo span:nth-child(1) { height: 13px; margin-top: 12px; }
+    .brand-logo span:nth-child(2) { height: 21px; margin-top: 4px; }
+    .brand-logo span:nth-child(3) { height: 29px; margin-top: -4px; }
 
     .brand-title {
       font-weight: 800;
@@ -100,6 +99,32 @@
       box-shadow: 0 4px 18px rgba(15,23,42,.05);
     }
 
+    .header-tools {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      flex: 1 0 100%;
+      order: 2;
+    }
+
+    .header-tool {
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      border: 1px solid #dbe4f0;
+      border-radius: 14px;
+      background: #fff;
+      color: var(--navy);
+      box-shadow: 0 4px 18px rgba(15,23,42,.05);
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    button.header-tool { cursor: pointer; }
+    button.header-tool:hover { border-color: #9fc5ff; background: #f8fbff; }
+
     .navlinks a {
       color: #52647e;
       padding: 9px 13px;
@@ -122,6 +147,7 @@
       display: flex;
       align-items: center;
       gap: 14px;
+      margin-left: auto;
     }
 
     .user-info {
@@ -224,6 +250,9 @@
         flex-wrap: nowrap;
       }
 
+      .header-tools { grid-template-columns: 1fr 1fr; gap: 8px; }
+      .header-tool { min-height: 44px; font-size: 12px; border-radius: 12px; }
+
       .user-area {
         margin-left: auto;
       }
@@ -254,13 +283,28 @@
   <header class="topbar">
 
     <a class="brand" href="{{ url_for('dashboard') }}">
-      <div class="brand-logo" aria-hidden="true">Dashboard</div>
+      <div class="brand-logo" aria-hidden="true"><span></span><span></span><span></span></div>
 
       <div>
         <div class="brand-title">Daily Monitoring Dashboard</div>
         <div class="brand-subtitle">Daily Sales Report Apple</div>
       </div>
     </a>
+
+    <div class="user-area">
+
+      <div class="user-info">
+        <strong>{{ session.get('username', '') }}</strong><br>
+        {{ session.get('role', '') }}
+      </div>
+
+      <a class="logout" href="{{ url_for('logout') }}">
+        Logout
+      </a>
+
+    </div>
+
+    {% block header_tools %}{% endblock %}
 
     <nav class="navlinks">
 
@@ -293,19 +337,6 @@
       {% endif %}
 
     </nav>
-
-    <div class="user-area">
-
-      <div class="user-info">
-        <strong>{{ session.get('username', '') }}</strong><br>
-        {{ session.get('role', '') }}
-      </div>
-
-      <a class="logout" href="{{ url_for('logout') }}">
-        Logout
-      </a>
-
-    </div>
 
   </header>
 
