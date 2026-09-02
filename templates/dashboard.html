@@ -444,28 +444,39 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 .sales-achievement-table th,
 .sales-achievement-table td,
 .quality-table th,
-.quality-table td{height:42px;padding:8px 5px;font-size:10.5px;line-height:1.2;vertical-align:middle}
+.quality-table td{height:44px;padding:9px 6px;font-size:11.5px;line-height:1.2;vertical-align:middle}
 .sales-achievement-table th,
-.quality-table th{font-size:9px;font-weight:800;letter-spacing:.02em}
+.quality-table th{font-size:9.5px;font-weight:800;letter-spacing:.02em}
 .sales-achievement-table .group-head,
-.quality-table .group-head{font-size:10px}
+.quality-table .group-head{font-size:10.5px;text-align:center!important}
 .sales-achievement-table .sub-head,
-.quality-table .sub-head{font-size:8px}
-.sales-achievement-table th:nth-child(1),
-.sales-achievement-table td:nth-child(1),
-.quality-table th:nth-child(1),
-.quality-table td:nth-child(1){width:5%;text-align:center}
-.sales-achievement-table th:nth-child(2),
-.sales-achievement-table td:nth-child(2),
-.quality-table th:nth-child(2),
-.quality-table td:nth-child(2){width:18%;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sales-achievement-table th:nth-child(n+3),
-.sales-achievement-table td:nth-child(n+3){width:auto}
-.sales-achievement-table td:nth-child(n+3),
-.quality-table td:nth-child(n+3){white-space:nowrap}
+.quality-table .sub-head{font-size:8.5px}
+.sales-achievement-table th:first-child,
+.sales-achievement-table td:first-child{width:18%;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sales-achievement-table th:nth-child(n+2),
+.sales-achievement-table td:nth-child(n+2){width:auto}
+.sales-achievement-table td:nth-child(n+2){white-space:nowrap}
+.sales-achievement-table tbody td:nth-child(2),
+.sales-achievement-table tbody td:nth-child(3),
+.sales-achievement-table tbody td:nth-child(5),
+.sales-achievement-table tbody td:nth-child(6),
+.sales-achievement-table tbody td:nth-child(8),
+.sales-achievement-table tbody td:nth-child(9),
+.sales-achievement-table tbody td:nth-child(11),
+.sales-achievement-table tbody td:nth-child(12){text-align:left!important}
+.sales-achievement-table tbody td:nth-child(4),
+.sales-achievement-table tbody td:nth-child(7),
+.sales-achievement-table tbody td:nth-child(10),
+.sales-achievement-table tbody td:nth-child(13){text-align:center!important}
 .quality-table{min-width:0}
-.quality-table th:nth-child(n+3),
-.quality-table td:nth-child(n+3){text-align:center}
+.quality-table th:first-child,
+.quality-table td:first-child{width:20%;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.quality-table th:last-child,
+.quality-table td:last-child{width:12%}
+.quality-table th:nth-child(n+2),
+.quality-table td:nth-child(n+2){text-align:center}
+.quality-table tbody td{font-size:12px}
+.quality-table tbody td:first-child{font-size:12.5px}
 
 @media(max-width:768px){
   .kpi-grid{grid-template-columns:1fr;gap:12px}
@@ -664,7 +675,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
             <div class="mobile-card-title">{{ r.salesman }}</div>
             <div class="mobile-card-sub">Sales Performance</div>
           </div>
-          <div class="mobile-rank">#{{ r.rank }}</div>
         </div>
 
         <div class="mobile-section-label">Device</div>
@@ -707,7 +717,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     <table class="sales-achievement-table">
       <thead>
         <tr>
-          <th rowspan="2" class="center">Rank</th>
           <th rowspan="2">Salesman</th>
           <th colspan="3" class="group-head">Device</th>
           <th colspan="3" class="group-head">Macbook</th>
@@ -726,7 +735,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
       <tbody>
         {% for r in table %}
         <tr>
-          <td class="center"><strong>{{ r.rank }}</strong></td>
           <td><strong>{{ r.salesman }}</strong></td>
 
           <td class="number">{{ r.device_target|rupiah_short }}</td>
@@ -748,7 +756,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
         {% endfor %}
 
         <tr class="grand-total">
-          <td></td>
           <td>GRAND TOTAL</td>
 
           <td class="number">{{ cards.device_target|rupiah_short }}</td>
@@ -793,7 +800,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
             <div class="mobile-card-title">{{ r.salesman }}</div>
             <div class="mobile-card-sub">Outlet Performance</div>
           </div>
-          <div class="mobile-rank">#{{ r.rank }}</div>
         </div>
 
         <div class="mobile-section-label">BO</div>
@@ -820,7 +826,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     <table class="quality-table">
       <thead>
         <tr>
-          <th rowspan="2" class="center">Rank</th>
           <th rowspan="2">Salesman</th>
           <th colspan="3" class="group-head">BO</th>
           <th colspan="3" class="group-head">QVO</th>
@@ -840,7 +845,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
         {% for r in table %}
         {% set qvo_pct = (r.qvo / r.qvo_target * 100) if r.qvo_target else 0 %}
         <tr>
-          <td class="center"><strong>{{ r.rank }}</strong></td>
           <td><strong>{{ r.salesman }}</strong></td>
 
           <td class="center">{{ r.bo_target }}</td>
@@ -860,7 +864,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
         {% endfor %}
 
         <tr class="grand-total">
-          <td></td>
           <td>GRAND TOTAL</td>
 
           <td class="center">{{ cards.bo_target }}</td>
