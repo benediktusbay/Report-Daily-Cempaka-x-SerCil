@@ -42,8 +42,8 @@
 .section{margin-top:22px}.section-title{margin-bottom:12px}.section-title h2{margin:0 0 4px;font-size:20px}.section-title p{margin:0;color:#6b7280;font-size:13px}
 .timegone-box{display:inline-flex;align-items:center;gap:8px;margin-top:8px;padding:7px 10px;border-radius:9px;background:#fff7ed;color:#9a3412;font-size:12px;font-weight:800;border:1px solid #fed7aa}
 .table-card{overflow:hidden}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:1000px}
-.sales-achievement-table{min-width:0;table-layout:fixed}.sales-achievement-table th,.sales-achievement-table td{padding:9px 3px;font-size:11px}.sales-achievement-table th{font-size:9px;letter-spacing:0}.sales-achievement-table th:nth-child(1),.sales-achievement-table td:nth-child(1){width:4%}.sales-achievement-table th:nth-child(2),.sales-achievement-table td:nth-child(2){width:13%;white-space:normal;line-height:1.15}.sales-achievement-table th:nth-child(n+3),.sales-achievement-table td:nth-child(n+3){width:6.9%}.sales-achievement-table .number{white-space:nowrap}.sales-achievement-table .group-head{font-size:10px}.sales-achievement-table .sub-head{font-size:8px}.sales-exact-link{border:0;background:transparent;padding:0;color:inherit;font:inherit;font-weight:700;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;white-space:nowrap}.sales-exact-link:hover{color:#1769e8}.mobile-metric-value.sales-exact-link{display:inline-block;width:auto;text-align:left}
-.sales-achievement-table th:nth-child(4),.sales-achievement-table td:nth-child(4),.sales-achievement-table th:nth-child(7),.sales-achievement-table td:nth-child(7),.sales-achievement-table th:nth-child(10),.sales-achievement-table td:nth-child(10),.sales-achievement-table th:nth-child(13),.sales-achievement-table td:nth-child(13){text-align:left}.quality-table{table-layout:fixed;min-width:760px}.quality-table th:nth-child(1),.quality-table td:nth-child(1){width:4%}.quality-table th:nth-child(2),.quality-table td:nth-child(2){width:13%;white-space:normal;line-height:1.15}.quality-table th:nth-child(n+3),.quality-table td:nth-child(n+3){width:auto}
+.sales-achievement-table{min-width:1180px;table-layout:fixed}.sales-achievement-table th,.sales-achievement-table td{padding:9px 3px;font-size:11px}.sales-achievement-table th{font-size:9px;letter-spacing:0}.sales-achievement-table .number{white-space:nowrap}.sales-achievement-table .group-head{font-size:10px}.sales-achievement-table .sub-head{font-size:8px}.sales-exact-link{border:0;background:transparent;padding:0;color:inherit;font:inherit;font-weight:700;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;white-space:nowrap}.sales-exact-link:hover{color:#1769e8}.mobile-metric-value.sales-exact-link{display:inline-block;width:auto;text-align:left}
+.sales-achievement-table th:nth-child(4),.sales-achievement-table td:nth-child(4),.sales-achievement-table th:nth-child(7),.sales-achievement-table td:nth-child(7),.sales-achievement-table th:nth-child(10),.sales-achievement-table td:nth-child(10),.sales-achievement-table th:nth-child(13),.sales-achievement-table td:nth-child(13){text-align:left}.quality-table{table-layout:fixed;min-width:760px}.quality-table th:nth-child(1),.quality-table td:nth-child(1){white-space:normal;line-height:1.15}.quality-table th:nth-child(n+3),.quality-table td:nth-child(n+3){width:auto}
 th{background:#f8fafc;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:.03em;padding:10px;text-align:left;border-bottom:1px solid #e5e7eb;white-space:nowrap}
 td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:13px}
 .group-head{text-align:center;background:#edf3fa;color:#0b2545;font-size:12px;font-weight:900}
@@ -474,14 +474,17 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 .quality-table td:first-child,
 .speed-distribution-table th:first-child,
 .speed-distribution-table td:first-child{
-  width:180px;
-  min-width:180px;
-  max-width:180px;
+  width:220px;
+  min-width:220px;
+  max-width:220px;
 }
 .quality-table{min-width:0;table-layout:fixed;width:100%}
-.quality-table col.quality-salesman-col{width:180px}
+.quality-table col.quality-salesman-col{width:220px}
 .quality-table col.quality-metric-col{width:11%}
 .quality-table col.quality-status-col{width:12%}
+.sales-achievement-table col.salesman-col,
+.quality-table col.quality-salesman-col,
+.speed-distribution-table col.salesman-col{width:220px}
 .quality-table th,
 .quality-table td{text-align:center}
 .quality-table th:first-child,
@@ -727,6 +730,10 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 <div class="card table-card desktop-table"><div class="table-wrap">
     {% if table %}
     <table class="sales-achievement-table">
+      <colgroup>
+        <col class="salesman-col">
+        <col span="12">
+      </colgroup>
       <thead>
         <tr>
           <th rowspan="2">Salesman</th>
@@ -934,6 +941,10 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 <div class="card table-card desktop-table"><div class="table-wrap">
     {% if speed_rows %}
     <table class="speed-distribution-table">
+      <colgroup>
+        <col class="salesman-col">
+        <col span="12">
+      </colgroup>
       <thead>
         <tr>
           <th rowspan="2">Salesman</th>
