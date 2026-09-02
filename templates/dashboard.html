@@ -38,11 +38,12 @@
 .category-donut{width:132px;height:132px;border-radius:50%;position:relative;flex:0 0 auto}.category-donut:after{content:"";position:absolute;inset:25px;border-radius:50%;background:#fff}
 .category-legend{display:grid;gap:9px;flex:1}.category-row{display:grid;grid-template-columns:12px 1fr auto;align-items:center;gap:8px;font-size:12px}.category-dot{width:10px;height:10px;border-radius:3px}
 .gap-card{padding:18px}.gap-card h3{margin:0 0 16px;font-size:15px}.gap-list{display:grid;gap:15px}.gap-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:7px;font-size:12px}.gap-track{height:8px;border-radius:999px;background:#e8eef6;overflow:hidden}.gap-track span{display:block;height:100%;border-radius:inherit}.gap-result{padding:5px 8px;border-radius:8px;font-size:10px;font-weight:900;white-space:nowrap}.gap-result.positive{background:#e6f7ec;color:#15803d}.gap-result.negative{background:#fff1f2;color:#b91c1c}
-.quality-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.quality-card{min-height:112px;padding:18px;display:grid;grid-template-columns:52px 1fr;align-items:center;gap:16px}.quality-icon{display:grid;place-items:center;width:52px;height:52px;border-radius:50%;background:#f0e8ff;color:#6d28d9;font-size:14px;font-weight:900}.quality-copy{min-width:0}.quality-top{display:flex;align-items:end;justify-content:space-between;gap:12px}.quality-value{font-size:28px;line-height:1;font-weight:900;color:#0b2545}.quality-rate{font-size:14px;font-weight:900;color:#6d28d9}.quality-progress{grid-column:1/-1;height:7px;border-radius:999px;background:#ede9fe;overflow:hidden}.quality-progress span{display:block;height:100%;border-radius:inherit;background:#7c3aed}
+.quality-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.quality-card{min-height:112px;padding:18px;display:grid;grid-template-columns:52px 1fr;align-items:center;gap:16px;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease}.quality-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(15,23,42,.10)}.quality-icon{display:grid;place-items:center;width:52px;height:52px;border-radius:50%;background:#e8f1ff;color:#1769e8;font-size:14px;font-weight:900}.quality-copy{min-width:0}.quality-top{display:flex;align-items:center;justify-content:space-between;gap:12px}.quality-value{font-size:28px;line-height:1;font-weight:900;color:#0b2545}.quality-rate{font-size:18px;font-weight:900;color:#1769e8}.quality-progress{grid-column:1/-1;height:7px;border-radius:999px;background:#e8eef6;overflow:hidden}.quality-progress span{display:block;height:100%;border-radius:inherit;background:#1769e8}
 .section{margin-top:22px}.section-title{margin-bottom:12px}.section-title h2{margin:0 0 4px;font-size:20px}.section-title p{margin:0;color:#6b7280;font-size:13px}
 .timegone-box{display:inline-flex;align-items:center;gap:8px;margin-top:8px;padding:7px 10px;border-radius:9px;background:#fff7ed;color:#9a3412;font-size:12px;font-weight:800;border:1px solid #fed7aa}
 .table-card{overflow:hidden}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:1000px}
 .sales-achievement-table{min-width:0;table-layout:fixed}.sales-achievement-table th,.sales-achievement-table td{padding:9px 3px;font-size:11px}.sales-achievement-table th{font-size:9px;letter-spacing:0}.sales-achievement-table th:nth-child(1),.sales-achievement-table td:nth-child(1){width:4%}.sales-achievement-table th:nth-child(2),.sales-achievement-table td:nth-child(2){width:13%;white-space:normal;line-height:1.15}.sales-achievement-table th:nth-child(n+3),.sales-achievement-table td:nth-child(n+3){width:6.9%}.sales-achievement-table .number{white-space:nowrap}.sales-achievement-table .group-head{font-size:10px}.sales-achievement-table .sub-head{font-size:8px}.sales-exact-link{border:0;background:transparent;padding:0;color:inherit;font:inherit;font-weight:700;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;white-space:nowrap}.sales-exact-link:hover{color:#1769e8}.mobile-metric-value.sales-exact-link{display:inline-block;width:auto;text-align:left}
+.sales-achievement-table th:nth-child(4),.sales-achievement-table td:nth-child(4),.sales-achievement-table th:nth-child(7),.sales-achievement-table td:nth-child(7),.sales-achievement-table th:nth-child(10),.sales-achievement-table td:nth-child(10),.sales-achievement-table th:nth-child(13),.sales-achievement-table td:nth-child(13){text-align:left}.quality-table{table-layout:fixed;min-width:760px}.quality-table th:nth-child(1),.quality-table td:nth-child(1){width:4%}.quality-table th:nth-child(2),.quality-table td:nth-child(2){width:13%;white-space:normal;line-height:1.15}.quality-table th:nth-child(n+3),.quality-table td:nth-child(n+3){width:auto}
 th{background:#f8fafc;color:#475569;font-size:11px;text-transform:uppercase;letter-spacing:.03em;padding:10px;text-align:left;border-bottom:1px solid #e5e7eb;white-space:nowrap}
 td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:13px}
 .group-head{text-align:center;background:#edf3fa;color:#0b2545;font-size:12px;font-weight:900}
@@ -485,7 +486,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     </div>
 
     <button type="submit" class="btn">Apply</button>
-    <a class="btn" href="{{ url_for('stock') }}">Stock Apple</a>
   </form>
 </div>
 
@@ -549,8 +549,8 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 </div></div>
 </div>
 <div class="quality-grid">
-  <div class="card quality-card"><div class="quality-icon">BO</div><div class="quality-copy"><div class="quality-top"><div><div class="kpi-label">BO</div><div class="quality-value">{{ cards.bo }}</div><div class="kpi-sub">Target {{ cards.bo_target }}</div></div><div class="quality-rate">{{ '%.1f'|format(cards.bo_rate) }}%</div></div></div><div class="quality-progress"><span style="width:{{ 100 if cards.bo_rate > 100 else cards.bo_rate }}%"></span></div></div>
-  <div class="card quality-card"><div class="quality-icon">QVO</div><div class="quality-copy"><div class="quality-top"><div><div class="kpi-label">QVO</div><div class="quality-value">{{ cards.qvo }}</div><div class="kpi-sub">Target {{ cards.qvo_target }}</div></div><div class="quality-rate">{{ '%.1f'|format(cards.qvo_rate) }}%</div></div></div><div class="quality-progress"><span style="width:{{ 100 if cards.qvo_rate > 100 else cards.qvo_rate }}%"></span></div></div>
+  <div class="card quality-card quality-card-exact" role="button" tabindex="0" data-quality="BO" data-target="{{ cards.bo_target }}" data-achievement="{{ cards.bo }}"><div class="quality-icon">BO</div><div class="quality-copy"><div class="quality-top"><div class="quality-value">{{ cards.bo }}</div><div class="quality-rate">{{ '%.1f'|format(cards.bo_rate) }}%</div></div></div><div class="quality-progress"><span style="width:{{ 100 if cards.bo_rate > 100 else cards.bo_rate }}%"></span></div></div>
+  <div class="card quality-card quality-card-exact" role="button" tabindex="0" data-quality="QVO" data-target="{{ cards.qvo_target }}" data-achievement="{{ cards.qvo }}"><div class="quality-icon">QVO</div><div class="quality-copy"><div class="quality-top"><div class="quality-value">{{ cards.qvo }}</div><div class="quality-rate">{{ '%.1f'|format(cards.qvo_rate) }}%</div></div></div><div class="quality-progress"><span style="width:{{ 100 if cards.qvo_rate > 100 else cards.qvo_rate }}%"></span></div></div>
 </div>
 </div>
 
@@ -740,7 +740,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 
 <div class="card table-card desktop-table"><div class="table-wrap">
     {% if table %}
-    <table style="min-width:760px">
+    <table class="quality-table">
       <thead>
         <tr>
           <th rowspan="2" class="center">Rank</th>
@@ -1095,6 +1095,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
               <th class="number">Target</th>
               <th class="number">Achievement</th>
               <th class="center">%</th>
+              <th class="number">Gap to Target</th>
             </tr>
           </thead>
           <tbody id="dealerTargetBody"></tbody>
@@ -1265,6 +1266,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
         '<td class="number">'+rupiahExactJs(row[1])+'</td>'+
         '<td class="number">'+rupiahExactJs(row[2])+'</td>'+
         '<td class="center">'+pctJs(row[2],row[1])+'</td>'+
+        '<td class="number">'+rupiahExactJs(Math.max(Number(row[1])-Number(row[2]),0))+'</td>'+
       '</tr>';
     }).join('');
 
@@ -1280,6 +1282,31 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   document.querySelectorAll('.dealer-total-link,.kpi-card-exact,.sales-exact-link').forEach(function(btn){
     btn.addEventListener('click',function(){
       openDealerSalesModal(btn);
+    });
+  });
+
+  function openQualityModal(card){
+    const label=card.dataset.quality||'Quality';
+    const target=Number(card.dataset.target||0);
+    const achievement=Number(card.dataset.achievement||0);
+    const gap=Math.max(target-achievement,0);
+    dealerTitle.textContent=label+' Detail';
+    dealerSubtitle.textContent='Angka exact tanpa pembulatan';
+    dealerBody.innerHTML='<tr>'+
+      '<td><strong>'+label+'</strong></td>'+
+      '<td class="number">'+target.toLocaleString('id-ID')+'</td>'+
+      '<td class="number">'+achievement.toLocaleString('id-ID')+'</td>'+
+      '<td class="center">'+pctJs(achievement,target)+'</td>'+
+      '<td class="number">'+gap.toLocaleString('id-ID')+'</td>'+
+    '</tr>';
+    dealerModal.style.display='block';
+    dealerModal.setAttribute('aria-hidden','false');
+  }
+
+  document.querySelectorAll('.quality-card-exact').forEach(function(card){
+    card.addEventListener('click',function(){openQualityModal(card);});
+    card.addEventListener('keydown',function(event){
+      if(event.key==='Enter'||event.key===' '){event.preventDefault();openQualityModal(card);}
     });
   });
 
