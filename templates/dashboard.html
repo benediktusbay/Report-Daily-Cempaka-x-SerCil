@@ -468,13 +468,15 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 .sales-achievement-table tbody td:nth-child(7),
 .sales-achievement-table tbody td:nth-child(10),
 .sales-achievement-table tbody td:nth-child(13){text-align:center!important}
-.quality-table{min-width:0}
+.quality-table{min-width:0;table-layout:fixed;width:100%}
+.quality-table col.quality-salesman-col{width:22%}
+.quality-table col.quality-metric-col{width:11%}
+.quality-table col.quality-status-col{width:12%}
+.quality-table th,
+.quality-table td{text-align:center}
 .quality-table th:first-child,
-.quality-table td:first-child{width:20%;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.quality-table th:last-child,
-.quality-table td:last-child{width:12%}
-.quality-table th:nth-child(n+2),
-.quality-table td:nth-child(n+2){text-align:center}
+.quality-table td:first-child{text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.quality-table .group-head{text-align:center!important}
 .quality-table tbody td{font-size:12px}
 .quality-table tbody td:first-child{font-size:12.5px}
 
@@ -824,6 +826,12 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 <div class="card table-card desktop-table"><div class="table-wrap">
     {% if table %}
     <table class="quality-table">
+      <colgroup>
+        <col class="quality-salesman-col">
+        <col class="quality-metric-col" span="3">
+        <col class="quality-metric-col" span="3">
+        <col class="quality-status-col">
+      </colgroup>
       <thead>
         <tr>
           <th rowspan="2">Salesman</th>
