@@ -1049,8 +1049,8 @@ def resolve_billing_owner(row, target_by_bp):
     )
 
 
-def matches_scope(salesman, depo, salesman_filter, depo_filters):
-    if salesman_filter and salesman != salesman_filter:
+def matches_scope(salesman, depo, salesman_filters, depo_filters):
+    if salesman_filters and canonical_salesman(salesman) not in salesman_filters:
         return False
     if depo_filters and depo not in depo_filters:
         return False
@@ -1432,7 +1432,12 @@ def dashboard():
         if not depo_filters:
             depo_filters = VIEWER_ALLOWED_DEPOS.copy()
 
-    salesman_filter = request.args.get('salesman','').strip()
+    # Multi-select Salesman. No selection means All Salesman.
+    requested_salesmen = [
+        canonical_salesman(x)
+        for x in request.args.getlist('salesman')
+        if canonical_salesman(x)
+    ]
     start, end = month_range(month)
 
     monthly_targets, target_by_bp = target_lookup_for_month(month)
@@ -1466,8 +1471,10 @@ def dashboard():
             salesman_options.add(owner)
     # Do not allow unexpected/raw billing names to create extra dashboard rows.
     salesmen = [s for s in LOCKED_SALESMEN if s in salesman_options]
-    if salesman_filter and salesman_filter not in salesmen:
-        salesman_filter = ''
+
+    # Keep only valid selections and preserve the canonical dashboard order.
+    requested_set = set(requested_salesmen)
+    salesman_filters = [s for s in salesmen if s in requested_set]
 
     # BO belongs to the salesman, not to a depo mapping. Calculate it from all
     # billing rows in the selected month before applying any depo filter, so a
@@ -1477,7 +1484,7 @@ def dashboard():
     bo_amounts_by_owner_bp = {}
     for r in billing_rows:
         owner, _, _, _ = resolve_billing_owner(r, target_by_bp)
-        if not owner or (salesman_filter and owner != salesman_filter):
+        if not owner or (salesman_filters and owner not in salesman_filters):
             continue
         bp = normalize_bp(r.sold_to_code)
         if not bp:
@@ -1499,7 +1506,7 @@ def dashboard():
     # Target rows in the active scope.
     scoped_targets = [
         t for t in monthly_targets
-        if matches_scope(t.salesman, t.depo, salesman_filter, depo_filters)
+        if matches_scope(t.salesman, t.depo, salesman_filters, depo_filters)
     ]
 
     # Saat ketiga depo operasional utama ditampilkan bersama, achievement harus
@@ -1529,11 +1536,11 @@ def dashboard():
             billing_matches_scope = (
                 bool(owner)
                 and owner in LOCKED_SALESMEN
-                and (not salesman_filter or owner == salesman_filter)
+                and (not salesman_filters or owner in salesman_filters)
             )
         else:
             billing_matches_scope = matches_scope(
-                owner, depo, salesman_filter, depo_filters
+                owner, depo, salesman_filters, depo_filters
             )
         if not billing_matches_scope:
             continue
@@ -1730,7 +1737,7 @@ def dashboard():
     return render_template(
         'dashboard.html', month=month,
         depo_filter=(depo_filters[0] if len(depo_filters) == 1 else ''),
-        depo_filters=depo_filters, salesman_filter=salesman_filter,
+        depo_filters=depo_filters, salesman_filters=salesman_filters,
         depos=depos, salesmen=salesmen, cards=cards, table=table, leaderboard=leaderboard,
         speed_rows=speed_rows, sku_rows=sku_rows, sku_detail=sku_detail, dealer_detail=dealer_detail,
         sku_targets=SKU_TARGETS, uploads=uploads, target_uploads=target_uploads,
