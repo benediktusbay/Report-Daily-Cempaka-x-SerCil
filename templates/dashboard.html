@@ -629,10 +629,10 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 {% set acc_display = 100 - device_display - macbook_display if category_total else 0 %}
 <div class="achievement-layout">
 <div class="kpi-grid">
-  <div class="card kpi-card blue-card kpi-card-exact" data-focus="" data-bp="" data-dealer="Achievement" data-salesman="All Salesman" data-depo="All Depo" data-device-target="{{ cards.device_target }}" data-device-ach="{{ cards.device }}" data-macbook-target="{{ cards.macbook_target }}" data-macbook-ach="{{ cards.macbook }}" data-acc-target="{{ cards.acc_target }}" data-acc-ach="{{ cards.acc }}"><div class="kpi-icon blue">↗</div><div class="kpi-copy"><div class="kpi-label">Achievement</div><div class="kpi-main"><div class="kpi-value">{{ cards.sales|rupiah_short }}</div><div class="kpi-target">Target<strong>{{ cards.sales_target|rupiah_short }}</strong></div></div></div><div class="kpi-pct">{{ '%.1f'|format(cards.sales_pct) }}% <small>of target</small></div><div class="kpi-progress"><span style="width:{{ cards.sales_pct }}%;background:#1769e8"></span></div></div>
-  <div class="card kpi-card green-card kpi-card-exact" data-focus="Device" data-bp="" data-dealer="Device" data-salesman="All Salesman" data-depo="All Depo" data-device-target="{{ cards.device_target }}" data-device-ach="{{ cards.device }}" data-macbook-target="0" data-macbook-ach="0" data-acc-target="0" data-acc-ach="0"><div class="kpi-icon green">▯</div><div class="kpi-copy"><div class="kpi-label" style="color:#16a34a">Device</div><div class="kpi-main"><div class="kpi-value">{{ cards.device|rupiah_short }}</div><div class="kpi-target">Target<strong>{{ cards.device_target|rupiah_short }}</strong></div></div></div><div class="kpi-pct">{{ '%.1f'|format(cards.device_pct) }}% <small>of target</small></div><div class="kpi-progress"><span style="width:{{ cards.device_pct }}%;background:#16a34a"></span></div></div>
-  <div class="card kpi-card red-card kpi-card-exact" data-focus="Macbook" data-bp="" data-dealer="Macbook" data-salesman="All Salesman" data-depo="All Depo" data-device-target="0" data-device-ach="0" data-macbook-target="{{ cards.macbook_target }}" data-macbook-ach="{{ cards.macbook }}" data-acc-target="0" data-acc-ach="0"><div class="kpi-icon red">▱</div><div class="kpi-copy"><div class="kpi-label" style="color:#dc2626">Macbook</div><div class="kpi-main"><div class="kpi-value">{{ cards.macbook|rupiah_short }}</div><div class="kpi-target">Target<strong>{{ cards.macbook_target|rupiah_short }}</strong></div></div></div><div class="kpi-pct">{{ '%.1f'|format(cards.macbook_pct) }}% <small>of target</small></div><div class="kpi-progress"><span style="width:{{ cards.macbook_pct }}%;background:#ef3f48"></span></div></div>
-  <div class="card kpi-card orange-card kpi-card-exact" data-focus="ACC" data-bp="" data-dealer="Accessories" data-salesman="All Salesman" data-depo="All Depo" data-device-target="0" data-device-ach="0" data-macbook-target="0" data-macbook-ach="0" data-acc-target="{{ cards.acc_target }}" data-acc-ach="{{ cards.acc }}"><div class="kpi-icon orange">◉</div><div class="kpi-copy"><div class="kpi-label" style="color:#f97316">Accessories</div><div class="kpi-main"><div class="kpi-value">{{ cards.acc|rupiah_short }}</div><div class="kpi-target">Target<strong>{{ cards.acc_target|rupiah_short }}</strong></div></div></div><div class="kpi-pct">{{ '%.1f'|format(cards.acc_pct) }}% <small>of target</small></div><div class="kpi-progress"><span style="width:{{ cards.acc_pct }}%;background:#f97316"></span></div></div>
+  <div class="card kpi-card blue-card kpi-card-exact" data-focus="" data-bp="" data-dealer="Achievement" data-salesman="All Salesman" data-depo="All Depo" data-device-target="{{ cards.device_target }}" data-device-ach="{{ cards.device }}" data-macbook-target="{{ cards.macbook_target }}" data-macbook-ach="{{ cards.macbook }}" data-acc-target="{{ cards.acc_target }}" data-acc-ach="{{ cards.acc }}"><div class="kpi-icon blue">↗</div><div class="kpi-copy"><div class="kpi-label">Achievement</div><div class="kpi-main"><div class="kpi-value">{{ cards.sales|rupiah_short }}</div><div class="kpi-target">Target<strong>{% if target_available %}{{ cards.sales_target|rupiah_short }}{% else %}Not yet{% endif %}</strong></div></div></div><div class="kpi-pct">{% if target_available %}{{ '%.1f'|format(cards.sales_pct) }}% <small>of target</small>{% else %}— <small>target not yet</small>{% endif %}</div><div class="kpi-progress"><span style="width:{{ cards.sales_pct }}%;background:#1769e8"></span></div></div>
+  <div class="card kpi-card green-card kpi-card-exact" data-focus="Device" data-bp="" data-dealer="Device" data-salesman="All Salesman" data-depo="All Depo" data-device-target="{{ cards.device_target }}" data-device-ach="{{ cards.device }}" data-macbook-target="0" data-macbook-ach="0" data-acc-target="0" data-acc-ach="0"><div class="kpi-icon green">▯</div><div class="kpi-copy"><div class="kpi-label" style="color:#16a34a">Device</div><div class="kpi-main"><div class="kpi-value">{{ cards.device|rupiah_short }}</div><div class="kpi-target">Target<strong>{% if target_available %}{{ cards.device_target|rupiah_short }}{% else %}Not yet{% endif %}</strong></div></div></div><div class="kpi-pct">{% if target_available %}{{ '%.1f'|format(cards.device_pct) }}% <small>of target</small>{% else %}— <small>target not yet</small>{% endif %}</div><div class="kpi-progress"><span style="width:{{ cards.device_pct }}%;background:#16a34a"></span></div></div>
+  <div class="card kpi-card red-card kpi-card-exact" data-focus="Macbook" data-bp="" data-dealer="Macbook" data-salesman="All Salesman" data-depo="All Depo" data-device-target="{{ cards.device_target }}" data-device-ach="{{ cards.device }}" data-macbook-target="{{ cards.macbook_target }}" data-macbook-ach="{{ cards.macbook }}" data-acc-target="0" data-acc-ach="0"><div class="kpi-icon red">▱</div><div class="kpi-copy"><div class="kpi-label" style="color:#dc2626">Macbook</div><div class="kpi-main"><div class="kpi-value">{{ cards.macbook|rupiah_short }}</div><div class="kpi-target">Target<strong>{% if target_available %}{{ cards.macbook_target|rupiah_short }}{% else %}Not yet{% endif %}</strong></div></div></div><div class="kpi-pct">{% if target_available %}{{ '%.1f'|format(cards.macbook_pct) }}% <small>of target</small>{% else %}— <small>target not yet</small>{% endif %}</div><div class="kpi-progress"><span style="width:{{ cards.macbook_pct }}%;background:#ef3f48"></span></div></div>
+  <div class="card kpi-card orange-card kpi-card-exact" data-focus="ACC" data-bp="" data-dealer="Accessories" data-salesman="All Salesman" data-depo="All Depo" data-device-target="{{ cards.device_target }}" data-device-ach="{{ cards.device }}" data-macbook-target="{{ cards.macbook_target }}" data-macbook-ach="{{ cards.macbook }}" data-acc-target="{{ cards.acc_target }}" data-acc-ach="{{ cards.acc }}"><div class="kpi-icon orange">◉</div><div class="kpi-copy"><div class="kpi-label" style="color:#f97316">Accessories</div><div class="kpi-main"><div class="kpi-value">{{ cards.acc|rupiah_short }}</div><div class="kpi-target">Target<strong>{% if target_available %}{{ cards.acc_target|rupiah_short }}{% else %}Not yet{% endif %}</strong></div></div></div><div class="kpi-pct">{% if target_available %}{{ '%.1f'|format(cards.acc_pct) }}% <small>of target</small>{% else %}— <small>target not yet</small>{% endif %}</div><div class="kpi-progress"><span style="width:{{ cards.acc_pct }}%;background:#f97316"></span></div></div>
 </div>
 <div class="achievement-insights">
 <div class="card category-card"><h3>Achievement by Category</h3><div class="category-content">
@@ -649,7 +649,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 <div class="card gap-card"><h3>Gap to Target</h3><div class="gap-list">
   {% for label, gap, pct, color in [('Device', device_gap, cards.device_pct, '#16a34a'), ('Macbook', macbook_gap, cards.macbook_pct, '#dc2626'), ('Accessories', acc_gap, cards.acc_pct, '#f97316')] %}
   {% set gap_abs = gap if gap >= 0 else -gap %}
-  <div class="gap-row"><div class="gap-head"><strong>{{ label }}</strong><span class="gap-result {% if gap >= 0 %}positive{% else %}negative{% endif %}">{{ gap_abs|rupiah_short }}</span></div><div class="gap-track"><span style="width:{{ 100 if pct > 100 else pct }}%;background:{{ color }}"></span></div></div>
+  <div class="gap-row"><div class="gap-head"><strong>{{ label }}</strong><span class="gap-result {% if gap >= 0 %}positive{% else %}negative{% endif %}">{% if target_available %}{{ gap_abs|rupiah_short }}{% else %}Not yet{% endif %}</span></div><div class="gap-track"><span style="width:{{ 100 if pct > 100 else pct }}%;background:{{ color }}"></span></div></div>
   {% endfor %}
 </div></div>
 </div>
@@ -696,31 +696,31 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 
         <div class="mobile-section-label">Device</div>
         <div class="mobile-grid-3">
-          <div class="mobile-metric"><div class="mobile-metric-label">Target</div><div class="mobile-metric-value">{{ r.device_target|rupiah_short }}</div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">Target</div><div class="mobile-metric-value">{% if target_available %}{{ r.device_target|rupiah_short }}{% else %}Not yet{% endif %}</div></div>
           <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><button type="button" class="mobile-metric-value sales-exact-link" data-focus="Device" data-dealer="{{ r.salesman|e }}" data-salesman="{{ r.salesman|e }}" data-depo="{{ depo_filters|join(', ')|e }}" data-device-target="{{ r.device_target }}" data-device-ach="{{ r.device }}" data-macbook-target="{{ r.macbook_target }}" data-macbook-ach="{{ r.macbook }}" data-acc-target="{{ r.acc_target }}" data-acc-ach="{{ r.acc }}">{{ r.device|rupiah_short }}</button></div>
-          <div class="mobile-metric"><div class="mobile-metric-label">%</div><div class="mobile-metric-value {% if r.device_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.device_pct) }}%</div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">%</div><div class="mobile-metric-value">{% if target_available %}{{ '%.1f'|format(r.device_pct) }}%{% else %}—{% endif %}</div></div>
         </div>
 
         <div class="mobile-section-label">Macbook</div>
         <div class="mobile-grid-3">
-          <div class="mobile-metric"><div class="mobile-metric-label">Target</div><div class="mobile-metric-value">{{ r.macbook_target|rupiah_short }}</div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">Target</div><div class="mobile-metric-value">{% if target_available %}{{ r.macbook_target|rupiah_short }}{% else %}Not yet{% endif %}</div></div>
           <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><button type="button" class="mobile-metric-value sales-exact-link" data-focus="Macbook" data-dealer="{{ r.salesman|e }}" data-salesman="{{ r.salesman|e }}" data-depo="{{ depo_filters|join(', ')|e }}" data-device-target="{{ r.device_target }}" data-device-ach="{{ r.device }}" data-macbook-target="{{ r.macbook_target }}" data-macbook-ach="{{ r.macbook }}" data-acc-target="{{ r.acc_target }}" data-acc-ach="{{ r.acc }}">{{ r.macbook|rupiah_short }}</button></div>
-          <div class="mobile-metric"><div class="mobile-metric-label">%</div><div class="mobile-metric-value {% if r.macbook_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.macbook_pct) }}%</div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">%</div><div class="mobile-metric-value">{% if target_available %}{{ '%.1f'|format(r.macbook_pct) }}%{% else %}—{% endif %}</div></div>
         </div>
 
         <div class="mobile-section-label">Accessories</div>
         <div class="mobile-grid-3">
-          <div class="mobile-metric"><div class="mobile-metric-label">Target</div><div class="mobile-metric-value">{{ r.acc_target|rupiah_short }}</div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">Target</div><div class="mobile-metric-value">{% if target_available %}{{ r.acc_target|rupiah_short }}{% else %}Not yet{% endif %}</div></div>
           <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><button type="button" class="mobile-metric-value sales-exact-link" data-focus="ACC" data-dealer="{{ r.salesman|e }}" data-salesman="{{ r.salesman|e }}" data-depo="{{ depo_filters|join(', ')|e }}" data-device-target="{{ r.device_target }}" data-device-ach="{{ r.device }}" data-macbook-target="{{ r.macbook_target }}" data-macbook-ach="{{ r.macbook }}" data-acc-target="{{ r.acc_target }}" data-acc-ach="{{ r.acc }}">{{ r.acc|rupiah_short }}</button></div>
-          <div class="mobile-metric"><div class="mobile-metric-label">%</div><div class="mobile-metric-value {% if r.acc_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.acc_pct) }}%</div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">%</div><div class="mobile-metric-value">{% if target_available %}{{ '%.1f'|format(r.acc_pct) }}%{% else %}—{% endif %}</div></div>
         </div>
 
         <div class="mobile-total">
           <div class="mobile-section-label">Grand Total Sales</div>
           <div class="mobile-grid-3">
-            <div class="mobile-metric"><div class="mobile-metric-label">Target</div><div class="mobile-metric-value">{{ r.target_total|rupiah_short }}</div></div>
+            <div class="mobile-metric"><div class="mobile-metric-label">Target</div><div class="mobile-metric-value">{% if target_available %}{{ r.target_total|rupiah_short }}{% else %}Not yet{% endif %}</div></div>
             <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><button type="button" class="mobile-metric-value sales-exact-link" data-focus="" data-dealer="{{ r.salesman|e }}" data-salesman="{{ r.salesman|e }}" data-depo="{{ depo_filters|join(', ')|e }}" data-device-target="{{ r.device_target }}" data-device-ach="{{ r.device }}" data-macbook-target="{{ r.macbook_target }}" data-macbook-ach="{{ r.macbook }}" data-acc-target="{{ r.acc_target }}" data-acc-ach="{{ r.acc }}">{{ r.total|rupiah_short }}</button></div>
-            <div class="mobile-metric"><div class="mobile-metric-label">%</div><div class="mobile-metric-value {% if r.sales_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.sales_pct) }}%</div></div>
+            <div class="mobile-metric"><div class="mobile-metric-label">%</div><div class="mobile-metric-value">{% if target_available %}{{ '%.1f'|format(r.sales_pct) }}%{% else %}—{% endif %}</div></div>
           </div>
         </div>
       </div>
@@ -758,21 +758,21 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
         <tr>
           <td><strong>{{ r.salesman }}</strong></td>
 
-          <td class="number">{{ r.device_target|rupiah_short }}</td>
+          <td class="number">{% if target_available %}{{ r.device_target|rupiah_short }}{% else %}Not yet{% endif %}</td>
           <td class="number"><button type="button" class="sales-exact-link" data-focus="Device" data-bp="" data-dealer="{{ r.salesman|e }}" data-salesman="{{ r.salesman|e }}" data-depo="{{ depo_filters|join(', ')|e }}" data-device-target="{{ r.device_target }}" data-device-ach="{{ r.device }}" data-macbook-target="{{ r.macbook_target }}" data-macbook-ach="{{ r.macbook }}" data-acc-target="{{ r.acc_target }}" data-acc-ach="{{ r.acc }}">{{ r.device|rupiah_short }}</button></td>
-          <td class="center {% if r.device_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.device_pct) }}%</td>
+          <td class="center">{% if target_available %}{{ '%.1f'|format(r.device_pct) }}%{% else %}—{% endif %}</td>
 
-          <td class="number">{{ r.macbook_target|rupiah_short }}</td>
+          <td class="number">{% if target_available %}{{ r.macbook_target|rupiah_short }}{% else %}Not yet{% endif %}</td>
           <td class="number"><button type="button" class="sales-exact-link" data-focus="Macbook" data-bp="" data-dealer="{{ r.salesman|e }}" data-salesman="{{ r.salesman|e }}" data-depo="{{ depo_filters|join(', ')|e }}" data-device-target="{{ r.device_target }}" data-device-ach="{{ r.device }}" data-macbook-target="{{ r.macbook_target }}" data-macbook-ach="{{ r.macbook }}" data-acc-target="{{ r.acc_target }}" data-acc-ach="{{ r.acc }}">{{ r.macbook|rupiah_short }}</button></td>
-          <td class="center {% if r.macbook_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.macbook_pct) }}%</td>
+          <td class="center">{% if target_available %}{{ '%.1f'|format(r.macbook_pct) }}%{% else %}—{% endif %}</td>
 
-          <td class="number">{{ r.acc_target|rupiah_short }}</td>
+          <td class="number">{% if target_available %}{{ r.acc_target|rupiah_short }}{% else %}Not yet{% endif %}</td>
           <td class="number"><button type="button" class="sales-exact-link" data-focus="ACC" data-bp="" data-dealer="{{ r.salesman|e }}" data-salesman="{{ r.salesman|e }}" data-depo="{{ depo_filters|join(', ')|e }}" data-device-target="{{ r.device_target }}" data-device-ach="{{ r.device }}" data-macbook-target="{{ r.macbook_target }}" data-macbook-ach="{{ r.macbook }}" data-acc-target="{{ r.acc_target }}" data-acc-ach="{{ r.acc }}">{{ r.acc|rupiah_short }}</button></td>
-          <td class="center {% if r.acc_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.acc_pct) }}%</td>
+          <td class="center">{% if target_available %}{{ '%.1f'|format(r.acc_pct) }}%{% else %}—{% endif %}</td>
 
-          <td class="number">{{ r.target_total|rupiah_short }}</td>
+          <td class="number">{% if target_available %}{{ r.target_total|rupiah_short }}{% else %}Not yet{% endif %}</td>
           <td class="number"><button type="button" class="sales-exact-link" data-focus="" data-bp="" data-dealer="{{ r.salesman|e }}" data-salesman="{{ r.salesman|e }}" data-depo="{{ depo_filters|join(', ')|e }}" data-device-target="{{ r.device_target }}" data-device-ach="{{ r.device }}" data-macbook-target="{{ r.macbook_target }}" data-macbook-ach="{{ r.macbook }}" data-acc-target="{{ r.acc_target }}" data-acc-ach="{{ r.acc }}">{{ r.total|rupiah_short }}</button></td>
-          <td class="center {% if r.sales_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.sales_pct) }}%</td>
+          <td class="center">{% if target_available %}{{ '%.1f'|format(r.sales_pct) }}%{% else %}—{% endif %}</td>
         </tr>
         {% endfor %}
 
@@ -1084,7 +1084,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
             {% if d.is_target %}
             <span class="badge badge-target">Target</span>
             {% else %}
-            <span class="badge badge-nontarget">Non Target</span>
+            <span class="badge badge-nontarget">Target: Not yet</span>
             {% endif %}
           </div>
         </div>
@@ -1155,7 +1155,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
             {% if d.is_target %}
             <span class="badge badge-target">Target</span>
             {% else %}
-            <span class="badge badge-nontarget">Non Target</span>
+            <span class="badge badge-nontarget">Target: Not yet</span>
             {% endif %}
           </td>
 
@@ -1374,10 +1374,10 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
       const isTotal=row[0]==='TOTAL';
       return '<tr class="'+(isTotal?'grand-total':'')+'">'+
         '<td><strong>'+row[0]+'</strong></td>'+
-        '<td class="number">'+rupiahExactJs(row[1])+'</td>'+
+        '<td class="number">'+(Number(row[1]) ? rupiahExactJs(row[1]) : 'Not yet')+'</td>'+
         '<td class="number">'+rupiahExactJs(row[2])+'</td>'+
         '<td class="center">'+pctJs(row[2],row[1])+'</td>'+
-        '<td class="number">'+rupiahExactJs(Math.max(Number(row[1])-Number(row[2]),0))+'</td>'+
+        '<td class="number">'+(Number(row[1]) ? rupiahExactJs(Math.max(Number(row[1])-Number(row[2]),0)) : 'Not yet')+'</td>'+
       '</tr>';
     }).join('');
 
