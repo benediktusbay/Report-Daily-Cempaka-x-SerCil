@@ -548,6 +548,8 @@ BILLING_ALIASES = {
         'total net amount no tax', 'total nett amount no tax',
         'net amount no tax', 'nett amount no tax',
         'total net amount without tax', 'total nett amount without tax',
+        'net value', 'nett value', 'total net value', 'total nett value',
+        'amount', 'total amount', 'net amount', 'nett amount',
     ],
     'nett_amount_with_tax': [
         'total net amount with tax', 'total nett amount with tax',
@@ -721,8 +723,32 @@ def month_range(month):
 
 
 def to_num(value, default=0):
-    v = pd.to_numeric(value, errors='coerce')
-    return default if pd.isna(v) else float(v)
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return default
+    if isinstance(value, (int, float)) and not pd.isna(value):
+        return float(value)
+    text_value = normalize_text(value)
+    if not text_value or text_value.lower() in ('nan', 'none', '-'):
+        return default
+    # Accept common Excel/export formats: Rp 1.234.567, 1.234.567,00,
+    # and 1,234,567.00.
+    cleaned = re.sub(r'[^0-9,.-]', '', text_value)
+    if not cleaned or cleaned in ('-', '.', ','):
+        return default
+    if ',' in cleaned and '.' in cleaned:
+        if cleaned.rfind(',') > cleaned.rfind('.'):
+            cleaned = cleaned.replace('.', '').replace(',', '.')
+        else:
+            cleaned = cleaned.replace(',', '')
+    elif ',' in cleaned:
+        tail = cleaned.rsplit(',', 1)[1]
+        cleaned = cleaned.replace(',', '.') if len(tail) in (1, 2) else cleaned.replace(',', '')
+    elif cleaned.count('.') > 1:
+        cleaned = cleaned.replace('.', '')
+    try:
+        return float(cleaned)
+    except (TypeError, ValueError):
+        return default
 
 
 def billing_date_value(value):
