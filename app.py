@@ -1448,13 +1448,21 @@ def dashboard():
         available = set(all_depos)
         depos = [d for d in VIEWER_ALLOWED_DEPOS if d in available]
 
+    # Full operational scope must not depend on Monthly Target availability.
+    # This keeps Billing achievement visible even before the target master
+    # for the selected month has been uploaded.
+    full_operational_scope = set(depo_filters) == set(VIEWER_ALLOWED_DEPOS)
+
     salesman_options = set()
     for t in monthly_targets:
         if not depo_filters or t.depo in depo_filters:
             salesman_options.add(t.salesman)
     for r in billing_rows:
         owner, depo, _, _ = resolve_billing_owner(r, target_by_bp)
-        if owner and (not depo_filters or depo in depo_filters):
+        if full_operational_scope:
+            if owner in LOCKED_SALESMEN:
+                salesman_options.add(owner)
+        elif owner and (not depo_filters or depo in depo_filters):
             salesman_options.add(owner)
     # Do not allow unexpected/raw billing names to create extra dashboard rows.
     salesmen = [s for s in LOCKED_SALESMEN if s in salesman_options]
@@ -1499,12 +1507,6 @@ def dashboard():
     # hanya karena BP belum ada di Target Master atau metadata depo BP berbeda.
     # Filter depo tetap dipakai saat pengguna memilih sebagian depo supaya
     # pembagian Serang/Cilegon (khususnya untuk Ikmah) tetap akurat.
-    full_operational_scope = set(depo_filters) == set(VIEWER_ALLOWED_DEPOS)
-    scoped_salesmen = {
-        canonical_salesman(t.salesman)
-        for t in scoped_targets
-        if canonical_salesman(t.salesman)
-    }
 
     # Dealer master starts with all monthly target dealers so zero-achievement dealers remain visible.
     dealer = {}
@@ -1526,7 +1528,7 @@ def dashboard():
         if full_operational_scope:
             billing_matches_scope = (
                 bool(owner)
-                and owner in scoped_salesmen
+                and owner in LOCKED_SALESMEN
                 and (not salesman_filter or owner == salesman_filter)
             )
         else:
