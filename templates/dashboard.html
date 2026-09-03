@@ -582,12 +582,31 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 
     <div class="field">
       <label>Salesman</label>
-      <select name="salesman">
-        <option value="">All Salesman</option>
-        {% for s in salesmen %}
-        <option value="{{ s }}" {% if salesman_filter == s %}selected{% endif %}>{{ s }}</option>
-        {% endfor %}
-      </select>
+      <div class="multi-depo" id="multiSalesman">
+        <button type="button" class="multi-depo-button" id="multiSalesmanButton">
+          <span class="multi-depo-summary" id="multiSalesmanSummary">
+            {% if salesman_filters %}
+              {{ salesman_filters|join(', ') }}
+            {% else %}
+              All Salesman
+            {% endif %}
+          </span>
+          <span>⌄</span>
+        </button>
+
+        <div class="multi-depo-menu" id="multiSalesmanMenu">
+          <label class="multi-depo-option">
+            <input type="checkbox" id="allSalesmanOption" {% if not salesman_filters %}checked{% endif %}>
+            <span>All Salesman</span>
+          </label>
+          {% for s in salesmen %}
+          <label class="multi-depo-option">
+            <input type="checkbox" name="salesman" value="{{ s }}" {% if s in salesman_filters %}checked{% endif %}>
+            <span>{{ s }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
     </div>
 
     <button type="submit" class="btn">Apply</button>
@@ -1479,6 +1498,59 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   });
 
   updateMultiDepoSummary();
+
+  const multiSalesman=document.getElementById('multiSalesman');
+  const multiSalesmanButton=document.getElementById('multiSalesmanButton');
+  const multiSalesmanSummary=document.getElementById('multiSalesmanSummary');
+  const allSalesmanOption=document.getElementById('allSalesmanOption');
+  const multiSalesmanChecks=document.querySelectorAll('#multiSalesmanMenu input[name="salesman"]');
+
+  function updateMultiSalesmanSummary(){
+    const selected=Array.from(multiSalesmanChecks).filter(function(cb){return cb.checked;}).map(function(cb){return cb.value;});
+    if(allSalesmanOption){
+      allSalesmanOption.checked=!selected.length;
+    }
+    if(!selected.length){
+      multiSalesmanSummary.textContent='All Salesman';
+    }else if(selected.length<=2){
+      multiSalesmanSummary.textContent=selected.join(', ');
+    }else{
+      multiSalesmanSummary.textContent=selected.slice(0,2).join(', ')+' +'+(selected.length-2);
+    }
+  }
+
+  if(multiSalesmanButton){
+    multiSalesmanButton.addEventListener('click',function(e){
+      e.stopPropagation();
+      multiSalesman.classList.toggle('open');
+    });
+  }
+
+  if(allSalesmanOption){
+    allSalesmanOption.addEventListener('change',function(){
+      if(allSalesmanOption.checked){
+        multiSalesmanChecks.forEach(function(cb){cb.checked=false;});
+      }
+      updateMultiSalesmanSummary();
+    });
+  }
+
+  multiSalesmanChecks.forEach(function(cb){
+    cb.addEventListener('change',function(){
+      if(allSalesmanOption){
+        allSalesmanOption.checked=false;
+      }
+      updateMultiSalesmanSummary();
+    });
+  });
+
+  document.addEventListener('click',function(e){
+    if(multiSalesman && !multiSalesman.contains(e.target)){
+      multiSalesman.classList.remove('open');
+    }
+  });
+
+  updateMultiSalesmanSummary();
 
   const dealerTabs=document.querySelectorAll('.dealer-salesman-tab');
   const dealerRows=document.querySelectorAll('.dealer-detail-row');
