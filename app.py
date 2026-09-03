@@ -1456,7 +1456,10 @@ def dashboard():
     # Full operational scope must not depend on Monthly Target availability.
     # This keeps Billing achievement visible even before the target master
     # for the selected month has been uploaded.
-    full_operational_scope = set(depo_filters) == set(VIEWER_ALLOWED_DEPOS)
+    full_operational_scope = (
+        not monthly_targets
+        and set(depo_filters) == set(VIEWER_ALLOWED_DEPOS)
+    )
 
     salesman_options = set()
     for t in monthly_targets:
