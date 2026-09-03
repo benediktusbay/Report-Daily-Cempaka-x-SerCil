@@ -1693,6 +1693,9 @@ def dashboard():
     cards['acc_pct'] = cards['acc']/cards['acc_target']*100 if cards['acc_target'] else 0
     cards['bo_rate'] = cards['bo']/cards['bo_target']*100 if cards['bo_target'] else 0
     cards['qvo_rate'] = cards['qvo']/cards['qvo_target']*100 if cards['qvo_target'] else 0
+    # Achievement is sourced from Billing independently of Monthly Target.
+    # Keep the target state explicit so templates can show Not yet instead of Rp0.
+    target_available = bool(scoped_targets)
 
     uploads = UploadLog.query.order_by(UploadLog.uploaded_at.desc()).limit(6).all()
     target_uploads = TargetUploadLog.query.order_by(TargetUploadLog.uploaded_at.desc()).limit(6).all()
@@ -1704,6 +1707,7 @@ def dashboard():
         speed_rows=speed_rows, sku_rows=sku_rows, sku_detail=sku_detail, dealer_detail=dealer_detail,
         sku_targets=SKU_TARGETS, uploads=uploads, target_uploads=target_uploads,
         qvo_threshold=QVO_THRESHOLD, latest_in_scope=latest_in_scope,
+        target_available=target_available,
         timegone_pct=timegone_pct,
         working_days_elapsed=working_days_elapsed,
         working_days_total=working_days_total
