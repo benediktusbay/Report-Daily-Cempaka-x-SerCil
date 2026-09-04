@@ -142,12 +142,12 @@
     const lines=[`*STOCK APPLE - ${active.toUpperCase()}*`,`_Tanggal ${stockCopyData.date}_`,''];
     if(!includeQuantity){
       const rows=active==='cempaka'?stockCopyData.cempaka:stockCopyData.r5;
-      rows.forEach(row=>lines.push(`${row.material} - ${row.description}`));
+      rows.forEach(row=>lines.push(`${row.description}`));
     }else if(active==='cempaka'){
-      stockCopyData.cempaka.forEach(row=>lines.push(`${row.material} - ${row.description} - ${formatStockNumber(row.Cempaka)}`));
+      stockCopyData.cempaka.forEach(row=>lines.push(`${row.description} - ${formatStockNumber(row.Cempaka)}`));
       lines.push('',`*GRAND TOTAL: ${formatStockNumber(stockCopyData.totals.Cempaka)} unit*`);
     }else{
-      stockCopyData.r5.forEach(row=>lines.push(`${row.material} - ${row.description}\nCMP ${formatStockNumber(row.Cempaka)} | CLG ${formatStockNumber(row.Cilegon)} | RXY ${formatStockNumber(row.Roxy)} | SRG ${formatStockNumber(row.Serang)} | TGR ${formatStockNumber(row.Tangerang)} | TOTAL ${formatStockNumber(row.grand_total)}`));
+      stockCopyData.r5.forEach(row=>lines.push(`${row.description}\nCMP ${formatStockNumber(row.Cempaka)} | CLG ${formatStockNumber(row.Cilegon)} | RXY ${formatStockNumber(row.Roxy)} | SRG ${formatStockNumber(row.Serang)} | TGR ${formatStockNumber(row.Tangerang)} | TOTAL ${formatStockNumber(row.grand_total)}`));
       lines.push('',`*GRAND TOTAL R5: ${formatStockNumber(stockCopyData.totals.grand_total)} unit*`);
     }
     return lines.join('\n');
