@@ -622,7 +622,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 
         <div class="multi-depo-menu" id="multiSalesmanMenu">
           <label class="multi-depo-option">
-            <input type="checkbox" id="allSalesmanOption" {% if not salesman_filters %}checked{% endif %}>
+            <input type="checkbox" id="allSalesmanOption" {% if not salesman_filters and not depo_filters %}checked{% endif %}>
             <span>All Salesman</span>
           </label>
           {% for s in salesmen %}
@@ -638,6 +638,13 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     <button type="submit" class="btn">Apply</button>
   </form>
 </div>
+
+<script id="dashboard-filter-map" type="application/json">
+{{ {
+  'salesman_to_depos': filter_salesman_depos,
+  'depo_to_salesmen': filter_depo_salesmen
+}|tojson }}
+</script>
 
 {% if session.get('role') == 'admin' %}
 <details class="admin-upload">
@@ -655,7 +662,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 
   <div class="upload-card">
     <h3>Upload Monthly Target</h3>
-    <p>Upload master target dealer/BP untuk Device, Macbook, ACC, BO dan QVO.</p>
+    <p>Upload master target dealer/BP untuk Device, Macbook, ACC, BO dan QVO. Kolom Effective From / Effective To opsional untuk perubahan owner/depo di tengah bulan.</p>
     <form method="post" action="{{ url_for('upload_target') }}" enctype="multipart/form-data">
       <input type="month" name="target_month" value="{{ month }}" required>
       <input type="file" name="target_file" accept=".xlsx,.xls" required>
@@ -1525,8 +1532,35 @@ document.addEventListener('click',function(event){
   const multiDepoSummary=document.getElementById('multiDepoSummary');
   const multiDepoChecks=document.querySelectorAll('#multiDepoMenu input[name="depo"]');
 
+  const multiSalesman=document.getElementById('multiSalesman');
+  const multiSalesmanButton=document.getElementById('multiSalesmanButton');
+  const multiSalesmanSummary=document.getElementById('multiSalesmanSummary');
+  const allSalesmanOption=document.getElementById('allSalesmanOption');
+  const multiSalesmanChecks=document.querySelectorAll('#multiSalesmanMenu input[name="salesman"]');
+
+  let filterMap={salesman_to_depos:{},depo_to_salesmen:{}};
+  const filterMapNode=document.getElementById('dashboard-filter-map');
+  if(filterMapNode){
+    try{filterMap=JSON.parse(filterMapNode.textContent||'{}');}catch(e){}
+  }
+  const salesmanToDepos=filterMap.salesman_to_depos||{};
+  const depoToSalesmen=filterMap.depo_to_salesmen||{};
+  let syncingDashboardFilters=false;
+
+  function selectedDepots(){
+    return Array.from(multiDepoChecks)
+      .filter(function(cb){return cb.checked;})
+      .map(function(cb){return cb.value;});
+  }
+
+  function selectedSalesmen(){
+    return Array.from(multiSalesmanChecks)
+      .filter(function(cb){return cb.checked;})
+      .map(function(cb){return cb.value;});
+  }
+
   function updateMultiDepoSummary(){
-    const selected=Array.from(multiDepoChecks).filter(function(cb){return cb.checked;}).map(function(cb){return cb.value;});
+    const selected=selectedDepots();
     if(!selected.length){
       multiDepoSummary.textContent='All Depo';
     }else if(selected.length<=2){
@@ -1536,33 +1570,8 @@ document.addEventListener('click',function(event){
     }
   }
 
-  if(multiDepoButton){
-    multiDepoButton.addEventListener('click',function(e){
-      e.stopPropagation();
-      multiDepo.classList.toggle('open');
-    });
-  }
-
-  multiDepoChecks.forEach(function(cb){
-    cb.addEventListener('change',updateMultiDepoSummary);
-  });
-
-  document.addEventListener('click',function(e){
-    if(multiDepo && !multiDepo.contains(e.target)){
-      multiDepo.classList.remove('open');
-    }
-  });
-
-  updateMultiDepoSummary();
-
-  const multiSalesman=document.getElementById('multiSalesman');
-  const multiSalesmanButton=document.getElementById('multiSalesmanButton');
-  const multiSalesmanSummary=document.getElementById('multiSalesmanSummary');
-  const allSalesmanOption=document.getElementById('allSalesmanOption');
-  const multiSalesmanChecks=document.querySelectorAll('#multiSalesmanMenu input[name="salesman"]');
-
   function updateMultiSalesmanSummary(){
-    const selected=Array.from(multiSalesmanChecks).filter(function(cb){return cb.checked;}).map(function(cb){return cb.value;});
+    const selected=selectedSalesmen();
     if(allSalesmanOption){
       allSalesmanOption.checked=!selected.length;
     }
@@ -1575,6 +1584,61 @@ document.addEventListener('click',function(event){
     }
   }
 
+  function syncSalesmenFromDepots(){
+    if(syncingDashboardFilters) return;
+    syncingDashboardFilters=true;
+
+    const depos=selectedDepots();
+    const allowed=new Set();
+    depos.forEach(function(depo){
+      (depoToSalesmen[depo]||[]).forEach(function(name){allowed.add(name);});
+    });
+
+    multiSalesmanChecks.forEach(function(cb){
+      cb.checked=allowed.has(cb.value);
+    });
+    if(allSalesmanOption){
+      allSalesmanOption.checked=false;
+    }
+
+    updateMultiDepoSummary();
+    updateMultiSalesmanSummary();
+    syncingDashboardFilters=false;
+  }
+
+  function syncDepotsFromSalesmen(){
+    if(syncingDashboardFilters) return;
+    syncingDashboardFilters=true;
+
+    const salesmen=selectedSalesmen();
+    const allowed=new Set();
+    salesmen.forEach(function(name){
+      (salesmanToDepos[name]||[]).forEach(function(depo){allowed.add(depo);});
+    });
+
+    multiDepoChecks.forEach(function(cb){
+      cb.checked=allowed.has(cb.value);
+    });
+    if(allSalesmanOption){
+      allSalesmanOption.checked=false;
+    }
+
+    updateMultiDepoSummary();
+    updateMultiSalesmanSummary();
+    syncingDashboardFilters=false;
+  }
+
+  if(multiDepoButton){
+    multiDepoButton.addEventListener('click',function(e){
+      e.stopPropagation();
+      multiDepo.classList.toggle('open');
+    });
+  }
+
+  multiDepoChecks.forEach(function(cb){
+    cb.addEventListener('change',syncSalesmenFromDepots);
+  });
+
   if(multiSalesmanButton){
     multiSalesmanButton.addEventListener('click',function(e){
       e.stopPropagation();
@@ -1585,27 +1649,33 @@ document.addEventListener('click',function(event){
   if(allSalesmanOption){
     allSalesmanOption.addEventListener('change',function(){
       if(allSalesmanOption.checked){
+        syncingDashboardFilters=true;
         multiSalesmanChecks.forEach(function(cb){cb.checked=false;});
+        // "All Salesman" means the whole Depo universe available to this user.
+        multiDepoChecks.forEach(function(cb){cb.checked=true;});
+        updateMultiSalesmanSummary();
+        updateMultiDepoSummary();
+        syncingDashboardFilters=false;
       }
-      updateMultiSalesmanSummary();
     });
   }
 
   multiSalesmanChecks.forEach(function(cb){
-    cb.addEventListener('change',function(){
-      if(allSalesmanOption){
-        allSalesmanOption.checked=false;
-      }
-      updateMultiSalesmanSummary();
-    });
+    cb.addEventListener('change',syncDepotsFromSalesmen);
   });
 
   document.addEventListener('click',function(e){
+    if(multiDepo && !multiDepo.contains(e.target)){
+      multiDepo.classList.remove('open');
+    }
     if(multiSalesman && !multiSalesman.contains(e.target)){
       multiSalesman.classList.remove('open');
     }
   });
 
+  // Initial state is rendered by backend from Monthly Target.
+  // Keep the two summaries aligned without overwriting that state.
+  updateMultiDepoSummary();
   updateMultiSalesmanSummary();
 
   const dealerTabs=document.querySelectorAll('.dealer-salesman-tab');
