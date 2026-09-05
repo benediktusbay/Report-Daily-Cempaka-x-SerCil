@@ -1735,6 +1735,17 @@ def dashboard():
     # Keep the target state explicit so templates can show Not yet instead of Rp0.
     target_available = bool(scoped_targets)
 
+    # Use the same filtered MTD revenue and billing cutoff as Sales Achievement.
+    projection_elapsed = working_days_elapsed if latest_in_scope else 0
+    projection_rows = [dict(salesman=x['salesman'], **sales_projection(
+        x['total'], x['target_total'], projection_elapsed, working_days_total,
+        target_available and x['target_total'] > 0,
+    )) for x in table]
+    projection_summary = sales_projection(
+        cards['sales'], cards['sales_target'], projection_elapsed, working_days_total,
+        target_available and cards['sales_target'] > 0,
+    )
+
     uploads = UploadLog.query.order_by(UploadLog.uploaded_at.desc()).limit(6).all()
     target_uploads = TargetUploadLog.query.order_by(TargetUploadLog.uploaded_at.desc()).limit(6).all()
     return render_template(
@@ -1746,6 +1757,7 @@ def dashboard():
         sku_targets=SKU_TARGETS, uploads=uploads, target_uploads=target_uploads,
         qvo_threshold=QVO_THRESHOLD, latest_in_scope=latest_in_scope,
         target_available=target_available,
+        projection_rows=projection_rows, projection_summary=projection_summary,
         timegone_pct=timegone_pct,
         working_days_elapsed=working_days_elapsed,
         working_days_total=working_days_total
@@ -2147,6 +2159,26 @@ def upload():
         db.session.rollback()
         flash(f'Upload Billing gagal: {e}', 'danger')
     return redirect(url_for('dashboard', month=return_month))
+
+
+def sales_projection(achievement, target, elapsed, total_days, has_target=True):
+    """Projection uses unrounded MTD values and the shared working-day calendar."""
+    elapsed = min(max(elapsed, 0), max(total_days, 0))
+    remaining = max(total_days - elapsed, 0)
+    valid_target = has_target and target > 0
+    gap = max(target - achievement, 0) if valid_target else None
+    closing = achievement / elapsed * total_days if elapsed and total_days else None
+    return {
+        'gap_vs_timegone': achievement - target * elapsed / total_days
+            if valid_target and total_days else None,
+        'target_daily': gap / remaining if gap is not None and remaining else None,
+        'est_closing': closing,
+        'est_closing_pct': closing / target * 100
+            if closing is not None and valid_target else None,
+        'remaining_days': remaining,
+        'elapsed_days': elapsed,
+        'total_days': total_days,
+    }
 
 
 def read_target_workbook(source):
