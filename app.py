@@ -1032,15 +1032,42 @@ def target_lookup_for_month(month):
 
 
 def resolve_billing_owner(row, target_by_bp):
+    """
+    Resolve a Billing row into the Apple dashboard ownership rules.
+
+    MAPPED BP (exists in MonthlyTarget for the selected month):
+      - Owner is the salesman stored in MonthlyTarget for that month/BP.
+      - The transaction is valid only when Billing.salesman matches that owner.
+      - A cross-salesman billing row is ignored by returning an empty owner.
+
+    UNMAPPED BP:
+      - The transaction remains valid when Billing.salesman is one of the
+        eight LOCKED_SALESMEN.
+      - Billing from anyone outside the locked Apple team is ignored.
+    """
     bp = normalize_bp(row.sold_to_code)
     target = target_by_bp.get(bp)
-
-    # Achievement ownership always follows Salesman Name in Billing Detail.
-    # Monthly Target supplies dealer/depo metadata only; it must never move a
-    # transaction from one salesman to another.
     billing_salesman = canonical_salesman(row.salesman)
+
     if target:
-        return billing_salesman, target.depo, target.dealer, target
+        target_owner = canonical_salesman(target.salesman)
+
+        # A mapped dealer must belong to the locked Apple team.
+        if target_owner not in LOCKED_SALESMEN:
+            return '', target.depo, target.dealer, target
+
+        # Cross-salesman billing must not contribute to the mapped dealer,
+        # salesman achievement, BO, QVO, SKU, Speed Distribution or incentive.
+        if billing_salesman != target_owner:
+            return '', target.depo, target.dealer, target
+
+        return target_owner, target.depo, target.dealer, target
+
+    # Unmapped dealers are allowed only when the Billing salesman is part of
+    # the locked Apple team.
+    if billing_salesman not in LOCKED_SALESMEN:
+        return '', 'Unmapped', normalize_text(row.sold_to_name), None
+
     return (
         billing_salesman,
         SALESMAN_DEPO_FALLBACK.get(billing_salesman, 'Unmapped'),
@@ -1050,7 +1077,12 @@ def resolve_billing_owner(row, target_by_bp):
 
 
 def matches_scope(salesman, depo, salesman_filters, depo_filters):
-    if salesman_filters and canonical_salesman(salesman) not in salesman_filters:
+    owner = canonical_salesman(salesman)
+
+    # Safety gate: no non-Apple/raw Billing salesman may create dashboard rows.
+    if owner not in LOCKED_SALESMEN:
+        return False
+    if salesman_filters and owner not in salesman_filters:
         return False
     if depo_filters and depo not in depo_filters:
         return False
@@ -1150,9 +1182,10 @@ def build_incentive_metrics(month, member_salesmen):
     Aggregate target + actual by the SC names covered by one incentive recipient.
     Dealer-based KPIs use (salesman, BP) as the unique dealer key.
 
-    A BP remains owned by the Salesman Name from Billing Detail, including
-    UNMAPPED rows.  Using BP alone would incorrectly merge the same dealer when
-    it appears under two different salesmen in one hierarchy calculation.
+    Mapped BP ownership follows MonthlyTarget for the selected month and only
+    matching Billing.salesman rows are valid. Unmapped BP rows are accepted only
+    when Billing.salesman belongs to LOCKED_SALESMEN. Dealer keys remain
+    (salesman, BP) so unmapped ownership stays explicit in hierarchy calculations.
     """
     start, end = month_range(month)
     member_salesmen = {canonical_salesman(x) for x in member_salesmen}
@@ -1456,10 +1489,7 @@ def dashboard():
     # Full operational scope must not depend on Monthly Target availability.
     # This keeps Billing achievement visible even before the target master
     # for the selected month has been uploaded.
-    full_operational_scope = (
-        not monthly_targets
-        and set(depo_filters) == set(VIEWER_ALLOWED_DEPOS)
-    )
+    full_operational_scope = set(depo_filters) == set(VIEWER_ALLOWED_DEPOS)
 
     salesman_options = set()
     for t in monthly_targets:
@@ -1535,10 +1565,26 @@ def dashboard():
     scoped_billing = []
     for r in billing_rows:
         owner, depo, dealer_name, target = resolve_billing_owner(r, target_by_bp)
-        if full_operational_scope:
+
+        # Invalid cross-salesman mapped rows and non-Apple unmapped rows return
+        # an empty owner from resolve_billing_owner and are ignored everywhere.
+        if not owner:
+            continue
+
+        # Ikmah covers both Serang + Cilegon. For an unmapped BP there is no
+        # target metadata to tell which of the two depots owns the dealer. Keep
+        # it when Serang and Cilegon are viewed together; a single-depo filter
+        # cannot safely attribute that unmapped BP.
+        ikmah_unmapped_combined_scope = (
+            target is None
+            and owner == 'Ikmah Novtianingrum'
+            and depo == 'Unmapped'
+            and {'Serang', 'Cilegon'}.issubset(set(depo_filters))
+        )
+
+        if full_operational_scope or ikmah_unmapped_combined_scope:
             billing_matches_scope = (
-                bool(owner)
-                and owner in LOCKED_SALESMEN
+                owner in LOCKED_SALESMEN
                 and (not salesman_filters or owner in salesman_filters)
             )
         else:
@@ -1735,17 +1781,6 @@ def dashboard():
     # Keep the target state explicit so templates can show Not yet instead of Rp0.
     target_available = bool(scoped_targets)
 
-    # Use the same filtered MTD revenue and billing cutoff as Sales Achievement.
-    projection_elapsed = working_days_elapsed if latest_in_scope else 0
-    projection_rows = [dict(salesman=x['salesman'], **sales_projection(
-        x['total'], x['target_total'], projection_elapsed, working_days_total,
-        target_available and x['target_total'] > 0,
-    )) for x in table]
-    projection_summary = sales_projection(
-        cards['sales'], cards['sales_target'], projection_elapsed, working_days_total,
-        target_available and cards['sales_target'] > 0,
-    )
-
     uploads = UploadLog.query.order_by(UploadLog.uploaded_at.desc()).limit(6).all()
     target_uploads = TargetUploadLog.query.order_by(TargetUploadLog.uploaded_at.desc()).limit(6).all()
     return render_template(
@@ -1757,7 +1792,6 @@ def dashboard():
         sku_targets=SKU_TARGETS, uploads=uploads, target_uploads=target_uploads,
         qvo_threshold=QVO_THRESHOLD, latest_in_scope=latest_in_scope,
         target_available=target_available,
-        projection_rows=projection_rows, projection_summary=projection_summary,
         timegone_pct=timegone_pct,
         working_days_elapsed=working_days_elapsed,
         working_days_total=working_days_total
@@ -2161,80 +2195,6 @@ def upload():
     return redirect(url_for('dashboard', month=return_month))
 
 
-def sales_projection(achievement, target, elapsed, total_days, has_target=True):
-    """Projection uses unrounded MTD values and the shared working-day calendar."""
-    elapsed = min(max(elapsed, 0), max(total_days, 0))
-    remaining = max(total_days - elapsed, 0)
-    valid_target = has_target and target > 0
-    gap = max(target - achievement, 0) if valid_target else None
-    closing = achievement / elapsed * total_days if elapsed and total_days else None
-    return {
-        'gap_vs_timegone': achievement - target * elapsed / total_days
-            if valid_target and total_days else None,
-        'target_daily': gap / remaining if gap is not None and remaining else None,
-        'est_closing': closing,
-        'est_closing_pct': closing / target * 100
-            if closing is not None and valid_target else None,
-        'remaining_days': remaining,
-        'elapsed_days': elapsed,
-        'total_days': total_days,
-    }
-
-
-def read_target_workbook(source):
-    """Read every target sheet, one at a time, before replacing the snapshot."""
-    collapsed = {}
-    rows_read = 0
-    sheet_counts = []
-    with pd.ExcelFile(source) as workbook:
-        for sheet_name in workbook.sheet_names:
-            df = workbook.parse(sheet_name)
-            if df.dropna(how='all').empty:
-                continue
-            # Keep the first matching column: the dealer table is on the left.
-            # Summary tables on the right may repeat TARGET BO / TARGET QVO.
-            normalized = {}
-            for column in df.columns:
-                normalized.setdefault(normalize_col(column), column)
-            cmap = {}
-            for key, aliases in TARGET_ALIASES.items():
-                for alias in aliases:
-                    if normalize_col(alias) in normalized:
-                        cmap[key] = normalized[normalize_col(alias)]
-                        break
-            missing = [key for key in TARGET_ALIASES if key not in cmap]
-            if missing:
-                raise ValueError(f'Sheet "{sheet_name}": kolom wajib tidak ditemukan: ' + ', '.join(missing))
-            rows_read += len(df)
-            sheet_bps = set()
-            for row_number, (_, rr) in enumerate(df.iterrows(), start=2):
-                bp = normalize_bp(rr[cmap['bp']])
-                if not bp:
-                    continue
-                salesman = canonical_salesman(rr[cmap['salesman']])
-                depo = canonical_depo(rr[cmap['depo']])
-                dealer_value = rr[cmap['dealer']]
-                dealer_name = '' if pd.isna(dealer_value) else normalize_text(dealer_value)
-                if not salesman or not dealer_name:
-                    raise ValueError(f'Sheet "{sheet_name}" baris {row_number}, BP {bp}: nama dealer/salesman kosong.')
-                if bp in collapsed and (collapsed[bp]['salesman'], collapsed[bp]['depo']) != (salesman, depo):
-                    raise ValueError(f'Sheet "{sheet_name}" baris {row_number}: BP {bp} memiliki salesman/depo berbeda. Periksa duplikat BP.')
-                rec = collapsed.setdefault(bp, {
-                    'depo': depo, 'bp': bp, 'dealer': dealer_name, 'salesman': salesman,
-                    'device_target': 0.0, 'macbook_target': 0.0, 'acc_target': 0.0,
-                    'bo_target': 0, 'qvo_target': 0,
-                })
-                for key in ('device_target', 'macbook_target', 'acc_target'):
-                    rec[key] += to_num(rr[cmap[key]])
-                for key in ('bo_target', 'qvo_target'):
-                    rec[key] += int(round(to_num(rr[cmap[key]])))
-                sheet_bps.add(bp)
-            sheet_counts.append((sheet_name, len(sheet_bps)))
-    if not collapsed:
-        raise ValueError('Tidak ada dealer/BP valid yang dapat dibaca.')
-    return collapsed, rows_read, sheet_counts
-
-
 @app.route('/upload-target', methods=['POST'])
 @admin_required
 def upload_target():
@@ -2247,7 +2207,30 @@ def upload_target():
         flash('Format Target harus Excel (.xlsx/.xls).', 'danger')
         return redirect(url_for('dashboard', month=target_month))
     try:
-        collapsed, rows_read, sheet_counts = read_target_workbook(f)
+        df = pd.read_excel(f, sheet_name=0)
+        cmap = map_columns(df.columns, TARGET_ALIASES, 'Target Bulanan')
+        collapsed = {}
+        for _, rr in df.iterrows():
+            bp = normalize_bp(rr[cmap['bp']])
+            if not bp:
+                continue
+            salesman = canonical_salesman(rr[cmap['salesman']])
+            depo = canonical_depo(rr[cmap['depo']])
+            dealer_name = normalize_text(rr[cmap['dealer']])
+            if not salesman or not dealer_name:
+                continue
+            rec = collapsed.setdefault(bp, {
+                'depo':depo,'bp':bp,'dealer':dealer_name,'salesman':salesman,
+                'device_target':0.0,'macbook_target':0.0,'acc_target':0.0,'bo_target':0,'qvo_target':0
+            })
+            rec['device_target'] += to_num(rr[cmap['device_target']])
+            rec['macbook_target'] += to_num(rr[cmap['macbook_target']])
+            rec['acc_target'] += to_num(rr[cmap['acc_target']])
+            rec['bo_target'] += int(round(to_num(rr[cmap['bo_target']])))
+            rec['qvo_target'] += int(round(to_num(rr[cmap['qvo_target']])))
+
+        if not collapsed:
+            raise ValueError('Tidak ada dealer/BP valid yang dapat dibaca.')
 
         # Monthly target is a snapshot: re-uploading a month cleanly replaces that month.
         MonthlyTarget.query.filter_by(month=target_month).delete(synchronize_session=False)
@@ -2255,11 +2238,10 @@ def upload_target():
             db.session.add(MonthlyTarget(month=target_month, **rec))
         db.session.add(TargetUploadLog(
             month=target_month, filename=secure_filename(f.filename), uploaded_by=session.get('username'),
-            rows_read=rows_read, dealers_loaded=len(collapsed)
+            rows_read=len(df), dealers_loaded=len(collapsed)
         ))
         db.session.commit()
-        details = ', '.join(f'{name}: {count} BP' for name, count in sheet_counts)
-        flash(f'Target {target_month} berhasil: {len(collapsed)} dealer/BP unik dimuat dari {len(sheet_counts)} sheet ({details}).', 'success')
+        flash(f'Target {target_month} berhasil: {len(collapsed)} dealer/BP dimuat.', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Upload Target gagal: {e}', 'danger')
