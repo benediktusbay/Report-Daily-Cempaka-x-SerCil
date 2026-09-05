@@ -1139,8 +1139,8 @@ document.addEventListener('click',function(event){
     <div class="dealer-share-tools">
       <div class="dealer-salesman-tabs">
       <button type="button" class="dealer-salesman-tab active" data-salesman-filter="__ALL__">All Salesman</button>
-      {% for s in salesmen %}
-      <button type="button" class="dealer-salesman-tab" data-salesman-filter="{{ s|e }}">{{ s }}</button>
+      {% for r in table %}
+      <button type="button" class="dealer-salesman-tab" data-salesman-filter="{{ r.salesman|e }}">{{ r.salesman }}</button>
       {% endfor %}
       </div>
       {% if session.get('role') == 'admin' %}
