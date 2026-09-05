@@ -543,10 +543,36 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   .quality-rate{font-size:19px}
 }
 
+.projection-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.projection-metric{padding:14px;border:1px solid #e0e8f4;border-radius:12px;min-width:0}
+.projection-label{display:block;color:#61738e;font-size:12px;margin-bottom:8px}
+.projection-value{border:0;padding:0;background:none;font:inherit;font-weight:800;color:#1769e8;cursor:pointer;text-decoration:underline dotted;text-underline-offset:4px;white-space:nowrap}
+.projection-metric .projection-value{font-size:clamp(16px,1.7vw,24px)}
+.projection-positive{color:#15803d!important}.projection-negative{color:#dc2626!important}
+.projection-note{font-size:12px;color:#61738e;margin:12px 0 0;line-height:1.5}
+.projection-table{width:100%;min-width:0;table-layout:fixed}
+.projection-table col:first-child{width:220px}
+.projection-table th,.projection-table td{padding:12px 8px;height:44px;font-size:11.5px;text-align:left;vertical-align:middle}
+.projection-table th{font-size:10px}.projection-table td:first-child{font-weight:700;overflow-wrap:anywhere}
+.projection-table tfoot{background:#edf3fb;font-weight:800}
+.projection-mobile{display:none}.projection-person{padding:16px;margin-bottom:12px}.projection-person h3{font-size:15px;margin:0 0 12px}
+#projection-dialog{border:1px solid #dce5f2;border-radius:16px;padding:24px;width:min(440px,calc(100vw - 48px));box-sizing:border-box;color:#102a48}
+#projection-dialog::backdrop{background:rgba(15,35,60,.45)}
+#projection-dialog h3{margin:0 0 12px}#projection-exact{font-size:24px;font-weight:800;overflow-wrap:anywhere}
+#projection-dialog button{margin-top:20px;background:#1769e8;color:white;border:0;border-radius:8px;padding:10px 20px;cursor:pointer}
+@media(max-width:768px){.projection-desktop{display:none}.projection-mobile{display:block}.projection-metric{padding:12px}.projection-metric .projection-value{font-size:18px}.projection-grid{gap:8px}}
+@media(max-width:360px){.projection-grid{grid-template-columns:1fr}}
 </style>
 {% endblock %}
 
 {% block body %}
+{% set projection_fields = [('gap_vs_timegone','Gap vs Timegone'),('target_daily','Target Daily'),('est_closing','Est Closing'),('est_closing_pct','Est Closing %')] %}
+{% macro projection_value(p, key, label, person) %}
+  {% set value = p[key] %}
+  {% if value is not none %}
+  <button type="button" class="projection-value {% if key == 'gap_vs_timegone' %}{% if value < 0 %}projection-negative{% elif value > 0 %}projection-positive{% endif %}{% endif %}" data-projection-value="{{ value }}" data-projection-percent="{{ 'true' if key == 'est_closing_pct' else 'false' }}" data-projection-label="{{ label }}" data-projection-person="{{ person }}" aria-label="{{ person }} — {{ label }}: tampilkan angka lengkap">{% if key == 'est_closing_pct' %}{{ '%.1f'|format(value) }}%{% else %}{% if key == 'gap_vs_timegone' and value > 0 %}+{% endif %}{{ value|rupiah_short }}{% endif %}</button>
+  {% else %}<span title="Target atau hari kerja belum tersedia, atau sisa hari kerja sudah habis">—</span>{% endif %}
+{% endmacro %}
 
 <div class="filters" id="dashboardFilters">
   <form class="filter-form" method="get" action="{{ url_for('dashboard') }}">
@@ -654,14 +680,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   <div class="card kpi-card orange-card kpi-card-exact" data-focus="ACC" data-bp="" data-dealer="Accessories" data-salesman="All Salesman" data-depo="All Depo" data-device-target="{{ cards.device_target }}" data-device-ach="{{ cards.device }}" data-macbook-target="{{ cards.macbook_target }}" data-macbook-ach="{{ cards.macbook }}" data-acc-target="{{ cards.acc_target }}" data-acc-ach="{{ cards.acc }}"><div class="kpi-icon orange">◉</div><div class="kpi-copy"><div class="kpi-label" style="color:#f97316">Accessories</div><div class="kpi-main"><div class="kpi-value">{{ cards.acc|rupiah_short }}</div><div class="kpi-target">Target<strong>{% if target_available %}{{ cards.acc_target|rupiah_short }}{% else %}Not yet{% endif %}</strong></div></div></div><div class="kpi-pct">{% if target_available %}{{ '%.1f'|format(cards.acc_pct) }}% <small>of target</small>{% else %}— <small>target not yet</small>{% endif %}</div><div class="kpi-progress"><span style="width:{{ cards.acc_pct }}%;background:#f97316"></span></div></div>
 </div>
 <div class="achievement-insights">
-<div class="card category-card"><h3>Achievement by Category</h3><div class="category-content">
-  <div class="category-donut" style="background:conic-gradient(#16a34a 0 {{ device_share }}%,#dc2626 {{ device_share }}% {{ device_share + macbook_share }}%,#f97316 {{ device_share + macbook_share }}% 100%)"></div>
-  <div class="category-legend">
-    <div class="category-row"><span class="category-dot" style="background:#16a34a"></span><span>Device</span><strong>{{ '%.1f'|format(device_display) }}%</strong></div>
-    <div class="category-row"><span class="category-dot" style="background:#dc2626"></span><span>Macbook</span><strong>{{ '%.1f'|format(macbook_display) }}%</strong></div>
-    <div class="category-row"><span class="category-dot" style="background:#f97316"></span><span>Accessories</span><strong>{{ '%.1f'|format(acc_display) }}%</strong></div>
-  </div>
-</div></div>
 {% set device_gap = cards.device - cards.device_target %}
 {% set macbook_gap = cards.macbook - cards.macbook_target %}
 {% set acc_gap = cards.acc - cards.acc_target %}
@@ -671,6 +689,12 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   <div class="gap-row"><div class="gap-head"><strong>{{ label }}</strong><span class="gap-result {% if gap >= 0 %}positive{% else %}negative{% endif %}">{% if target_available %}{{ gap_abs|rupiah_short }}{% else %}Not yet{% endif %}</span></div><div class="gap-track"><span style="width:{{ 100 if pct > 100 else pct }}%;background:{{ color }}"></span></div></div>
   {% endfor %}
 </div></div>
+<div class="card gap-card"><h3>Sales Projection — Summary</h3>
+  <div class="projection-grid">{% for key,label in projection_fields %}
+    <div class="projection-metric"><span class="projection-label">{{ label }}</span>{{ projection_value(projection_summary,key,label,'Grand Total') }}</div>
+  {% endfor %}</div>
+  <p class="projection-note">{{ projection_summary.elapsed_days }} / {{ projection_summary.total_days }} hari kerja · {{ projection_summary.remaining_days }} hari kerja tersisa{% if latest_in_scope %} · Billing through {{ latest_in_scope.strftime('%d %b %Y') }}{% else %} · Belum ada billing{% endif %}<br>Proyeksi mengikuti laju MTD dan filter aktif. Klik angka untuk nilai lengkap.</p>
+</div>
 </div>
 <div class="quality-grid">
   <div class="card quality-card quality-card-exact" role="button" tabindex="0" data-quality="BO" data-target="{{ cards.bo_target }}" data-achievement="{{ cards.bo }}"><div class="quality-icon">BO</div><div class="quality-copy"><div class="quality-top"><div class="quality-value">{{ cards.bo }}</div><div class="quality-rate">{{ '%.1f'|format(cards.bo_rate) }}%</div></div></div><div class="quality-progress"><span style="width:{{ 100 if cards.bo_rate > 100 else cards.bo_rate }}%"></span></div></div>
@@ -822,6 +846,38 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   </div></div>
 </div>
 
+<div class="section">
+  <div class="section-title">
+    <h2>Sales Projection</h2>
+  </div>
+  <p class="projection-note">Klik angka untuk nilai lengkap. Gap positif berarti di atas laju target; negatif berarti tertinggal.</p>
+  <div class="card projection-desktop"><table class="projection-table">
+    <colgroup><col><col span="4"></colgroup>
+    <thead><tr><th>Salesman</th>{% for key,label in projection_fields %}<th>{{ label }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for p in projection_rows %}<tr><td>{{ p.salesman }}</td>{% for key,label in projection_fields %}<td>{{ projection_value(p,key,label,p.salesman) }}</td>{% endfor %}</tr>{% else %}<tr><td colspan="5">Belum ada data salesman untuk filter ini.</td></tr>{% endfor %}</tbody>
+    <tfoot><tr><td>GRAND TOTAL</td>{% for key,label in projection_fields %}<td>{{ projection_value(projection_summary,key,label,'Grand Total') }}</td>{% endfor %}</tr></tfoot>
+  </table></div>
+  <div class="projection-mobile">
+    {% for p in projection_rows %}<div class="card projection-person"><h3>{{ p.salesman }}</h3><div class="projection-grid">{% for key,label in projection_fields %}<div class="projection-metric"><span class="projection-label">{{ label }}</span>{{ projection_value(p,key,label,p.salesman) }}</div>{% endfor %}</div></div>{% endfor %}
+    <div class="card projection-person"><h3>GRAND TOTAL</h3><div class="projection-grid">{% for key,label in projection_fields %}<div class="projection-metric"><span class="projection-label">{{ label }}</span>{{ projection_value(projection_summary,key,label,'Grand Total') }}</div>{% endfor %}</div></div>
+  </div>
+</div>
+<dialog id="projection-dialog" aria-labelledby="projection-title"><h3 id="projection-title"></h3><p id="projection-person"></p><div id="projection-exact"></div><form method="dialog"><button>Tutup</button></form></dialog>
+<script>
+document.addEventListener('click',function(event){
+  const button=event.target.closest('[data-projection-value]');
+  if(!button)return;
+  const dialog=document.getElementById('projection-dialog');
+  const value=Number(button.dataset.projectionValue);
+  const isPercent=button.dataset.projectionPercent==='true';
+  document.getElementById('projection-title').textContent=button.dataset.projectionLabel;
+  document.getElementById('projection-person').textContent=button.dataset.projectionPerson;
+  document.getElementById('projection-exact').textContent=isPercent
+    ? value.toLocaleString('id-ID',{maximumFractionDigits:6})+'%'
+    : 'Rp '+value.toLocaleString('id-ID',{maximumFractionDigits:2});
+  dialog.showModal();
+});
+</script>
 <div class="section">
   <div class="section-title">
     <h2>Distribution Quality</h2>
