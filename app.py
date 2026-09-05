@@ -1476,37 +1476,68 @@ def dashboard():
     monthly_targets, target_by_bp = target_lookup_for_month(month)
     billing_rows = Billing.query.filter(Billing.billing_date >= start, Billing.billing_date <= end).all()
 
-    # Filter dropdown options come from target master.
-    all_depos = sorted({t.depo for t in monthly_targets if t.depo and t.depo != 'Unmapped'})
+    # Build period-specific Depo <-> Salesman mapping from Monthly Target.
+    # The target file for the selected month is the source of truth.
+    target_depos_by_salesman = {}
+    target_salesmen_by_depo = {}
+    for t in monthly_targets:
+        s = canonical_salesman(t.salesman)
+        d = normalize_text(t.depo)
+        if s not in LOCKED_SALESMEN or not d or d == 'Unmapped':
+            continue
+        target_depos_by_salesman.setdefault(s, set()).add(d)
+        target_salesmen_by_depo.setdefault(d, set()).add(s)
+
+    all_depos = sorted(target_salesmen_by_depo.keys())
 
     if session.get('role') == 'admin':
         depos = all_depos
     else:
-        # Keep the requested business order for Viewer.
         available = set(all_depos)
         depos = [d for d in VIEWER_ALLOWED_DEPOS if d in available]
 
-    # Full operational scope must not depend on Monthly Target availability.
-    # This keeps Billing achievement visible even before the target master
-    # for the selected month has been uploaded.
+    requested_set = {
+        s for s in requested_salesmen
+        if s in LOCKED_SALESMEN
+    }
+
+    # Cascading Salesman -> Depo:
+    # when one or more salesmen are selected, the active Depo scope follows
+    # the Depo values assigned to them in Monthly Target for this month.
+    if monthly_targets and requested_set:
+        mapped_depos = set()
+        for salesman in requested_set:
+            mapped_depos.update(target_depos_by_salesman.get(salesman, set()))
+
+        if session.get('role') != 'admin':
+            mapped_depos &= set(VIEWER_ALLOWED_DEPOS)
+
+        if mapped_depos:
+            ordered_depos = all_depos if session.get('role') == 'admin' else VIEWER_ALLOWED_DEPOS
+            depo_filters = [d for d in ordered_depos if d in mapped_depos]
+
+    # Full operational scope is only the default three-depo Apple viewer scope.
     full_operational_scope = set(depo_filters) == set(VIEWER_ALLOWED_DEPOS)
 
+    # Cascading Depo -> Salesman:
+    # salesman choices are derived from Monthly Target in the active Depo scope.
     salesman_options = set()
-    for t in monthly_targets:
-        if not depo_filters or t.depo in depo_filters:
-            salesman_options.add(t.salesman)
-    for r in billing_rows:
-        owner, depo, _, _ = resolve_billing_owner(r, target_by_bp)
-        if full_operational_scope:
-            if owner in LOCKED_SALESMEN:
+    if monthly_targets:
+        for d in depo_filters:
+            salesman_options.update(target_salesmen_by_depo.get(d, set()))
+    else:
+        # Before a target is uploaded, fall back to valid locked billing owners.
+        for r in billing_rows:
+            owner, depo, _, _ = resolve_billing_owner(r, target_by_bp)
+            if not owner or owner not in LOCKED_SALESMEN:
+                continue
+            if full_operational_scope or not depo_filters or depo in depo_filters:
                 salesman_options.add(owner)
-        elif owner and (not depo_filters or depo in depo_filters):
-            salesman_options.add(owner)
-    # Do not allow unexpected/raw billing names to create extra dashboard rows.
+
+    # Do not allow unexpected/raw billing names to create dashboard rows.
     salesmen = [s for s in LOCKED_SALESMEN if s in salesman_options]
 
-    # Keep only valid selections and preserve the canonical dashboard order.
-    requested_set = set(requested_salesmen)
+    # Keep only valid selections and preserve canonical display order.
     salesman_filters = [s for s in salesmen if s in requested_set]
 
     # BO belongs to the salesman, not to a depo mapping. Calculate it from all
