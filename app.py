@@ -2149,6 +2149,60 @@ def upload():
     return redirect(url_for('dashboard', month=return_month))
 
 
+def read_target_workbook(source):
+    """Read every target sheet, one at a time, before replacing the snapshot."""
+    collapsed = {}
+    rows_read = 0
+    sheet_counts = []
+    with pd.ExcelFile(source) as workbook:
+        for sheet_name in workbook.sheet_names:
+            df = workbook.parse(sheet_name)
+            if df.dropna(how='all').empty:
+                continue
+            # Keep the first matching column: the dealer table is on the left.
+            # Summary tables on the right may repeat TARGET BO / TARGET QVO.
+            normalized = {}
+            for column in df.columns:
+                normalized.setdefault(normalize_col(column), column)
+            cmap = {}
+            for key, aliases in TARGET_ALIASES.items():
+                for alias in aliases:
+                    if normalize_col(alias) in normalized:
+                        cmap[key] = normalized[normalize_col(alias)]
+                        break
+            missing = [key for key in TARGET_ALIASES if key not in cmap]
+            if missing:
+                raise ValueError(f'Sheet "{sheet_name}": kolom wajib tidak ditemukan: ' + ', '.join(missing))
+            rows_read += len(df)
+            sheet_bps = set()
+            for row_number, (_, rr) in enumerate(df.iterrows(), start=2):
+                bp = normalize_bp(rr[cmap['bp']])
+                if not bp:
+                    continue
+                salesman = canonical_salesman(rr[cmap['salesman']])
+                depo = canonical_depo(rr[cmap['depo']])
+                dealer_value = rr[cmap['dealer']]
+                dealer_name = '' if pd.isna(dealer_value) else normalize_text(dealer_value)
+                if not salesman or not dealer_name:
+                    raise ValueError(f'Sheet "{sheet_name}" baris {row_number}, BP {bp}: nama dealer/salesman kosong.')
+                if bp in collapsed and (collapsed[bp]['salesman'], collapsed[bp]['depo']) != (salesman, depo):
+                    raise ValueError(f'Sheet "{sheet_name}" baris {row_number}: BP {bp} memiliki salesman/depo berbeda. Periksa duplikat BP.')
+                rec = collapsed.setdefault(bp, {
+                    'depo': depo, 'bp': bp, 'dealer': dealer_name, 'salesman': salesman,
+                    'device_target': 0.0, 'macbook_target': 0.0, 'acc_target': 0.0,
+                    'bo_target': 0, 'qvo_target': 0,
+                })
+                for key in ('device_target', 'macbook_target', 'acc_target'):
+                    rec[key] += to_num(rr[cmap[key]])
+                for key in ('bo_target', 'qvo_target'):
+                    rec[key] += int(round(to_num(rr[cmap[key]])))
+                sheet_bps.add(bp)
+            sheet_counts.append((sheet_name, len(sheet_bps)))
+    if not collapsed:
+        raise ValueError('Tidak ada dealer/BP valid yang dapat dibaca.')
+    return collapsed, rows_read, sheet_counts
+
+
 @app.route('/upload-target', methods=['POST'])
 @admin_required
 def upload_target():
@@ -2161,30 +2215,7 @@ def upload_target():
         flash('Format Target harus Excel (.xlsx/.xls).', 'danger')
         return redirect(url_for('dashboard', month=target_month))
     try:
-        df = pd.read_excel(f, sheet_name=0)
-        cmap = map_columns(df.columns, TARGET_ALIASES, 'Target Bulanan')
-        collapsed = {}
-        for _, rr in df.iterrows():
-            bp = normalize_bp(rr[cmap['bp']])
-            if not bp:
-                continue
-            salesman = canonical_salesman(rr[cmap['salesman']])
-            depo = canonical_depo(rr[cmap['depo']])
-            dealer_name = normalize_text(rr[cmap['dealer']])
-            if not salesman or not dealer_name:
-                continue
-            rec = collapsed.setdefault(bp, {
-                'depo':depo,'bp':bp,'dealer':dealer_name,'salesman':salesman,
-                'device_target':0.0,'macbook_target':0.0,'acc_target':0.0,'bo_target':0,'qvo_target':0
-            })
-            rec['device_target'] += to_num(rr[cmap['device_target']])
-            rec['macbook_target'] += to_num(rr[cmap['macbook_target']])
-            rec['acc_target'] += to_num(rr[cmap['acc_target']])
-            rec['bo_target'] += int(round(to_num(rr[cmap['bo_target']])))
-            rec['qvo_target'] += int(round(to_num(rr[cmap['qvo_target']])))
-
-        if not collapsed:
-            raise ValueError('Tidak ada dealer/BP valid yang dapat dibaca.')
+        collapsed, rows_read, sheet_counts = read_target_workbook(f)
 
         # Monthly target is a snapshot: re-uploading a month cleanly replaces that month.
         MonthlyTarget.query.filter_by(month=target_month).delete(synchronize_session=False)
@@ -2192,10 +2223,11 @@ def upload_target():
             db.session.add(MonthlyTarget(month=target_month, **rec))
         db.session.add(TargetUploadLog(
             month=target_month, filename=secure_filename(f.filename), uploaded_by=session.get('username'),
-            rows_read=len(df), dealers_loaded=len(collapsed)
+            rows_read=rows_read, dealers_loaded=len(collapsed)
         ))
         db.session.commit()
-        flash(f'Target {target_month} berhasil: {len(collapsed)} dealer/BP dimuat.', 'success')
+        details = ', '.join(f'{name}: {count} BP' for name, count in sheet_counts)
+        flash(f'Target {target_month} berhasil: {len(collapsed)} dealer/BP unik dimuat dari {len(sheet_counts)} sheet ({details}).', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Upload Target gagal: {e}', 'danger')
