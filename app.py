@@ -1519,36 +1519,39 @@ def dashboard():
     # Full operational scope is only the default three-depo Apple viewer scope.
     full_operational_scope = set(depo_filters) == set(VIEWER_ALLOWED_DEPOS)
 
-    # Cascading Depo -> Salesman:
-    # salesman choices are derived from Monthly Target in the active Depo scope.
+    # Salesman dropdown contains every locked Apple salesman mapped in the
+    # Monthly Target for the active month.  It is intentionally NOT narrowed
+    # by the current Depo selection, so the user can select (for example)
+    # Michael while Cempaka is currently active and the Depo filter can then
+    # cascade to Roxy.
     salesman_options = set()
     if monthly_targets:
-        for d in depo_filters:
-            salesman_options.update(target_salesmen_by_depo.get(d, set()))
+        salesman_options.update(target_depos_by_salesman.keys())
     else:
         # Before a target is uploaded, fall back to valid locked billing owners.
         for r in billing_rows:
-            owner, depo, _, _ = resolve_billing_owner(r, target_by_bp)
-            if not owner or owner not in LOCKED_SALESMEN:
-                continue
-            if full_operational_scope or not depo_filters or depo in depo_filters:
+            owner, _, _, _ = resolve_billing_owner(r, target_by_bp)
+            if owner in LOCKED_SALESMEN:
                 salesman_options.add(owner)
 
-    # Do not allow unexpected/raw billing names to create dashboard rows.
+    # Do not allow unexpected/raw billing names to create dashboard rows/options.
     salesmen = [s for s in LOCKED_SALESMEN if s in salesman_options]
 
-    # Keep only valid selections and preserve canonical display order.
-    salesman_filters = [s for s in salesmen if s in requested_set]
-
-    # Bidirectional filter UX:
-    # If the user explicitly filters Depo but does not explicitly choose a
-    # salesman, automatically select every locked salesman mapped to those
-    # Depo values in the Monthly Target for the active month.
-    #
-    # This makes the Salesman checkbox state reflect the active Depo scope
-    # instead of showing "All Salesman".
-    if monthly_targets and requested_depos and not requested_set:
-        salesman_filters = salesmen.copy()
+    # Explicit salesman selection wins and already cascades Depo above.
+    if requested_set:
+        salesman_filters = [s for s in salesmen if s in requested_set]
+    elif monthly_targets and depo_filters:
+        # Default / Depo-only state:
+        # immediately select every locked Apple salesman mapped to the active
+        # Depo scope in Monthly Target. Therefore the initial Viewer/Admin
+        # dashboard state Cempaka + Serang + Cilegon shows Zefanya + Rafhyski
+        # + Ikmah instead of "All Salesman".
+        mapped_salesmen = set()
+        for d in depo_filters:
+            mapped_salesmen.update(target_salesmen_by_depo.get(d, set()))
+        salesman_filters = [s for s in LOCKED_SALESMEN if s in mapped_salesmen]
+    else:
+        salesman_filters = []
 
     # BO belongs to the salesman, not to a depo mapping. Calculate it from all
     # billing rows in the selected month before applying any depo filter, so a
@@ -1835,11 +1838,25 @@ def dashboard():
 
     uploads = UploadLog.query.order_by(UploadLog.uploaded_at.desc()).limit(6).all()
     target_uploads = TargetUploadLog.query.order_by(TargetUploadLog.uploaded_at.desc()).limit(6).all()
+
+    # Client-side filter mapping for instant bidirectional Depo <-> Salesman UI.
+    filter_salesman_depos = {
+        s: [d for d in all_depos if d in target_depos_by_salesman.get(s, set())]
+        for s in salesmen
+    }
+    filter_depo_salesmen = {
+        d: [s for s in LOCKED_SALESMEN if s in target_salesmen_by_depo.get(d, set())]
+        for d in all_depos
+    }
+
     return render_template(
         'dashboard.html', month=month,
         depo_filter=(depo_filters[0] if len(depo_filters) == 1 else ''),
         depo_filters=depo_filters, salesman_filters=salesman_filters,
-        depos=depos, salesmen=salesmen, cards=cards, table=table, leaderboard=leaderboard,
+        depos=depos, salesmen=salesmen,
+        filter_salesman_depos=filter_salesman_depos,
+        filter_depo_salesmen=filter_depo_salesmen,
+        cards=cards, table=table, leaderboard=leaderboard,
         speed_rows=speed_rows, sku_rows=sku_rows, sku_detail=sku_detail, dealer_detail=dealer_detail,
         sku_targets=SKU_TARGETS, uploads=uploads, target_uploads=target_uploads,
         qvo_threshold=QVO_THRESHOLD, latest_in_scope=latest_in_scope,
