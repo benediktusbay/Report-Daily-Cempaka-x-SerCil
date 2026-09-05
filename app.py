@@ -1540,6 +1540,16 @@ def dashboard():
     # Keep only valid selections and preserve canonical display order.
     salesman_filters = [s for s in salesmen if s in requested_set]
 
+    # Bidirectional filter UX:
+    # If the user explicitly filters Depo but does not explicitly choose a
+    # salesman, automatically select every locked salesman mapped to those
+    # Depo values in the Monthly Target for the active month.
+    #
+    # This makes the Salesman checkbox state reflect the active Depo scope
+    # instead of showing "All Salesman".
+    if monthly_targets and requested_depos and not requested_set:
+        salesman_filters = salesmen.copy()
+
     # BO belongs to the salesman, not to a depo mapping. Calculate it from all
     # billing rows in the selected month before applying any depo filter, so a
     # BP remains part of the salesman's BO whether it is mapped or UNMAPPED.
