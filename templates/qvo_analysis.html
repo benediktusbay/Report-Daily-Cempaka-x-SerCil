@@ -1,34 +1,190 @@
 {% extends "base.html" %}
 {% block title %}QVO Analysis | Daily Sales Report{% endblock %}
+
 {% block head %}
 <style>
-.qvo-page{display:grid;gap:18px}.qvo-hero{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.qvo-hero h1{margin:0 0 5px;font-size:28px}.qvo-hero p{margin:0;color:#64748b;font-size:13px}.qvo-back{display:inline-flex;align-items:center;gap:7px;text-decoration:none;color:#1769e8;border:1px solid #bfd6f7;border-radius:9px;padding:9px 12px;font-size:12px;font-weight:800;background:#fff}
-.qvo-filter{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px;box-shadow:0 3px 14px rgba(15,23,42,.05)}.qvo-filter form{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}.qvo-field label{display:block;font-size:10px;text-transform:uppercase;font-weight:900;color:#64748b;margin-bottom:6px}.qvo-field input,.qvo-field select{border:1px solid #cbd5e1;border-radius:8px;padding:9px 10px;background:#fff;min-width:160px}.qvo-filter .btn{border:0;border-radius:8px;background:#0b2545;color:#fff;padding:10px 15px;font-weight:800;cursor:pointer}
-.qvo-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.qvo-kpi{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:17px;box-shadow:0 3px 14px rgba(15,23,42,.05)}.qvo-kpi span{font-size:10px;font-weight:900;text-transform:uppercase;color:#64748b}.qvo-kpi strong{display:block;font-size:28px;color:#0f172a;margin-top:7px}.qvo-kpi small{display:block;color:#64748b;margin-top:4px}
-.qvo-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.qvo-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:18px;box-shadow:0 3px 14px rgba(15,23,42,.05);min-width:0}.qvo-card h2{margin:0 0 4px;font-size:17px}.qvo-card .sub{margin:0 0 14px;color:#64748b;font-size:11px}.qvo-bar-list{display:grid;gap:10px}.qvo-bar-row{display:grid;grid-template-columns:minmax(110px,1fr) 2fr auto;gap:10px;align-items:center;font-size:11px}.qvo-bar-track{height:9px;background:#e9eef5;border-radius:999px;overflow:hidden}.qvo-bar-track span{display:block;height:100%;background:#1769e8;border-radius:inherit}.qvo-bar-value{font-weight:900;color:#0f172a;min-width:24px;text-align:right}
-.qvo-table-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;box-shadow:0 3px 14px rgba(15,23,42,.05)}.qvo-table-wrap{overflow-x:auto}.qvo-table{width:100%;border-collapse:collapse;min-width:1180px}.qvo-table th{background:#f8fafc;color:#64748b;font-size:9px;text-transform:uppercase;letter-spacing:.03em;text-align:left;padding:10px;border-bottom:1px solid #e5e7eb}.qvo-table td{font-size:11px;padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle}.qvo-table .number{text-align:right;white-space:nowrap}.qvo-table .center{text-align:center}.qvo-score{font-weight:900;color:#1769e8}.qvo-trend.Up{color:#15803d;font-weight:900}.qvo-trend.Down{color:#dc2626;font-weight:900}.qvo-trend.Stable{color:#b45309;font-weight:900}.qvo-action{display:inline-flex;padding:5px 8px;border-radius:999px;font-size:9px;font-weight:900;white-space:nowrap}.qvo-action.push-now{background:#dcfce7;color:#166534}.qvo-action.follow-up{background:#dbeafe;color:#1d4ed8}.qvo-action.re-activate{background:#ffedd5;color:#c2410c}.qvo-action.low-priority{background:#f1f5f9;color:#64748b}.qvo-history-btn{border:0;background:transparent;color:#1769e8;font:inherit;font-weight:900;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}.qvo-recovery{display:grid;gap:8px}.qvo-recovery-row{display:grid;grid-template-columns:minmax(0,1.4fr) .8fr auto;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid #eef2f7;font-size:11px}.qvo-recovery-row small{display:block;color:#64748b;margin-top:3px}.qvo-recovery-row strong{white-space:nowrap;color:#c2410c}
+.qvo-page{display:grid;gap:18px}.qvo-topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.qvo-topbar h1{margin:0 0 5px;font-size:28px;color:#0f172a}.qvo-topbar p{margin:0;color:#64748b;font-size:13px}.qvo-back{display:inline-flex;align-items:center;gap:7px;text-decoration:none;color:#1769e8;border:1px solid #bfd6f7;border-radius:10px;padding:10px 13px;font-size:12px;font-weight:900;background:#fff;white-space:nowrap}.qvo-back:hover{background:#eff6ff}
+.qvo-filter-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px;box-shadow:0 3px 14px rgba(15,23,42,.05)}.qvo-filter-form{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}.qvo-field label{display:block;font-size:10px;text-transform:uppercase;font-weight:900;color:#64748b;margin-bottom:6px}.qvo-field input{height:42px;border:1px solid #d1d5db;border-radius:9px;padding:8px 11px;background:#fff;box-sizing:border-box}.qvo-field.period input{min-width:190px}.qvo-filter-btn{height:42px;border:0;border-radius:9px;background:#0b2545;color:#fff;padding:0 18px;font-weight:900;cursor:pointer}.qvo-filter-btn:hover{background:#133c65}
+.qvo-multi{position:relative;min-width:260px}.qvo-multi-button{height:42px;width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid #d1d5db;border-radius:9px;padding:0 12px;background:#fff;cursor:pointer;font-size:13px;color:#111827}.qvo-multi-menu{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:60;width:100%;max-height:280px;overflow:auto;background:#fff;border:1px solid #d1d5db;border-radius:10px;box-shadow:0 14px 36px rgba(15,23,42,.14);padding:8px}.qvo-multi.open .qvo-multi-menu{display:block}.qvo-multi-option{display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:7px;cursor:pointer;font-size:12px}.qvo-multi-option:hover{background:#f8fafc}.qvo-multi-option input{margin:0}.qvo-multi-summary{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qvo-main-card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 3px 14px rgba(15,23,42,.05);overflow:hidden}.qvo-main-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px;border-bottom:1px solid #eef2f7}.qvo-main-title{display:flex;align-items:center;gap:12px}.qvo-target-icon{width:44px;height:44px;border-radius:12px;background:#e8f1ff;color:#1769e8;display:grid;place-items:center;flex:0 0 auto}.qvo-target-icon svg{width:23px;height:23px}.qvo-main-title h2{margin:0 0 3px;font-size:20px;color:#0f172a}.qvo-main-title p{margin:0;color:#64748b;font-size:11px}.qvo-count-badge{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:11px;background:#edf5ff;color:#1769e8;font-weight:900}.qvo-count-badge strong{font-size:18px;line-height:1}.qvo-count-badge span{font-size:11px}
+.qvo-focus-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;background:#f8fafc;border-bottom:1px solid #eef2f7}.qvo-focus-item{padding:12px 16px;border-right:1px solid #e5e7eb}.qvo-focus-item:last-child{border-right:0}.qvo-focus-item span{display:block;font-size:9px;text-transform:uppercase;font-weight:900;letter-spacing:.04em;color:#64748b;margin-bottom:4px}.qvo-focus-item strong{font-size:18px;color:#0f172a}.qvo-focus-item.push strong{color:#15803d}.qvo-focus-item.follow strong{color:#1769e8}.qvo-focus-item.reactivate strong{color:#c2410c}
+.qvo-table-wrap{overflow-x:auto}.qvo-table{width:100%;border-collapse:collapse;min-width:1180px}.qvo-table th{background:#f8fafc;color:#64748b;font-size:9px;text-transform:uppercase;letter-spacing:.03em;text-align:left;padding:10px 12px;border-bottom:1px solid #e5e7eb}.qvo-table td{font-size:11px;padding:11px 12px;border-bottom:1px solid #eef2f7;vertical-align:middle}.qvo-table tbody tr:hover{background:#fbfdff}.qvo-table .number{text-align:right;white-space:nowrap}.qvo-table .center{text-align:center}.qvo-rank{display:inline-grid;place-items:center;width:27px;height:27px;border-radius:999px;background:#eef4fb;color:#0b2545;font-weight:900}.qvo-dealer strong{display:block;color:#0f172a}.qvo-dealer small{display:block;color:#64748b;margin-top:3px}.qvo-gap{color:#1769e8;font-weight:900}.qvo-score{display:inline-flex;align-items:center;justify-content:center;min-width:44px;padding:5px 8px;border-radius:8px;background:#eef5ff;color:#1769e8;font-weight:900}.qvo-trend{font-weight:900}.qvo-trend.Up{color:#15803d}.qvo-trend.Down{color:#dc2626}.qvo-trend.Stable{color:#b45309}.qvo-history-btn{border:0;background:transparent;color:#1769e8;font:inherit;font-weight:900;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}.qvo-action{display:inline-flex;padding:5px 9px;border-radius:999px;font-size:9px;font-weight:900;white-space:nowrap}.qvo-action.push-now{background:#dcfce7;color:#166534}.qvo-action.follow-up{background:#dbeafe;color:#1d4ed8}.qvo-action.re-activate{background:#ffedd5;color:#c2410c}.qvo-action.low-priority{background:#f1f5f9;color:#64748b}.qvo-empty{text-align:center;padding:28px;color:#64748b}
+.qvo-insight-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.qvo-insight-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:18px;box-shadow:0 3px 14px rgba(15,23,42,.05);min-width:0}.qvo-insight-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}.qvo-insight-head h3{margin:0 0 4px;font-size:16px;color:#0f172a}.qvo-insight-head p{margin:0;color:#64748b;font-size:10px}.qvo-bar-list{display:grid;gap:10px}.qvo-bar-row{display:grid;grid-template-columns:minmax(120px,1fr) 2fr 30px;gap:10px;align-items:center;font-size:11px}.qvo-bar-track{height:8px;background:#e8eef6;border-radius:999px;overflow:hidden}.qvo-bar-track span{display:block;height:100%;background:#1769e8;border-radius:inherit}.qvo-bar-value{text-align:right;font-weight:900;color:#0f172a}.qvo-recovery-list{display:grid;gap:0}.qvo-recovery-row{display:grid;grid-template-columns:minmax(0,1.4fr) .8fr auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #eef2f7;font-size:11px}.qvo-recovery-row b{color:#0f172a}.qvo-recovery-row small{display:block;color:#64748b;margin-top:3px}.qvo-recovery-row strong{white-space:nowrap;color:#c2410c}
+.qvo-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}.qvo-section-head h2{margin:0;font-size:18px;color:#0f172a}.qvo-section-head p{margin:0;color:#64748b;font-size:11px}.qvo-all-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;box-shadow:0 3px 14px rgba(15,23,42,.05)}
 .qvo-history-dialog{border:1px solid #dce5f2;border-radius:16px;padding:0;width:min(720px,calc(100vw - 28px));max-height:86vh;overflow:hidden;color:#102a48;box-shadow:0 24px 70px rgba(15,23,42,.25)}.qvo-history-dialog::backdrop{background:rgba(15,35,60,.48)}.qvo-history-head{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;padding:18px 20px;border-bottom:1px solid #e5e7eb}.qvo-history-head h3{margin:0 0 4px;font-size:19px}.qvo-history-head p{margin:0;color:#64748b;font-size:12px}.qvo-history-close{border:0;background:#eef2f7;width:34px;height:34px;border-radius:8px;cursor:pointer;font-size:18px}.qvo-history-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:16px 20px 4px}.qvo-history-summary>div{background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:11px}.qvo-history-summary span{display:block;color:#64748b;font-size:10px;text-transform:uppercase;font-weight:800;margin-bottom:5px}.qvo-history-summary strong{font-size:15px}.qvo-history-body{padding:12px 20px 20px;max-height:58vh;overflow:auto}.qvo-history-table{width:100%;border-collapse:collapse}.qvo-history-table th,.qvo-history-table td{padding:10px 8px;font-size:12px;border-bottom:1px solid #eef2f7}.qvo-history-status{font-weight:900;color:#15803d}.qvo-history-miss{color:#94a3b8}
-@media(max-width:900px){.qvo-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.qvo-grid{grid-template-columns:1fr}}@media(max-width:600px){.qvo-hero{display:block}.qvo-back{margin-top:10px}.qvo-kpis{grid-template-columns:1fr 1fr}.qvo-filter form{display:grid;grid-template-columns:1fr}.qvo-field input,.qvo-field select{width:100%;box-sizing:border-box}.qvo-bar-row{grid-template-columns:100px 1fr auto}}
+@media(max-width:1000px){.qvo-focus-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.qvo-focus-item:nth-child(2){border-right:0}.qvo-focus-item:nth-child(-n+2){border-bottom:1px solid #e5e7eb}.qvo-insight-grid{grid-template-columns:1fr}}
+@media(max-width:768px){.qvo-topbar{display:block}.qvo-back{margin-top:10px}.qvo-filter-form{display:grid;grid-template-columns:1fr}.qvo-field.period input,.qvo-multi,.qvo-filter-btn{width:100%;min-width:0}.qvo-multi{min-width:0}.qvo-main-head{align-items:flex-start}.qvo-count-badge{flex:0 0 auto}.qvo-main-title h2{font-size:18px}.qvo-table{min-width:1020px}.qvo-bar-row{grid-template-columns:110px 1fr 28px}.qvo-recovery-row{grid-template-columns:1fr auto}.qvo-recovery-row>span:nth-child(2){display:none}}
+@media(max-width:520px){.qvo-focus-strip{grid-template-columns:1fr}.qvo-focus-item{border-right:0;border-bottom:1px solid #e5e7eb!important}.qvo-focus-item:last-child{border-bottom:0!important}.qvo-count-badge span{display:none}}
 </style>
 {% endblock %}
+
 {% block body %}
 <div class="qvo-page">
-  <div class="qvo-hero"><div><h1>QVO Analysis</h1><p>Prioritas dealer berdasarkan Sales MTD, historical QVO, recent performance, consistency dan trend.</p></div><a class="qvo-back" href="{{ url_for('dashboard', month=month, depo=depo_filters, salesman=salesman_filters) }}">← Kembali ke Dashboard</a></div>
-  <div class="qvo-filter"><form method="get" action="{{ url_for('qvo_analysis') }}"><div class="qvo-field"><label>Period</label><input type="month" name="month" value="{{ month }}" required></div><div class="qvo-field"><label>Depo</label><select name="depo" multiple size="3">{% for d in depos %}<option value="{{ d }}" {% if d in depo_filters %}selected{% endif %}>{{ d }}</option>{% endfor %}</select></div><div class="qvo-field"><label>Salesman</label><select name="salesman" multiple size="3">{% for s in salesmen %}<option value="{{ s }}" {% if s in salesman_filters %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></div><button class="btn" type="submit">Apply</button></form></div>
-  {% set push = rows|selectattr('action','equalto','Push Now')|list|length %}{% set follow = rows|selectattr('action','equalto','Follow Up')|list|length %}{% set react = rows|selectattr('action','equalto','Re-activate')|list|length %}
-  <div class="qvo-kpis"><div class="qvo-kpi"><span>Total Potential</span><strong>{{ rows|length }}</strong><small>dealer di scope aktif</small></div><div class="qvo-kpi"><span>Push Now</span><strong>{{ push }}</strong><small>prioritas dikejar sekarang</small></div><div class="qvo-kpi"><span>Follow Up</span><strong>{{ follow }}</strong><small>masih realistis dikejar</small></div><div class="qvo-kpi"><span>Re-activate</span><strong>{{ react }}</strong><small>historically kuat, recent drop</small></div></div>
-  <div class="qvo-grid">
-    <div class="qvo-card"><h2>Potential by Salesman</h2><p class="sub">Jumlah dealer QVO Potential pada scope aktif.</p><div class="qvo-bar-list">{% set max_salesman = (by_salesman|max(attribute='count')).count if by_salesman else 1 %}{% for x in by_salesman %}<div class="qvo-bar-row"><span>{{ x.salesman }}</span><div class="qvo-bar-track"><span style="width:{{ (x.count/max_salesman*100) if max_salesman else 0 }}%"></span></div><span class="qvo-bar-value">{{ x.count }}</span></div>{% else %}<p class="sub">Belum ada data.</p>{% endfor %}</div></div>
-    <div class="qvo-card"><h2>Gap to QVO Distribution</h2><p class="sub">Sebaran gap dealer terhadap threshold {{ qvo_threshold|rupiah_short }}.</p><div class="qvo-bar-list">{% set max_gap = (gap_bands|max(attribute='count')).count if gap_bands else 1 %}{% for x in gap_bands %}<div class="qvo-bar-row"><span>{{ x.label }}</span><div class="qvo-bar-track"><span style="width:{{ (x.count/max_gap*100) if max_gap else 0 }}%"></span></div><span class="qvo-bar-value">{{ x.count }}</span></div>{% endfor %}</div></div>
-    <div class="qvo-card"><h2>Dealer Recovery Opportunity</h2><p class="sub">Dealer yang punya history kuat tetapi performa bulan berjalan turun.</p><div class="qvo-recovery">{% for r in recovery[:8] %}<div class="qvo-recovery-row"><span><b>{{ r.dealer }}</b><small>{{ r.bp }} · {{ r.salesman }}</small></span><span>{{ r.history_label }} QVO</span><strong>{{ r.sales_mtd|rupiah_short }}</strong></div>{% else %}<p class="sub">Tidak ada dealer Re-activate untuk scope ini.</p>{% endfor %}</div></div>
-    <div class="qvo-card"><h2>QVO Conversion History</h2><p class="sub">Jumlah dealer pada daftar potential saat ini yang historically mencapai QVO per bulan.</p><div class="qvo-bar-list">{% set max_conv = (conversion|max(attribute='count')).count if conversion else 1 %}{% for x in conversion %}<div class="qvo-bar-row"><span>{{ x.label }}</span><div class="qvo-bar-track"><span style="width:{{ (x.count/max_conv*100) if max_conv else 0 }}%"></span></div><span class="qvo-bar-value">{{ x.count }}</span></div>{% else %}<p class="sub">Belum ada historical billing.</p>{% endfor %}</div></div>
+  <div class="qvo-topbar">
+    <div>
+      <h1>QVO Analysis</h1>
+      <p>Prioritas dealer untuk dikejar berdasarkan Sales MTD, gap, history QVO dan pola penjualan.</p>
+    </div>
+    <a class="qvo-back" href="{{ url_for('dashboard', month=month) }}">← Kembali ke Dashboard</a>
   </div>
-  <div><h2 style="margin:0 0 10px;font-size:18px">Top QVO Potential Dealers</h2><div class="qvo-table-card"><div class="qvo-table-wrap"><table class="qvo-table"><thead><tr><th>Rank</th><th>Dealer</th><th>Depo</th><th>Salesman</th><th class="number">Sales MTD</th><th class="number">Gap</th><th class="number">Avg Sales</th><th class="center">History QVO</th><th class="center">Trend</th><th class="center">Score</th><th>Action</th></tr></thead><tbody>{% for r in top_rows %}<tr><td class="center"><strong>{{ loop.index }}</strong></td><td><strong>{{ r.dealer }}</strong><br><small style="color:#64748b">{{ r.bp }}</small></td><td>{{ r.depo }}</td><td>{{ r.salesman }}</td><td class="number">{{ r.sales_mtd|rupiah_short }}</td><td class="number">{{ r.gap|rupiah_short }}</td><td class="number">{{ r.avg_sales|rupiah_short }}</td><td class="center"><button class="qvo-history-btn" type="button" data-qvo-history='{{ r|tojson }}'>{{ r.history_label }}</button></td><td class="center qvo-trend {{ r.trend }}">{{ r.trend }}</td><td class="center qvo-score">{{ '%.1f'|format(r.score) }}</td><td><span class="qvo-action {{ r.action|lower|replace(' ','-') }}">{{ r.action }}</span></td></tr>{% else %}<tr><td colspan="11" style="text-align:center;padding:30px;color:#64748b">Tidak ada QVO Potential pada filter ini.</td></tr>{% endfor %}</tbody></table></div></div></div>
+
+  <div class="qvo-filter-card">
+    <form class="qvo-filter-form" method="get" action="{{ url_for('qvo_analysis') }}">
+      <div class="qvo-field period">
+        <label>Period</label>
+        <input type="month" name="month" value="{{ month }}" required>
+      </div>
+
+      <div class="qvo-field">
+        <label>Depo</label>
+        <div class="qvo-multi" id="qvoDepo">
+          <button type="button" class="qvo-multi-button" id="qvoDepoButton">
+            <span class="qvo-multi-summary" id="qvoDepoSummary">{{ depo_filters|join(', ') if depo_filters else 'All Depo' }}</span><span>⌄</span>
+          </button>
+          <div class="qvo-multi-menu" id="qvoDepoMenu">
+            {% for d in depos %}
+            <label class="qvo-multi-option"><input type="checkbox" name="depo" value="{{ d }}" {% if d in depo_filters %}checked{% endif %}><span>{{ d }}</span></label>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="qvo-field">
+        <label>Salesman</label>
+        <div class="qvo-multi" id="qvoSalesman">
+          <button type="button" class="qvo-multi-button" id="qvoSalesmanButton">
+            <span class="qvo-multi-summary" id="qvoSalesmanSummary">{{ salesman_filters|join(', ') if salesman_filters else 'All Salesman' }}</span><span>⌄</span>
+          </button>
+          <div class="qvo-multi-menu" id="qvoSalesmanMenu">
+            {% for s in salesmen %}
+            <label class="qvo-multi-option"><input type="checkbox" name="salesman" value="{{ s }}" {% if s in salesman_filters %}checked{% endif %}><span>{{ s }}</span></label>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <button class="qvo-filter-btn" type="submit">Apply</button>
+    </form>
+  </div>
+
+  {% set push = rows|selectattr('action','equalto','Push Now')|list|length %}
+  {% set follow = rows|selectattr('action','equalto','Follow Up')|list|length %}
+  {% set react = rows|selectattr('action','equalto','Re-activate')|list|length %}
+
+  <section class="qvo-main-card">
+    <div class="qvo-main-head">
+      <div class="qvo-main-title">
+        <div class="qvo-target-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="4"></circle><path d="M12 12l7-7"></path><path d="M16 5h3v3"></path></svg>
+        </div>
+        <div><h2>Top QVO Potential Dealers</h2><p>Dealer yang paling layak diprioritaskan pada scope aktif.</p></div>
+      </div>
+      <div class="qvo-count-badge"><strong>{{ rows|length }}</strong><span>Dealer</span></div>
+    </div>
+
+    <div class="qvo-focus-strip">
+      <div class="qvo-focus-item"><span>Total Potential</span><strong>{{ rows|length }}</strong></div>
+      <div class="qvo-focus-item push"><span>Push Now</span><strong>{{ push }}</strong></div>
+      <div class="qvo-focus-item follow"><span>Follow Up</span><strong>{{ follow }}</strong></div>
+      <div class="qvo-focus-item reactivate"><span>Re-activate</span><strong>{{ react }}</strong></div>
+    </div>
+
+    <div class="qvo-table-wrap">
+      <table class="qvo-table">
+        <thead><tr><th>Rank</th><th>Dealer</th><th>Salesman</th><th>Depo</th><th class="number">Sales MTD</th><th class="number">Gap ke QVO</th><th class="number">Avg Sales</th><th class="center">History QVO</th><th class="center">Trend</th><th class="center">Score</th><th>Action</th></tr></thead>
+        <tbody>
+        {% for r in top_rows %}
+          <tr>
+            <td class="center"><span class="qvo-rank">{{ loop.index }}</span></td>
+            <td class="qvo-dealer"><strong>{{ r.dealer }}</strong><small>{{ r.bp }}</small></td>
+            <td>{{ r.salesman }}</td><td>{{ r.depo }}</td>
+            <td class="number">{{ r.sales_mtd|rupiah_short }}</td>
+            <td class="number qvo-gap">{{ r.gap|rupiah_short }}</td>
+            <td class="number">{{ r.avg_sales|rupiah_short }}</td>
+            <td class="center"><button class="qvo-history-btn" type="button" data-qvo-history='{{ r|tojson }}'>{{ r.history_label }}</button></td>
+            <td class="center qvo-trend {{ r.trend }}">{{ r.trend }}</td>
+            <td class="center"><span class="qvo-score">{{ '%.1f'|format(r.score) }}</span></td>
+            <td><span class="qvo-action {{ r.action|lower|replace(' ','-') }}">{{ r.action }}</span></td>
+          </tr>
+        {% else %}<tr><td colspan="11" class="qvo-empty">Tidak ada QVO Potential pada filter ini.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="qvo-insight-grid">
+    <div class="qvo-insight-card">
+      <div class="qvo-insight-head"><div><h3>Potential by Salesman</h3><p>Jumlah dealer potential per salesman.</p></div></div>
+      <div class="qvo-bar-list">
+        {% set max_salesman = (by_salesman|max(attribute='count')).count if by_salesman else 1 %}
+        {% for x in by_salesman %}<div class="qvo-bar-row"><span>{{ x.salesman }}</span><div class="qvo-bar-track"><span style="width:{{ (x.count/max_salesman*100) if max_salesman else 0 }}%"></span></div><span class="qvo-bar-value">{{ x.count }}</span></div>{% else %}<p class="qvo-empty">Belum ada data.</p>{% endfor %}
+      </div>
+    </div>
+
+    <div class="qvo-insight-card">
+      <div class="qvo-insight-head"><div><h3>Gap to QVO Distribution</h3><p>Sebaran kekurangan ke threshold {{ qvo_threshold|rupiah_short }}.</p></div></div>
+      <div class="qvo-bar-list">
+        {% set max_gap = (gap_bands|max(attribute='count')).count if gap_bands else 1 %}
+        {% for x in gap_bands %}<div class="qvo-bar-row"><span>{{ x.label }}</span><div class="qvo-bar-track"><span style="width:{{ (x.count/max_gap*100) if max_gap else 0 }}%"></span></div><span class="qvo-bar-value">{{ x.count }}</span></div>{% endfor %}
+      </div>
+    </div>
+
+    <div class="qvo-insight-card">
+      <div class="qvo-insight-head"><div><h3>Dealer Recovery Opportunity</h3><p>Historically kuat, tetapi performa berjalan turun.</p></div></div>
+      <div class="qvo-recovery-list">
+        {% for r in recovery[:6] %}<div class="qvo-recovery-row"><span><b>{{ r.dealer }}</b><small>{{ r.bp }} · {{ r.salesman }}</small></span><span>{{ r.history_label }} QVO</span><strong>{{ r.sales_mtd|rupiah_short }}</strong></div>{% else %}<p class="qvo-empty">Tidak ada dealer Re-activate pada scope ini.</p>{% endfor %}
+      </div>
+    </div>
+
+    <div class="qvo-insight-card">
+      <div class="qvo-insight-head"><div><h3>QVO Conversion History</h3><p>Jumlah dealer potential yang pernah mencapai QVO per bulan.</p></div></div>
+      <div class="qvo-bar-list">
+        {% set max_conv = (conversion|max(attribute='count')).count if conversion else 1 %}
+        {% for x in conversion %}<div class="qvo-bar-row"><span>{{ x.label }}</span><div class="qvo-bar-track"><span style="width:{{ (x.count/max_conv*100) if max_conv else 0 }}%"></span></div><span class="qvo-bar-value">{{ x.count }}</span></div>{% else %}<p class="qvo-empty">Belum ada historical billing.</p>{% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <section>
+    <div class="qvo-section-head"><div><h2>All Dealer Detail</h2><p>Detail lengkap untuk review dan follow-up.</p></div></div>
+    <div class="qvo-all-card"><div class="qvo-table-wrap">
+      <table class="qvo-table">
+        <thead><tr><th>Dealer</th><th>BP</th><th>Depo</th><th>Salesman</th><th class="number">Sales MTD</th><th class="number">Gap</th><th class="number">Avg Historical</th><th class="number">Recent Avg</th><th class="center">History QVO</th><th class="center">Trend</th><th class="center">Consistency</th><th class="center">Score</th><th>Action</th></tr></thead>
+        <tbody>{% for r in rows %}<tr><td class="qvo-dealer"><strong>{{ r.dealer }}</strong></td><td>{{ r.bp }}</td><td>{{ r.depo }}</td><td>{{ r.salesman }}</td><td class="number">{{ r.sales_mtd|rupiah_short }}</td><td class="number qvo-gap">{{ r.gap|rupiah_short }}</td><td class="number">{{ r.avg_sales|rupiah_short }}</td><td class="number">{{ r.recent_avg|rupiah_short }}</td><td class="center"><button class="qvo-history-btn" type="button" data-qvo-history='{{ r|tojson }}'>{{ r.history_label }}</button></td><td class="center qvo-trend {{ r.trend }}">{{ r.trend }}</td><td class="center">{{ '%.0f'|format(r.consistency) }}%</td><td class="center"><span class="qvo-score">{{ '%.1f'|format(r.score) }}</span></td><td><span class="qvo-action {{ r.action|lower|replace(' ','-') }}">{{ r.action }}</span></td></tr>{% else %}<tr><td colspan="13" class="qvo-empty">Tidak ada dealer untuk filter ini.</td></tr>{% endfor %}</tbody>
+      </table>
+    </div></div>
+  </section>
 </div>
-  <div><h2 style="margin:0 0 10px;font-size:18px">All Dealer Detail</h2><div class="qvo-table-card"><div class="qvo-table-wrap"><table class="qvo-table"><thead><tr><th>Dealer</th><th>BP</th><th>Depo</th><th>Salesman</th><th class="number">Sales MTD</th><th class="number">Gap</th><th class="number">Avg Historical</th><th class="number">Recent Avg</th><th class="center">History QVO</th><th class="center">Trend</th><th class="center">Consistency</th><th class="center">Score</th><th>Action</th></tr></thead><tbody>{% for r in rows %}<tr><td><strong>{{ r.dealer }}</strong></td><td>{{ r.bp }}</td><td>{{ r.depo }}</td><td>{{ r.salesman }}</td><td class="number">{{ r.sales_mtd|rupiah_short }}</td><td class="number">{{ r.gap|rupiah_short }}</td><td class="number">{{ r.avg_sales|rupiah_short }}</td><td class="number">{{ r.recent_avg|rupiah_short }}</td><td class="center"><button class="qvo-history-btn" type="button" data-qvo-history='{{ r|tojson }}'>{{ r.history_label }}</button></td><td class="center qvo-trend {{ r.trend }}">{{ r.trend }}</td><td class="center">{{ '%.0f'|format(r.consistency) }}%</td><td class="center qvo-score">{{ '%.1f'|format(r.score) }}</td><td><span class="qvo-action {{ r.action|lower|replace(' ','-') }}">{{ r.action }}</span></td></tr>{% else %}<tr><td colspan="13" style="text-align:center;padding:30px;color:#64748b">Tidak ada dealer untuk filter ini.</td></tr>{% endfor %}</tbody></table></div></div></div>
-</div>
-<dialog class="qvo-history-dialog" id="qvoHistoryDialog"><div class="qvo-history-head"><div><h3 id="qvoHistoryTitle">History QVO</h3><p id="qvoHistorySubtitle"></p></div><button type="button" class="qvo-history-close" id="qvoHistoryClose">×</button></div><div class="qvo-history-summary"><div><span>QVO Achieved</span><strong id="qvoHistoryAchieved">—</strong></div><div><span>Terakhir QVO</span><strong id="qvoHistoryLast">—</strong></div></div><div class="qvo-history-body"><table class="qvo-history-table"><thead><tr><th>Bulan</th><th style="text-align:right">Sales</th><th style="text-align:center">Status</th></tr></thead><tbody id="qvoHistoryBody"></tbody></table></div></dialog>
+
+<dialog class="qvo-history-dialog" id="qvoHistoryDialog">
+  <div class="qvo-history-head"><div><h3 id="qvoHistoryTitle">History QVO</h3><p id="qvoHistorySubtitle"></p></div><button type="button" class="qvo-history-close" id="qvoHistoryClose">×</button></div>
+  <div class="qvo-history-summary"><div><span>QVO Achieved</span><strong id="qvoHistoryAchieved">—</strong></div><div><span>Terakhir QVO</span><strong id="qvoHistoryLast">—</strong></div></div>
+  <div class="qvo-history-body"><table class="qvo-history-table"><thead><tr><th>Bulan</th><th style="text-align:right">Sales</th><th style="text-align:center">Status</th></tr></thead><tbody id="qvoHistoryBody"></tbody></table></div>
+</dialog>
 {% endblock %}
+
 {% block scripts %}
-<script>(function(){const dialog=document.getElementById('qvoHistoryDialog'),title=document.getElementById('qvoHistoryTitle'),subtitle=document.getElementById('qvoHistorySubtitle'),achieved=document.getElementById('qvoHistoryAchieved'),last=document.getElementById('qvoHistoryLast'),body=document.getElementById('qvoHistoryBody'),close=document.getElementById('qvoHistoryClose');function money(v){return 'Rp '+Number(v||0).toLocaleString('id-ID',{maximumFractionDigits:0})}function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}document.addEventListener('click',e=>{const btn=e.target.closest('.qvo-history-btn');if(!btn)return;let d={};try{d=JSON.parse(btn.dataset.qvoHistory||'{}')}catch(err){}title.textContent='History QVO — '+(d.dealer||'Dealer');subtitle.textContent=(d.bp||'')+' · '+(d.salesman||'')+' · '+(d.depo||'');achieved.textContent=(d.history_qvo||0)+' dari '+(d.history_total||0)+' bulan';last.textContent=d.last_qvo_label||'Belum pernah';body.innerHTML=(d.history||[]).map(h=>'<tr><td>'+esc(h.label)+'</td><td style="text-align:right">'+money(h.sales)+'</td><td style="text-align:center" class="'+(h.qvo?'qvo-history-status':'qvo-history-miss')+'">'+(h.qvo?'✓ QVO':'—')+'</td></tr>').join('')||'<tr><td colspan="3" style="text-align:center;padding:24px;color:#64748b">Belum ada historical billing.</td></tr>';dialog.showModal()});close?.addEventListener('click',()=>dialog.close())})();</script>
+<script>
+(function(){
+  function setupMulti(rootId,buttonId,summaryId,name,emptyText){
+    const root=document.getElementById(rootId),button=document.getElementById(buttonId),summary=document.getElementById(summaryId);
+    if(!root||!button||!summary)return;
+    const checks=root.querySelectorAll('input[name="'+name+'"]');
+    function update(){const selected=Array.from(checks).filter(c=>c.checked).map(c=>c.value);summary.textContent=!selected.length?emptyText:(selected.length<=2?selected.join(', '):selected.slice(0,2).join(', ')+' +'+(selected.length-2));}
+    button.addEventListener('click',e=>{e.stopPropagation();root.classList.toggle('open')});
+    checks.forEach(c=>c.addEventListener('change',update));update();
+    document.addEventListener('click',e=>{if(!root.contains(e.target))root.classList.remove('open')});
+  }
+  setupMulti('qvoDepo','qvoDepoButton','qvoDepoSummary','depo','All Depo');
+  setupMulti('qvoSalesman','qvoSalesmanButton','qvoSalesmanSummary','salesman','All Salesman');
+})();
+
+(function(){
+  const dialog=document.getElementById('qvoHistoryDialog'),title=document.getElementById('qvoHistoryTitle'),subtitle=document.getElementById('qvoHistorySubtitle'),achieved=document.getElementById('qvoHistoryAchieved'),last=document.getElementById('qvoHistoryLast'),body=document.getElementById('qvoHistoryBody'),close=document.getElementById('qvoHistoryClose');
+  function money(v){return 'Rp '+Number(v||0).toLocaleString('id-ID',{maximumFractionDigits:0})}
+  function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+  document.addEventListener('click',e=>{const btn=e.target.closest('.qvo-history-btn');if(!btn)return;let d={};try{d=JSON.parse(btn.dataset.qvoHistory||'{}')}catch(err){}title.textContent='History QVO — '+(d.dealer||'Dealer');subtitle.textContent=(d.bp||'')+' · '+(d.salesman||'')+' · '+(d.depo||'');achieved.textContent=(d.history_qvo||0)+' dari '+(d.history_total||0)+' bulan';last.textContent=d.last_qvo_label||'Belum pernah';body.innerHTML=(d.history||[]).map(h=>'<tr><td>'+esc(h.label)+'</td><td style="text-align:right">'+money(h.sales)+'</td><td style="text-align:center" class="'+(h.qvo?'qvo-history-status':'qvo-history-miss')+'">'+(h.qvo?'✓ QVO':'—')+'</td></tr>').join('')||'<tr><td colspan="3" style="text-align:center;padding:24px;color:#64748b">Belum ada historical billing.</td></tr>';dialog.showModal()});
+  close?.addEventListener('click',()=>dialog.close());
+})();
+</script>
 {% endblock %}
