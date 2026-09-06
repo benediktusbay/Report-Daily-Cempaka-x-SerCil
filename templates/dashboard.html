@@ -562,6 +562,22 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 #projection-dialog button{margin-top:20px;background:#1769e8;color:white;border:0;border-radius:8px;padding:10px 20px;cursor:pointer}
 @media(max-width:768px){.projection-desktop{display:none}.projection-mobile{display:block}.projection-metric{padding:12px}.projection-metric .projection-value{font-size:18px}.projection-grid{gap:8px}}
 @media(max-width:360px){.projection-grid{grid-template-columns:1fr}}
+.quality-combined{padding:20px;margin-bottom:14px}.quality-combined h3{margin:0 0 12px;font-size:18px}
+.quality-combined .quality-grid{margin:0;gap:0}
+.quality-combined .quality-card{border:0;border-radius:0;box-shadow:none;background:transparent;min-width:0}
+.quality-combined .quality-card+.quality-card{border-left:1px solid #e0e7f0}
+.dealer-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:20px 0}
+.dealer-action-card{padding:18px;min-width:0}.dealer-action-card h3{margin:0 0 15px;font-size:17px}
+.dealer-action-row{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) auto;gap:10px;padding:11px 0;border-bottom:1px solid #edf1f7;font-size:12px;align-items:center}
+.dealer-action-row span{overflow-wrap:anywhere}.dealer-action-row small{display:block;color:#61738e;margin-top:4px}
+.dealer-action-row strong{white-space:nowrap;color:#1769e8}.dealer-action-head{color:#61738e;font-size:11px}
+.dealer-show-all{margin-top:14px;border:1px solid #1769e8;background:white;color:#1769e8;padding:9px 14px;border-radius:8px;cursor:pointer}
+.dealer-list-dialog{border:1px solid #dce5f2;border-radius:16px;padding:22px;color:#102a48;width:min(800px,calc(100vw - 32px));max-height:85vh;overflow:auto;box-sizing:border-box}
+.dealer-list-dialog::backdrop{background:rgba(15,35,60,.45)}.dealer-list-dialog h3{margin-top:0}
+.dealer-list-dialog form{text-align:right}.dealer-list-dialog button{padding:8px 14px;border-radius:8px;border:1px solid #dce5f2;background:#edf3fb;cursor:pointer}
+.quality-list-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) 90px;gap:12px;padding:12px 0;border-bottom:1px solid #e8edf5;font-size:13px;overflow-wrap:anywhere}
+.quality-list-row small{display:block;color:#61738e;margin-top:4px}
+@media(max-width:768px){.dealer-actions{grid-template-columns:1fr}.quality-combined .quality-card+.quality-card{border-left:0;border-top:1px solid #e0e7f0}.dealer-action-row{font-size:11px;gap:6px}.quality-list-row{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);font-size:12px}.quality-list-row>span:last-child{grid-column:1/-1}}
 </style>
 {% endblock %}
 
@@ -700,9 +716,10 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   <div class="projection-grid">{% for key,label in projection_fields %}
     <div class="projection-metric"><span class="projection-label">{{ label }}</span>{{ projection_value(projection_summary,key,label,'Grand Total') }}</div>
   {% endfor %}</div>
-  <p class="projection-note">{{ projection_summary.elapsed_days }} / {{ projection_summary.total_days }} hari kerja · {{ projection_summary.remaining_days }} hari kerja tersisa{% if latest_in_scope %} · Billing through {{ latest_in_scope.strftime('%d %b %Y') }}{% else %} · Belum ada billing{% endif %}<br>Proyeksi mengikuti laju MTD dan filter aktif. Klik angka untuk nilai lengkap.</p>
+  <p class="timegone-box">Timegone: {{ '%.1f'|format(projection_timegone) }}%</p>
 </div>
 </div>
+<div class="card quality-combined"><h3>Distribution Quality</h3>
 <div class="quality-grid">
   <div class="card quality-card quality-card-exact" role="button" tabindex="0" data-quality="BO" data-target="{{ cards.bo_target }}" data-achievement="{{ cards.bo }}"><div class="quality-icon">BO</div><div class="quality-copy"><div class="quality-top"><div class="quality-value">{{ cards.bo }}</div><div class="quality-rate">{{ '%.1f'|format(cards.bo_rate) }}%</div></div></div><div class="quality-progress"><span style="width:{{ 100 if cards.bo_rate > 100 else cards.bo_rate }}%"></span></div></div>
   <div class="card quality-card quality-card-exact" role="button" tabindex="0" data-quality="QVO" data-target="{{ cards.qvo_target }}" data-achievement="{{ cards.qvo }}"><div class="quality-icon">QVO</div><div class="quality-copy"><div class="quality-top"><div class="quality-value">{{ cards.qvo }}</div><div class="quality-rate">{{ '%.1f'|format(cards.qvo_rate) }}%</div></div></div><div class="quality-progress"><span style="width:{{ 100 if cards.qvo_rate > 100 else cards.qvo_rate }}%"></span></div></div>
@@ -710,6 +727,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 </div>
 
 
+</div>
 <div class="mobile-salesman-focus">
   <label for="mobileSalesmanFocus">Salesman Dashboard</label>
   <select id="mobileSalesmanFocus">
@@ -857,7 +875,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   <div class="section-title">
     <h2>Sales Projection</h2>
   </div>
-  <p class="projection-note">Klik angka untuk nilai lengkap. Gap positif berarti di atas laju target; negatif berarti tertinggal.</p>
+  <p class="timegone-box">Timegone: {{ '%.1f'|format(projection_timegone) }}%</p>
   <div class="card projection-desktop"><table class="projection-table">
     <colgroup><col><col span="4"></colgroup>
     <thead><tr><th>Salesman</th>{% for key,label in projection_fields %}<th>{{ label }}</th>{% endfor %}</tr></thead>
@@ -993,6 +1011,33 @@ document.addEventListener('click',function(event){
   </div></div>
 </div>
 
+{% macro opportunity_row(d, opportunity) %}
+<div class="dealer-action-row"><span><b>{{ d.dealer }}</b><small>{{ d.bp }} · {{ d.depo }}</small></span><span>{{ d.salesman }}</span><strong>{{ (d.gap if opportunity else d.target)|rupiah_short }}</strong></div>
+{% endmacro %}
+<div class="dealer-actions">
+{% for title, rows, opportunity, dialog_id in [('Dealer Belum Belanja',dealer_no_purchase,false,'no-purchase-list'),('QVO Opportunity',qvo_opportunities,true,'qvo-opportunity-list')] %}
+  <div class="card dealer-action-card"><h3>{{ title }} <small>({{ rows|length }})</small></h3>
+    <div class="dealer-action-row dealer-action-head"><span>Dealer</span><span>Salesman</span><span>{{ 'Kekurangan' if opportunity else 'Target' }}</span></div>
+    {% for d in rows[:5] %}{{ opportunity_row(d,opportunity) }}{% else %}<p class="empty">Tidak ada dealer untuk filter ini.</p>{% endfor %}
+    {% if rows %}<button type="button" class="dealer-show-all" data-dealer-dialog="{{ dialog_id }}">Lihat Semua</button>{% endif %}
+  </div>
+  <dialog class="dealer-list-dialog" id="{{ dialog_id }}" aria-labelledby="{{ dialog_id }}-title"><form method="dialog"><button>Tutup</button></form><h3 id="{{ dialog_id }}-title">{{ title }} ({{ rows|length }})</h3>
+    <div class="dealer-action-row dealer-action-head"><span>Dealer</span><span>Salesman</span><span>{{ 'Kekurangan' if opportunity else 'Target' }}</span></div>
+    {% for d in rows %}{{ opportunity_row(d,opportunity) }}{% endfor %}
+  </dialog>
+{% endfor %}
+</div>
+{% for metric, rows in [('BO',quality_bo_dealers),('QVO',quality_qvo_dealers)] %}
+<dialog class="dealer-list-dialog" id="quality-dealers-{{ metric }}" aria-labelledby="quality-title-{{ metric }}"><form method="dialog"><button>Tutup</button></form><h3 id="quality-title-{{ metric }}">{{ metric }} — {{ rows|length }} dealer</h3>
+{% for d in rows %}<div class="quality-list-row"><span><b>{{ d.dealer }}</b><small>BP {{ d.bp }}</small></span><span>{{ d.salesman }}</span><span>{{ d.depo }}</span></div>{% else %}<p>Belum ada dealer mencapai {{ metric }}.</p>{% endfor %}
+</dialog>
+{% endfor %}
+<script>
+document.addEventListener('click',function(event){
+  const button=event.target.closest('[data-dealer-dialog]');
+  if(button) document.getElementById(button.dataset.dealerDialog).showModal();
+});
+</script>
 <div class="section">
   <div class="section-title">
     <h2>Speed Distribution</h2>
@@ -1497,9 +1542,9 @@ document.addEventListener('click',function(event){
   }
 
   document.querySelectorAll('.quality-card-exact').forEach(function(card){
-    card.addEventListener('click',function(){openQualityModal(card);});
+    card.addEventListener('click',function(){document.getElementById('quality-dealers-'+card.dataset.quality).showModal();});
     card.addEventListener('keydown',function(event){
-      if(event.key==='Enter'||event.key===' '){event.preventDefault();openQualityModal(card);}
+      if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('quality-dealers-'+card.dataset.quality).showModal();}
     });
   });
 
