@@ -2624,12 +2624,58 @@ def upload():
             Billing.billing_date <= last_date,
         ).delete(synchronize_session=False)
 
-        # Pass 2 parses and inserts in small batches. This keeps memory usage
-        # nearly constant even when the Billing Detail contains many rows.
-        seen_hashes = set()
+        if upload_mode == 'historical' and first_date.strftime('%Y-%m') != last_date.strftime('%Y-%m'):
+            raise ValueError(
+                'Historical Billing / Backfill harus di-upload per bulan. '
+                'Pisahkan file Januari, Februari, dan seterusnya agar penggunaan RAM tetap rendah.'
+            )
+
+        # Pass 2 parses and inserts in small batches. Keep duplicate tracking bounded:
+        # do NOT keep every hash from the workbook in a Python set because a large
+        # historical file can exhaust Render memory. Each batch is deduplicated in
+        # memory, then checked against row_hash values already inserted in the DB.
         batch = []
         added = 0
-        batch_size = 500
+        skipped_duplicates = 0
+        batch_size = 250 if upload_mode == 'historical' else 500
+
+        def flush_billing_batch(rows):
+            nonlocal added, skipped_duplicates
+            if not rows:
+                return
+
+            # Deduplicate only the current bounded batch in memory.
+            unique_rows = {}
+            for record in rows:
+                if record['row_hash'] in unique_rows:
+                    skipped_duplicates += 1
+                else:
+                    unique_rows[record['row_hash']] = record
+
+            records = list(unique_rows.values())
+            hashes = list(unique_rows.keys())
+            if not records:
+                rows.clear()
+                return
+
+            # Catch duplicates that appeared in earlier batches without keeping a
+            # workbook-sized seen_hashes set in RAM. The row_hash column is indexed
+            # by its UNIQUE constraint, so this query remains efficient.
+            existing_hashes = {
+                value for (value,) in db.session.query(Billing.row_hash)
+                .filter(Billing.row_hash.in_(hashes)).all()
+            }
+            insert_rows = [record for record in records if record['row_hash'] not in existing_hashes]
+            skipped_duplicates += len(records) - len(insert_rows)
+
+            if insert_rows:
+                db.session.bulk_insert_mappings(Billing, insert_rows)
+                # Flush every batch so subsequent DB duplicate checks can see these
+                # hashes while memory stays bounded. Commit remains atomic at the end.
+                db.session.flush()
+                added += len(insert_rows)
+            rows.clear()
+
         for rr in iter_billing_xlsx(f.stream):
             billing_date = billing_date_value(rr['billing_date'])
             if not billing_date:
@@ -2654,9 +2700,6 @@ def upload():
                 billing_document, bill_item_no, billing_date.isoformat(),
                 salesman_raw, code_raw, name, group, article, qty, amount, amount_with_tax,
             ])
-            if h in seen_hashes:
-                continue
-            seen_hashes.add(h)
             batch.append({
                 'row_hash': h, 'billing_date': billing_date, 'salesman': salesman_raw,
                 'sold_to_code': code, 'sold_to_name': name, 'item_group': group,
@@ -2665,12 +2708,9 @@ def upload():
                 'category': classify(group), 'sku_key': sku_from_article(article, group),
             })
             if len(batch) >= batch_size:
-                db.session.bulk_insert_mappings(Billing, batch)
-                added += len(batch)
-                batch.clear()
-        if batch:
-            db.session.bulk_insert_mappings(Billing, batch)
-            added += len(batch)
+                flush_billing_batch(batch)
+
+        flush_billing_batch(batch)
 
         if not added:
             raise ValueError('Tidak ada baris Billing Detail valid yang dapat diimpor.')
@@ -2683,7 +2723,7 @@ def upload():
         flash(
             f'{mode_label} berhasil: {added} baris No Tax disinkronkan untuk '
             f'{first_date.strftime("%d %b %Y")}–{last_date.strftime("%d %b %Y")}. '
-            f'{replaced} baris lama diganti.',
+            f'{replaced} baris lama diganti. {skipped_duplicates} duplikat dilewati.',
             'success'
         )
     except Exception as e:
