@@ -562,22 +562,150 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 #projection-dialog button{margin-top:20px;background:#1769e8;color:white;border:0;border-radius:8px;padding:10px 20px;cursor:pointer}
 @media(max-width:768px){.projection-desktop{display:none}.projection-mobile{display:block}.projection-metric{padding:12px}.projection-metric .projection-value{font-size:18px}.projection-grid{gap:8px}}
 @media(max-width:360px){.projection-grid{grid-template-columns:1fr}}
-.quality-combined{padding:20px;margin-bottom:14px}.quality-combined h3{margin:0 0 12px;font-size:18px}
-.quality-combined .quality-grid{margin:0;gap:0}
-.quality-combined .quality-card{border:0;border-radius:0;box-shadow:none;background:transparent;min-width:0}
-.quality-combined .quality-card+.quality-card{border-left:1px solid #e0e7f0}
-.dealer-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:20px 0}
-.dealer-action-card{padding:18px;min-width:0}.dealer-action-card h3{margin:0 0 15px;font-size:17px}
-.dealer-action-row{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) auto;gap:10px;padding:11px 0;border-bottom:1px solid #edf1f7;font-size:12px;align-items:center}
-.dealer-action-row span{overflow-wrap:anywhere}.dealer-action-row small{display:block;color:#61738e;margin-top:4px}
-.dealer-action-row strong{white-space:nowrap;color:#1769e8}.dealer-action-head{color:#61738e;font-size:11px}
-.dealer-show-all{margin-top:14px;border:1px solid #1769e8;background:white;color:#1769e8;padding:9px 14px;border-radius:8px;cursor:pointer}
-.dealer-list-dialog{border:1px solid #dce5f2;border-radius:16px;padding:22px;color:#102a48;width:min(800px,calc(100vw - 32px));max-height:85vh;overflow:auto;box-sizing:border-box}
-.dealer-list-dialog::backdrop{background:rgba(15,35,60,.45)}.dealer-list-dialog h3{margin-top:0}
-.dealer-list-dialog form{text-align:right}.dealer-list-dialog button{padding:8px 14px;border-radius:8px;border:1px solid #dce5f2;background:#edf3fb;cursor:pointer}
-.quality-list-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) 90px;gap:12px;padding:12px 0;border-bottom:1px solid #e8edf5;font-size:13px;overflow-wrap:anywhere}
-.quality-list-row small{display:block;color:#61738e;margin-top:4px}
-@media(max-width:768px){.dealer-actions{grid-template-columns:1fr}.quality-combined .quality-card+.quality-card{border-left:0;border-top:1px solid #e0e7f0}.dealer-action-row{font-size:11px;gap:6px}.quality-list-row{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);font-size:12px}.quality-list-row>span:last-child{grid-column:1/-1}}
+
+/* ===== DEALER ACTION CARDS — FINAL MOCKUP ===== */
+.dealer-actions{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:16px;
+  margin:20px 0 24px;
+  align-items:stretch
+}
+.dealer-action-card{
+  padding:20px 22px 18px;
+  min-width:0;
+  display:flex;
+  flex-direction:column
+}
+.dealer-action-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:16px
+}
+.dealer-action-card h3{
+  margin:0;
+  font-size:20px;
+  line-height:1.2;
+  color:#0f172a
+}
+.dealer-count-badge{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:8px 12px;
+  border-radius:12px;
+  flex:0 0 auto
+}
+.dealer-count-badge.no-purchase{background:#fff0f1;color:#ef2028}
+.dealer-count-badge.qvo-potential{background:#edf5ff;color:#1769e8}
+.dealer-count-icon{
+  width:38px;
+  height:38px;
+  border-radius:10px;
+  display:grid;
+  place-items:center;
+  flex:0 0 38px
+}
+.dealer-count-badge.no-purchase .dealer-count-icon{background:#ffe1e4}
+.dealer-count-badge.qvo-potential .dealer-count-icon{background:#dcecff}
+.dealer-count-icon svg{width:22px;height:22px;display:block}
+.dealer-count-copy{
+  display:flex;
+  align-items:baseline;
+  gap:5px;
+  white-space:nowrap
+}
+.dealer-count-copy strong{
+  font-size:22px;
+  line-height:1;
+  font-weight:900
+}
+.dealer-count-copy span{
+  font-size:12px;
+  font-weight:800
+}
+.dealer-action-row{
+  display:grid;
+  grid-template-columns:minmax(0,1.45fr) minmax(150px,.9fr) minmax(95px,.42fr);
+  gap:12px;
+  padding:11px 8px;
+  border-bottom:1px solid #e8eef6;
+  font-size:12px;
+  align-items:center
+}
+.dealer-action-row span{overflow-wrap:anywhere}
+.dealer-action-row small{display:block;color:#61738e;margin-top:4px}
+.dealer-action-row strong{
+  white-space:nowrap;
+  color:#1769e8;
+  text-align:left
+}
+.dealer-action-head{
+  background:#f6f8fb;
+  color:#61738e;
+  font-size:11px;
+  border-radius:9px;
+  border-bottom:0;
+  padding:10px 8px
+}
+.dealer-action-head span:last-child{text-align:left}
+.dealer-show-all{
+  margin-top:auto;
+  align-self:flex-start;
+  border:1px solid #1769e8;
+  background:white;
+  color:#1769e8;
+  padding:9px 14px;
+  border-radius:8px;
+  cursor:pointer;
+  font-weight:700
+}
+.dealer-show-all:hover{background:#eff6ff}
+.dealer-show-all .arrow{margin-left:8px;font-size:16px}
+.dealer-list-dialog{
+  border:1px solid #dce5f2;
+  border-radius:16px;
+  padding:22px;
+  color:#102a48;
+  width:min(800px,calc(100vw - 32px));
+  max-height:85vh;
+  overflow:auto;
+  box-sizing:border-box
+}
+.dealer-list-dialog::backdrop{background:rgba(15,35,60,.45)}
+.dealer-list-dialog h3{margin-top:0}
+.dealer-list-dialog form{text-align:right}
+.dealer-list-dialog button{
+  padding:8px 14px;
+  border-radius:8px;
+  border:1px solid #dce5f2;
+  background:#edf3fb;
+  cursor:pointer
+}
+@media(max-width:768px){
+  .dealer-actions{grid-template-columns:1fr;gap:12px}
+  .dealer-action-card{padding:16px}
+  .dealer-action-card h3{font-size:18px}
+  .dealer-count-copy strong{font-size:20px}
+  .dealer-action-row{
+    grid-template-columns:minmax(0,1.35fr) minmax(105px,.85fr) minmax(82px,.5fr);
+    gap:7px;
+    padding:10px 4px;
+    font-size:11px
+  }
+}
+@media(max-width:480px){
+  .dealer-action-header{align-items:flex-start}
+  .dealer-count-badge{padding:7px 9px;gap:7px}
+  .dealer-count-icon{width:32px;height:32px;flex-basis:32px}
+  .dealer-count-icon svg{width:19px;height:19px}
+  .dealer-count-copy{display:block;text-align:center}
+  .dealer-count-copy strong{display:block;font-size:18px}
+  .dealer-count-copy span{display:block;font-size:10px;margin-top:2px}
+}
+
 </style>
 {% endblock %}
 
@@ -716,10 +844,9 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   <div class="projection-grid">{% for key,label in projection_fields %}
     <div class="projection-metric"><span class="projection-label">{{ label }}</span>{{ projection_value(projection_summary,key,label,'Grand Total') }}</div>
   {% endfor %}</div>
-  <p class="timegone-box">Timegone: {{ '%.1f'|format(projection_timegone) }}%</p>
+  <p class="projection-note">{{ projection_summary.elapsed_days }} / {{ projection_summary.total_days }} hari kerja · {{ projection_summary.remaining_days }} hari kerja tersisa{% if latest_in_scope %} · Billing through {{ latest_in_scope.strftime('%d %b %Y') }}{% else %} · Belum ada billing{% endif %}<br>Proyeksi mengikuti laju MTD dan filter aktif. Klik angka untuk nilai lengkap.</p>
 </div>
 </div>
-<div class="card quality-combined"><h3>Distribution Quality</h3>
 <div class="quality-grid">
   <div class="card quality-card quality-card-exact" role="button" tabindex="0" data-quality="BO" data-target="{{ cards.bo_target }}" data-achievement="{{ cards.bo }}"><div class="quality-icon">BO</div><div class="quality-copy"><div class="quality-top"><div class="quality-value">{{ cards.bo }}</div><div class="quality-rate">{{ '%.1f'|format(cards.bo_rate) }}%</div></div></div><div class="quality-progress"><span style="width:{{ 100 if cards.bo_rate > 100 else cards.bo_rate }}%"></span></div></div>
   <div class="card quality-card quality-card-exact" role="button" tabindex="0" data-quality="QVO" data-target="{{ cards.qvo_target }}" data-achievement="{{ cards.qvo }}"><div class="quality-icon">QVO</div><div class="quality-copy"><div class="quality-top"><div class="quality-value">{{ cards.qvo }}</div><div class="quality-rate">{{ '%.1f'|format(cards.qvo_rate) }}%</div></div></div><div class="quality-progress"><span style="width:{{ 100 if cards.qvo_rate > 100 else cards.qvo_rate }}%"></span></div></div>
@@ -727,7 +854,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 </div>
 
 
-</div>
 <div class="mobile-salesman-focus">
   <label for="mobileSalesmanFocus">Salesman Dashboard</label>
   <select id="mobileSalesmanFocus">
@@ -875,7 +1001,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   <div class="section-title">
     <h2>Sales Projection</h2>
   </div>
-  <p class="timegone-box">Timegone: {{ '%.1f'|format(projection_timegone) }}%</p>
+  <p class="projection-note">Klik angka untuk nilai lengkap. Gap positif berarti di atas laju target; negatif berarti tertinggal.</p>
   <div class="card projection-desktop"><table class="projection-table">
     <colgroup><col><col span="4"></colgroup>
     <thead><tr><th>Salesman</th>{% for key,label in projection_fields %}<th>{{ label }}</th>{% endfor %}</tr></thead>
@@ -1011,33 +1137,100 @@ document.addEventListener('click',function(event){
   </div></div>
 </div>
 
+
 {% macro opportunity_row(d, opportunity) %}
-<div class="dealer-action-row"><span><b>{{ d.dealer }}</b><small>{{ d.bp }} · {{ d.depo }}</small></span><span>{{ d.salesman }}</span><strong>{{ (d.gap if opportunity else d.target)|rupiah_short }}</strong></div>
-{% endmacro %}
-<div class="dealer-actions">
-{% for title, rows, opportunity, dialog_id in [('Dealer Belum Belanja',dealer_no_purchase,false,'no-purchase-list'),('QVO Opportunity',qvo_opportunities,true,'qvo-opportunity-list')] %}
-  <div class="card dealer-action-card"><h3>{{ title }} <small>({{ rows|length }})</small></h3>
-    <div class="dealer-action-row dealer-action-head"><span>Dealer</span><span>Salesman</span><span>{{ 'Kekurangan' if opportunity else 'Target' }}</span></div>
-    {% for d in rows[:5] %}{{ opportunity_row(d,opportunity) }}{% else %}<p class="empty">Tidak ada dealer untuk filter ini.</p>{% endfor %}
-    {% if rows %}<button type="button" class="dealer-show-all" data-dealer-dialog="{{ dialog_id }}">Lihat Semua</button>{% endif %}
-  </div>
-  <dialog class="dealer-list-dialog" id="{{ dialog_id }}" aria-labelledby="{{ dialog_id }}-title"><form method="dialog"><button>Tutup</button></form><h3 id="{{ dialog_id }}-title">{{ title }} ({{ rows|length }})</h3>
-    <div class="dealer-action-row dealer-action-head"><span>Dealer</span><span>Salesman</span><span>{{ 'Kekurangan' if opportunity else 'Target' }}</span></div>
-    {% for d in rows %}{{ opportunity_row(d,opportunity) }}{% endfor %}
-  </dialog>
-{% endfor %}
+<div class="dealer-action-row">
+  <span><b>{{ d.dealer }}</b><small>{{ d.bp }} · {{ d.depo }}</small></span>
+  <span>{{ d.salesman }}</span>
+  <strong>{{ (d.gap if opportunity else d.target)|rupiah_short }}</strong>
 </div>
-{% for metric, rows in [('BO',quality_bo_dealers),('QVO',quality_qvo_dealers)] %}
-<dialog class="dealer-list-dialog" id="quality-dealers-{{ metric }}" aria-labelledby="quality-title-{{ metric }}"><form method="dialog"><button>Tutup</button></form><h3 id="quality-title-{{ metric }}">{{ metric }} — {{ rows|length }} dealer</h3>
-{% for d in rows %}<div class="quality-list-row"><span><b>{{ d.dealer }}</b><small>BP {{ d.bp }}</small></span><span>{{ d.salesman }}</span><span>{{ d.depo }}</span></div>{% else %}<p>Belum ada dealer mencapai {{ metric }}.</p>{% endfor %}
-</dialog>
-{% endfor %}
+{% endmacro %}
+
+<div class="dealer-actions">
+  <div class="card dealer-action-card">
+    <div class="dealer-action-header">
+      <h3>Dealer Belum Belanja</h3>
+      <div class="dealer-count-badge no-purchase" aria-label="{{ dealer_no_purchase|length }} dealer belum belanja">
+        <span class="dealer-count-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="9" cy="20" r="1"></circle>
+            <circle cx="19" cy="20" r="1"></circle>
+            <path d="M3 4h2l2.6 10.4a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L21 8H7"></path>
+          </svg>
+        </span>
+        <span class="dealer-count-copy"><strong>{{ dealer_no_purchase|length }}</strong><span>Dealer</span></span>
+      </div>
+    </div>
+    <div class="dealer-action-row dealer-action-head">
+      <span>Dealer</span><span>Salesman</span><span>Target</span>
+    </div>
+    {% for d in dealer_no_purchase[:5] %}
+      {{ opportunity_row(d,false) }}
+    {% else %}
+      <p class="empty">Tidak ada dealer untuk filter ini.</p>
+    {% endfor %}
+    {% if dealer_no_purchase %}
+      <button type="button" class="dealer-show-all" data-dealer-dialog="no-purchase-list">Lihat Semua <span class="arrow">→</span></button>
+    {% endif %}
+  </div>
+
+  <dialog class="dealer-list-dialog" id="no-purchase-list" aria-labelledby="no-purchase-list-title">
+    <form method="dialog"><button>Tutup</button></form>
+    <h3 id="no-purchase-list-title">Dealer Belum Belanja</h3>
+    <div class="dealer-action-row dealer-action-head">
+      <span>Dealer</span><span>Salesman</span><span>Target</span>
+    </div>
+    {% for d in dealer_no_purchase %}{{ opportunity_row(d,false) }}{% endfor %}
+  </dialog>
+
+  <div class="card dealer-action-card">
+    <div class="dealer-action-header">
+      <h3>QVO Potential</h3>
+      <div class="dealer-count-badge qvo-potential" aria-label="{{ qvo_opportunities|length }} dealer QVO potential">
+        <span class="dealer-count-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="8"></circle>
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 12l7-7"></path>
+            <path d="M16 5h3v3"></path>
+          </svg>
+        </span>
+        <span class="dealer-count-copy"><strong>{{ qvo_opportunities|length }}</strong><span>Dealer</span></span>
+      </div>
+    </div>
+    <div class="dealer-action-row dealer-action-head">
+      <span>Dealer</span><span>Salesman</span><span>Kekurangan</span>
+    </div>
+    {% for d in qvo_opportunities[:5] %}
+      {{ opportunity_row(d,true) }}
+    {% else %}
+      <p class="empty">Tidak ada dealer untuk filter ini.</p>
+    {% endfor %}
+    {% if qvo_opportunities %}
+      <button type="button" class="dealer-show-all" data-dealer-dialog="qvo-potential-list">Lihat Semua <span class="arrow">→</span></button>
+    {% endif %}
+  </div>
+
+  <dialog class="dealer-list-dialog" id="qvo-potential-list" aria-labelledby="qvo-potential-list-title">
+    <form method="dialog"><button>Tutup</button></form>
+    <h3 id="qvo-potential-list-title">QVO Potential</h3>
+    <div class="dealer-action-row dealer-action-head">
+      <span>Dealer</span><span>Salesman</span><span>Kekurangan</span>
+    </div>
+    {% for d in qvo_opportunities %}{{ opportunity_row(d,true) }}{% endfor %}
+  </dialog>
+</div>
+
 <script>
 document.addEventListener('click',function(event){
   const button=event.target.closest('[data-dealer-dialog]');
-  if(button) document.getElementById(button.dataset.dealerDialog).showModal();
+  if(button){
+    const dialog=document.getElementById(button.dataset.dealerDialog);
+    if(dialog) dialog.showModal();
+  }
 });
 </script>
+
 <div class="section">
   <div class="section-title">
     <h2>Speed Distribution</h2>
@@ -1542,9 +1735,9 @@ document.addEventListener('click',function(event){
   }
 
   document.querySelectorAll('.quality-card-exact').forEach(function(card){
-    card.addEventListener('click',function(){document.getElementById('quality-dealers-'+card.dataset.quality).showModal();});
+    card.addEventListener('click',function(){openQualityModal(card);});
     card.addEventListener('keydown',function(event){
-      if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('quality-dealers-'+card.dataset.quality).showModal();}
+      if(event.key==='Enter'||event.key===' '){event.preventDefault();openQualityModal(card);}
     });
   });
 
