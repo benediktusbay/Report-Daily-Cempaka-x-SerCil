@@ -1607,7 +1607,7 @@ def build_qvo_potential(month, current_dealers, history_count=8):
             (avg_sales > 0 and d['sales_mtd'] < avg_sales * .30 and trend == 'Down')
         )
         if historical_strong and recent_drop:
-            action = 'Re-activate'
+            action = 'Watchlist'
         elif gap <= 10_000_000 and (qvo_achieved >= 1 or avg_sales >= QVO_THRESHOLD * .75 or score >= 60):
             action = 'Push Now'
         elif gap <= 20_000_000 or score >= 45:
@@ -1645,7 +1645,7 @@ def build_qvo_potential(month, current_dealers, history_count=8):
             'action': action,
             'history': history_rows,
         })
-    action_rank = {'Re-activate': 0, 'Push Now': 1, 'Follow Up': 2, 'Low Priority': 3}
+    action_rank = {'Push Now': 0, 'Follow Up': 1, 'Watchlist': 2, 'Low Priority': 3}
     candidates.sort(key=lambda x: (-x['score'], action_rank.get(x['action'], 9), x['gap'], x['dealer']))
     return candidates, months
 
@@ -2173,7 +2173,9 @@ def dashboard():
         )
         for d in owner_dealers.values() if d['salesman'] in visible_people
     ]
-    qvo_potential, qvo_history_months = build_qvo_potential(month, qvo_current_dealers)
+    qvo_all_candidates, qvo_history_months = build_qvo_potential(month, qvo_current_dealers)
+    # Dashboard QVO Potential means actionable dealers only. Low Priority remains available in QVO Analysis.
+    qvo_potential = [r for r in qvo_all_candidates if r['action'] != 'Low Priority']
     # Backward-compatible alias for older partial templates.
     qvo_opportunities = qvo_potential
     dealer_no_purchase.sort(key=lambda d: (-d['target'], d['dealer']))
@@ -2230,15 +2232,16 @@ def qvo_analysis():
         month, request.args.getlist('depo'), request.args.getlist('salesman')
     )
     rows, history_months = build_qvo_potential(month, current)
+    potential_rows = [r for r in rows if r['action'] != 'Low Priority']
     by_salesman = []
     for salesman in LOCKED_SALESMEN:
-        subset = [r for r in rows if r['salesman'] == salesman]
+        subset = [r for r in potential_rows if r['salesman'] == salesman]
         if subset:
             by_salesman.append({
                 'salesman': salesman,
                 'count': len(subset),
                 'push': sum(r['action'] == 'Push Now' for r in subset),
-                'reactivate': sum(r['action'] == 'Re-activate' for r in subset),
+                'watchlist': sum(r['action'] == 'Watchlist' for r in subset),
                 'avg_score': sum(r['score'] for r in subset) / len(subset),
             })
     gap_bands = [
@@ -2252,11 +2255,12 @@ def qvo_analysis():
         conversion.append({
             'month': m,
             'label': pd.to_datetime(m + '-01').strftime('%b %Y'),
-            'count': sum(any(h['month'] == m and h['qvo'] for h in r['history']) for r in rows),
+            'count': sum(any(h['month'] == m and h['qvo'] for h in r['history']) for r in potential_rows),
         })
-    recovery = [r for r in rows if r['action'] == 'Re-activate']
+    watchlist_rows = [r for r in rows if r['action'] == 'Watchlist']
     return render_template(
-        'qvo_analysis.html', month=month, rows=rows, top_rows=rows[:10], recovery=recovery,
+        'qvo_analysis.html', month=month, rows=rows, potential_rows=potential_rows,
+        top_rows=potential_rows[:10], recovery=watchlist_rows,
         by_salesman=by_salesman, gap_bands=gap_bands, conversion=conversion,
         qvo_threshold=QVO_THRESHOLD, depos=depos, salesmen=salesmen,
         depo_filters=depo_filters, salesman_filters=salesman_filters,
