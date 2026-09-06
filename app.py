@@ -2587,56 +2587,18 @@ def upload():
     if not f.filename.lower().endswith(('.xlsx','.xls')):
         flash('Format Billing Detail harus Excel (.xlsx/.xls).', 'danger')
         return redirect(url_for('dashboard', month=return_month))
+
     try:
         if not f.filename.lower().endswith('.xlsx'):
             raise ValueError('Upload ringan hanya mendukung format .xlsx. Simpan ulang file .xls sebagai .xlsx.')
 
-        # Pass 1 only discovers the valid row count and replacement date range.
-        # Nothing from the worksheet is retained in memory.
         rows_read = 0
         first_date = None
         last_date = None
-        for rr in iter_billing_xlsx(f.stream):
-            rows_read += 1
-            billing_date = billing_date_value(rr['billing_date'])
-            salesman_raw = normalize_text(rr['salesman'])
-            code = normalize_bp(rr['sold_to_code'])
-            if not billing_date or not salesman_raw or not code or salesman_raw.lower() == 'nan':
-                continue
-            first_date = billing_date if first_date is None else min(first_date, billing_date)
-            last_date = billing_date if last_date is None else max(last_date, billing_date)
-
-        if first_date is None or last_date is None:
-            raise ValueError('Tidak ada baris Billing Detail valid yang dapat diimpor.')
-
-        if upload_mode == 'historical':
-            active_start, _ = month_range(return_month)
-            if last_date >= active_start:
-                raise ValueError(
-                    'Historical Billing / Backfill harus berakhir sebelum bulan dashboard yang dipilih. '
-                    'Gunakan Upload Billing rutin untuk data bulan berjalan.'
-                )
-
-        # Billing exports are snapshots. Replace the uploaded date range so old
-        # with-tax values and records removed from the latest export cannot remain.
-        replaced = Billing.query.filter(
-            Billing.billing_date >= first_date,
-            Billing.billing_date <= last_date,
-        ).delete(synchronize_session=False)
-
-        if upload_mode == 'historical' and first_date.strftime('%Y-%m') != last_date.strftime('%Y-%m'):
-            raise ValueError(
-                'Historical Billing / Backfill harus di-upload per bulan. '
-                'Pisahkan file Januari, Februari, dan seterusnya agar penggunaan RAM tetap rendah.'
-            )
-
-        # Pass 2 parses and inserts in small batches. Keep duplicate tracking bounded:
-        # do NOT keep every hash from the workbook in a Python set because a large
-        # historical file can exhaust Render memory. Each batch is deduplicated in
-        # memory, then checked against row_hash values already inserted in the DB.
         batch = []
         added = 0
         skipped_duplicates = 0
+        replaced = 0
         batch_size = 250 if upload_mode == 'historical' else 500
 
         def flush_billing_batch(rows):
@@ -2644,7 +2606,7 @@ def upload():
             if not rows:
                 return
 
-            # Deduplicate only the current bounded batch in memory.
+            # Keep duplicate tracking bounded to the current batch only.
             unique_rows = {}
             for record in rows:
                 if record['row_hash'] in unique_rows:
@@ -2658,9 +2620,8 @@ def upload():
                 rows.clear()
                 return
 
-            # Catch duplicates that appeared in earlier batches without keeping a
-            # workbook-sized seen_hashes set in RAM. The row_hash column is indexed
-            # by its UNIQUE constraint, so this query remains efficient.
+            # Query only this bounded hash set. UNIQUE(row_hash) remains the final
+            # database safety layer without a workbook-sized Python seen set.
             existing_hashes = {
                 value for (value,) in db.session.query(Billing.row_hash)
                 .filter(Billing.row_hash.in_(hashes)).all()
@@ -2670,16 +2631,11 @@ def upload():
 
             if insert_rows:
                 db.session.bulk_insert_mappings(Billing, insert_rows)
-                # Flush every batch so subsequent DB duplicate checks can see these
-                # hashes while memory stays bounded. Commit remains atomic at the end.
                 db.session.flush()
                 added += len(insert_rows)
             rows.clear()
 
-        for rr in iter_billing_xlsx(f.stream):
-            billing_date = billing_date_value(rr['billing_date'])
-            if not billing_date:
-                continue
+        def billing_record(rr, billing_date):
             salesman_raw = normalize_text(rr['salesman'])
             billing_document = normalize_text(rr['billing_document'])
             bill_item_no = normalize_text(rr['bill_item_no'])
@@ -2692,33 +2648,123 @@ def upload():
             amount = to_num(rr['nett_amount'])
             amount_with_tax = to_num(rr['nett_amount_with_tax'])
             if not salesman_raw or not code or salesman_raw.lower() == 'nan':
-                continue
-            # Billing Document + Bill Item No uniquely identify a source line.
-            # Without them, separate legitimate transactions with identical BP,
-            # article, quantity and amount were incorrectly discarded as duplicates.
+                return None
+
             h = row_hash([
                 billing_document, bill_item_no, billing_date.isoformat(),
                 salesman_raw, code_raw, name, group, article, qty, amount, amount_with_tax,
             ])
-            batch.append({
+            return {
                 'row_hash': h, 'billing_date': billing_date, 'salesman': salesman_raw,
                 'sold_to_code': code, 'sold_to_name': name, 'item_group': group,
                 'article': article, 'quantity': qty, 'nett_amount': amount,
                 'nett_amount_with_tax': amount_with_tax,
                 'category': classify(group), 'sku_key': sku_from_article(article, group),
-            })
-            if len(batch) >= batch_size:
-                flush_billing_batch(batch)
+            }
 
-        flush_billing_batch(batch)
+        if upload_mode == 'historical':
+            # TRUE ONE-PASS historical backfill.
+            # The month is determined from the first valid Billing Date, the whole
+            # month is replaced once, and the workbook is then streamed only once.
+            # This avoids reopening/scanning a large .xlsx twice on Render.
+            active_start, _ = month_range(return_month)
+            historical_month = None
+            historical_start = None
+            historical_end = None
+            month_replaced = False
+
+            for rr in iter_billing_xlsx(f.stream):
+                rows_read += 1
+                billing_date = billing_date_value(rr['billing_date'])
+                if not billing_date:
+                    continue
+
+                record = billing_record(rr, billing_date)
+                if record is None:
+                    continue
+
+                row_month = billing_date.strftime('%Y-%m')
+                if historical_month is None:
+                    historical_month = row_month
+                    historical_start, historical_end = month_range(historical_month)
+
+                    if historical_start >= active_start:
+                        raise ValueError(
+                            'Historical Billing / Backfill harus berasal dari bulan sebelum periode dashboard aktif. '
+                            'Gunakan Upload Billing rutin untuk bulan berjalan.'
+                        )
+
+                    # Replace the selected historical month inside the same DB
+                    # transaction. Any later validation/error rolls this delete back.
+                    replaced = Billing.query.filter(
+                        Billing.billing_date >= historical_start,
+                        Billing.billing_date <= historical_end,
+                    ).delete(synchronize_session=False)
+                    db.session.flush()
+                    month_replaced = True
+
+                elif row_month != historical_month:
+                    raise ValueError(
+                        'Historical Billing / Backfill harus berisi tepat satu bulan. '
+                        f'File dimulai di {historical_month}, tetapi ditemukan baris {row_month}. '
+                        'Pisahkan file per bulan lalu upload satu per satu.'
+                    )
+
+                first_date = billing_date if first_date is None else min(first_date, billing_date)
+                last_date = billing_date if last_date is None else max(last_date, billing_date)
+                batch.append(record)
+                if len(batch) >= batch_size:
+                    flush_billing_batch(batch)
+
+            flush_billing_batch(batch)
+
+            if historical_month is None or not month_replaced or first_date is None or last_date is None:
+                raise ValueError('Tidak ada baris Billing Detail valid yang dapat diimpor.')
+
+        else:
+            # Routine Billing keeps snapshot replacement by the exact uploaded date
+            # range. It uses a lightweight discovery pass, then a streaming insert pass.
+            for rr in iter_billing_xlsx(f.stream):
+                rows_read += 1
+                billing_date = billing_date_value(rr['billing_date'])
+                salesman_raw = normalize_text(rr['salesman'])
+                code = normalize_bp(rr['sold_to_code'])
+                if not billing_date or not salesman_raw or not code or salesman_raw.lower() == 'nan':
+                    continue
+                first_date = billing_date if first_date is None else min(first_date, billing_date)
+                last_date = billing_date if last_date is None else max(last_date, billing_date)
+
+            if first_date is None or last_date is None:
+                raise ValueError('Tidak ada baris Billing Detail valid yang dapat diimpor.')
+
+            replaced = Billing.query.filter(
+                Billing.billing_date >= first_date,
+                Billing.billing_date <= last_date,
+            ).delete(synchronize_session=False)
+            db.session.flush()
+
+            for rr in iter_billing_xlsx(f.stream):
+                billing_date = billing_date_value(rr['billing_date'])
+                if not billing_date:
+                    continue
+                record = billing_record(rr, billing_date)
+                if record is None:
+                    continue
+                batch.append(record)
+                if len(batch) >= batch_size:
+                    flush_billing_batch(batch)
+
+            flush_billing_batch(batch)
 
         if not added:
             raise ValueError('Tidak ada baris Billing Detail valid yang dapat diimpor.')
+
         db.session.add(UploadLog(
             filename=secure_filename(f.filename), upload_mode=upload_mode, uploaded_by=session.get('username'),
             rows_read=rows_read, rows_added=added
         ))
         db.session.commit()
+
         mode_label = 'Historical Backfill' if upload_mode == 'historical' else 'Billing'
         flash(
             f'{mode_label} berhasil: {added} baris No Tax disinkronkan untuk '
