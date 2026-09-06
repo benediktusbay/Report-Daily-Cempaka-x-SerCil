@@ -823,6 +823,42 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 @media(max-width:1000px){.dealer-actions{grid-template-columns:1fr!important}.dealer-action-card{min-height:auto}.hybrid-sales-table th,.hybrid-sales-table td{padding-left:8px;padding-right:8px}}
 @media(max-width:768px){.hybrid-sales-card{display:none}.mobile-hybrid-grid{grid-template-columns:1fr 1fr}.dealer-action-card{padding:14px!important}.qvo-compact-row{grid-template-columns:minmax(0,1.45fr) 78px 72px 82px;font-size:10px}.dealer-card-footer{align-items:flex-end}.dealer-card-count{max-width:48%}}
 
+
+/* ===== MOBILE UI FINAL — APPROVED MOCKUP ===== */
+@media(max-width:768px){
+  .mobile-salesman-focus{position:static!important;top:auto!important;z-index:auto!important;margin:10px 0 18px!important;padding:14px 16px!important;background:#fff!important;backdrop-filter:none!important;border:1px solid #e5e7eb!important;border-radius:14px!important;box-shadow:0 3px 14px rgba(15,23,42,.05)!important}
+  .mobile-salesman-focus label{font-size:12px!important;color:#52647e!important;margin-bottom:8px!important}
+  .mobile-salesman-focus select{min-height:50px!important;border:1px solid #cbd5e1!important;border-radius:11px!important;padding:10px 14px!important;font-size:16px!important;font-weight:900!important}
+  .mobile-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+  .mobile-section-head h2{margin:0;font-size:23px;line-height:1.15;color:#0f172a}
+  .mobile-through-pill{display:inline-flex;align-items:center;gap:7px;border:1px solid #e5e7eb;background:#fff;border-radius:999px;padding:7px 10px;color:#52647e;font-size:11px;font-weight:800;white-space:nowrap}
+  .mobile-through-pill svg{width:15px;height:15px}
+  .section-title .timegone-box{margin-top:0!important;padding:12px 14px!important;border-radius:12px!important;font-size:12px!important;line-height:1.35!important}
+  .mobile-kpi-card.mobile-salesman-kpi{padding:14px!important;border-radius:14px!important}
+  .mobile-card-head{margin-bottom:10px!important}.mobile-card-title{font-size:20px!important}
+  .mobile-hybrid-grid{grid-template-columns:1fr 1fr!important;gap:8px!important}
+  .mobile-hybrid-tile{min-height:120px!important;padding:12px!important;border-radius:12px!important;display:flex;flex-direction:column;justify-content:flex-start}
+  .mobile-hybrid-title{font-size:11px!important;margin-bottom:10px!important}.mobile-hybrid-title svg{width:17px!important;height:17px!important;padding:6px!important}
+  .mobile-hybrid-ach{font-size:21px!important;line-height:1.1!important;text-decoration:none!important;margin-top:2px}
+  .mobile-hybrid-tile .hybrid-pct{margin-top:9px!important;font-size:12px!important}.mobile-kpi-track{height:7px;border-radius:999px;background:#e5e7eb;overflow:hidden;margin-top:auto}.mobile-kpi-track i{display:block;height:100%;border-radius:inherit}.mobile-hybrid-tile:nth-child(1) .mobile-kpi-track i{background:#16a34a}.mobile-hybrid-tile:nth-child(2) .mobile-kpi-track i{background:#ef3f48}.mobile-hybrid-tile:nth-child(3) .mobile-kpi-track i{background:#f97316}.mobile-hybrid-tile:nth-child(4) .mobile-kpi-track i{background:#1769e8}
+  .mobile-summary-row{display:grid;grid-template-columns:1.35fr .92fr .92fr .92fr;gap:7px;margin-top:9px}
+  .mobile-summary-box{min-width:0;min-height:94px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;padding:9px 8px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
+  .mobile-summary-box.est{background:#fff7f8;border-color:#ffd9dd;align-items:flex-start;text-align:left;padding:10px 11px}
+  .mobile-summary-icon{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;margin-bottom:6px}.mobile-summary-icon svg{width:16px;height:16px}.mobile-summary-icon.red{background:#ffe9eb;color:#ef3f48}.mobile-summary-icon.blue{background:#e8f1ff;color:#1769e8}
+  .mobile-summary-box span{display:block;color:#64748b;font-size:9px;font-weight:800;line-height:1.2;margin-bottom:5px}.mobile-summary-box strong,.mobile-summary-box .hybrid-proj-btn{font-size:13px!important;line-height:1.15!important;padding:0!important;background:transparent!important;box-shadow:none!important;text-decoration:none!important}
+  .mobile-summary-box.est .hybrid-proj-btn{font-size:22px!important}.mobile-summary-box .value-blue{color:#1769e8}.mobile-summary-box .value-red{color:#dc2626}
+  .mobile-projection-grid,.mobile-est-row{display:none!important}
+  .sales-achievement-note{margin-top:10px!important;border-radius:12px!important;padding:11px 12px!important;font-size:11px!important}
+  .quality-mobile-shell{padding:16px!important}.quality-mobile-shell .mobile-card-head{margin-bottom:12px!important}
+  .mobile-quality-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .mobile-quality-card{border:1px solid #dbeafe;border-radius:12px;padding:12px;min-height:112px;display:flex;flex-direction:column;justify-content:space-between}.mobile-quality-card.bo{background:#f4f8ff;border-color:#cfe1ff}.mobile-quality-card.qvo{background:#fff9f2;border-color:#ffe0bd}
+  .mobile-quality-top{display:flex;align-items:center;gap:8px}.mobile-quality-icon{width:38px;height:38px;border-radius:50%;display:grid;place-items:center}.mobile-quality-icon svg{width:21px;height:21px}.mobile-quality-card.bo .mobile-quality-icon{background:#e8f1ff;color:#1769e8}.mobile-quality-card.qvo .mobile-quality-icon{background:#fff0df;color:#d97706}
+  .mobile-quality-copy span{display:block;font-size:11px;font-weight:900}.mobile-quality-card.bo .mobile-quality-copy span{color:#1769e8}.mobile-quality-card.qvo .mobile-quality-copy span{color:#d97706}.mobile-quality-copy strong{display:block;margin-top:4px;font-size:22px;color:#0f172a}
+  .mobile-quality-progress{height:7px;border-radius:999px;background:#e5e7eb;overflow:hidden}.mobile-quality-progress i{display:block;height:100%;border-radius:inherit}.mobile-quality-card.bo .mobile-quality-progress i{background:#3b82f6}.mobile-quality-card.qvo .mobile-quality-progress i{background:#f59e0b}
+  .mobile-quality-rate{margin-top:5px;color:#64748b;font-size:10px;font-weight:800}
+}
+@media(max-width:390px){.mobile-summary-row{grid-template-columns:1.25fr .9fr .9fr .9fr;gap:5px}.mobile-summary-box{padding:8px 5px}.mobile-summary-box span{font-size:8px}.mobile-summary-box strong,.mobile-summary-box .hybrid-proj-btn{font-size:11px!important}.mobile-summary-box.est .hybrid-proj-btn{font-size:19px!important}}
+
 </style>
 {% endblock %}
 
@@ -989,7 +1025,11 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 </div>
 
 <div class="section">
-  <div class="section-title"><h2>Sales Achievement</h2><div class="timegone-box">Time Gone: {{ '%.1f'|format(timegone_pct) }}% · {{ working_days_elapsed }} / {{ working_days_total }} Working Days{% if latest_in_scope %} · Billing through {{ latest_in_scope.strftime('%d %b %Y') }}{% endif %}</div></div>
+  <div class="section-title">
+    <div class="mobile-only mobile-section-head"><h2>Sales Achievement</h2>{% if latest_in_scope %}<span class="mobile-through-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M8 3v4M16 3v4M3 10h18"></path></svg>Through {{ latest_in_scope.strftime('%d %b %Y') }}</span>{% endif %}</div>
+    <h2 class="desktop-table">Sales Achievement</h2>
+    <div class="timegone-box">Time Gone: {{ '%.1f'|format(timegone_pct) }}% · {{ working_days_elapsed }} / {{ working_days_total }} Working Days{% if latest_in_scope %} · Billing through {{ latest_in_scope.strftime('%d %b %Y') }}{% endif %}</div>
+  </div>
 
   <div class="mobile-only">
     <div class="mobile-card-list mobile-swipe">
@@ -997,19 +1037,17 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
       <div class="mobile-kpi-card mobile-salesman-kpi" data-salesman="{{ r.salesman|e }}">
         <div class="mobile-card-head"><div><div class="mobile-card-title">{{ r.salesman }}</div></div></div>
         <div class="mobile-hybrid-grid">
-          <div class="mobile-hybrid-tile"><div class="mobile-hybrid-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2.5" width="10" height="19" rx="2"></rect></svg>Device</div><button type="button" class="hybrid-achievement mobile-hybrid-ach sales-exact-link" data-focus="Device" data-dealer="{{ r.salesman|e }}" data-salesman="{{ r.salesman|e }}" data-depo="{{ depo_filters|join(', ')|e }}" data-device-target="{{ r.device_target }}" data-device-ach="{{ r.device }}" data-macbook-target="{{ r.macbook_target }}" data-macbook-ach="{{ r.macbook }}" data-acc-target="{{ r.acc_target }}" data-acc-ach="{{ r.acc }}">{{ r.device|rupiah_short }}</button><span class="hybrid-pct">{% if target_available %}{{ '%.1f'|format(r.device_pct) }}%{% else %}—{% endif %}</span></div>
-          <div class="mobile-hybrid-tile"><div class="mobile-hybrid-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="5" width="16" height="11" rx="1.5"></rect><path d="M2.5 19h19"></path></svg>Macbook</div><button type="button" class="hybrid-achievement mobile-hybrid-ach sales-exact-link" data-focus="Macbook" data-dealer="{{ r.salesman|e }}" data-salesman="{{ r.salesman|e }}" data-depo="{{ depo_filters|join(', ')|e }}" data-device-target="{{ r.device_target }}" data-device-ach="{{ r.device }}" data-macbook-target="{{ r.macbook_target }}" data-macbook-ach="{{ r.macbook }}" data-acc-target="{{ r.acc_target }}" data-acc-ach="{{ r.acc }}">{{ r.macbook|rupiah_short }}</button><span class="hybrid-pct">{% if target_available %}{{ '%.1f'|format(r.macbook_pct) }}%{% else %}—{% endif %}</span></div>
-          <div class="mobile-hybrid-tile"><div class="mobile-hybrid-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 13v-2a8 8 0 0 1 16 0v2"></path><rect x="3" y="12" width="4" height="7" rx="2"></rect><rect x="17" y="12" width="4" height="7" rx="2"></rect></svg>ACC</div><button type="button" class="hybrid-achievement mobile-hybrid-ach sales-exact-link" data-focus="ACC" data-dealer="{{ r.salesman|e }}" data-salesman="{{ r.salesman|e }}" data-depo="{{ depo_filters|join(', ')|e }}" data-device-target="{{ r.device_target }}" data-device-ach="{{ r.device }}" data-macbook-target="{{ r.macbook_target }}" data-macbook-ach="{{ r.macbook }}" data-acc-target="{{ r.acc_target }}" data-acc-ach="{{ r.acc }}">{{ r.acc|rupiah_short }}</button><span class="hybrid-pct">{% if target_available %}{{ '%.1f'|format(r.acc_pct) }}%{% else %}—{% endif %}</span></div>
-          <div class="mobile-hybrid-tile"><div class="mobile-hybrid-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9"></path><path d="M10 19V5"></path><path d="M16 19v-7"></path><path d="M22 19H2"></path></svg>Grand Total</div><button type="button" class="hybrid-achievement mobile-hybrid-ach sales-exact-link" data-focus="" data-dealer="{{ r.salesman|e }}" data-salesman="{{ r.salesman|e }}" data-depo="{{ depo_filters|join(', ')|e }}" data-device-target="{{ r.device_target }}" data-device-ach="{{ r.device }}" data-macbook-target="{{ r.macbook_target }}" data-macbook-ach="{{ r.macbook }}" data-acc-target="{{ r.acc_target }}" data-acc-ach="{{ r.acc }}">{{ r.total|rupiah_short }}</button><span class="hybrid-pct">{% if target_available %}{{ '%.1f'|format(r.sales_pct) }}%{% else %}—{% endif %}</span></div>
+          <div class="mobile-hybrid-tile"><div class="mobile-hybrid-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2.5" width="10" height="19" rx="2"></rect></svg>Device</div><button type="button" class="hybrid-achievement mobile-hybrid-ach sales-exact-link" data-focus="Device" data-dealer="{{ r.salesman|e }}" data-salesman="{{ r.salesman|e }}" data-depo="{{ depo_filters|join(', ')|e }}" data-device-target="{{ r.device_target }}" data-device-ach="{{ r.device }}" data-macbook-target="{{ r.macbook_target }}" data-macbook-ach="{{ r.macbook }}" data-acc-target="{{ r.acc_target }}" data-acc-ach="{{ r.acc }}">{{ r.device|rupiah_short }}</button><span class="hybrid-pct">{% if target_available %}{{ '%.1f'|format(r.device_pct) }}%{% else %}—{% endif %}</span><div class="mobile-kpi-track"><i style="width:{{ 100 if r.device_pct > 100 else r.device_pct }}%"></i></div></div>
+          <div class="mobile-hybrid-tile"><div class="mobile-hybrid-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="5" width="16" height="11" rx="1.5"></rect><path d="M2.5 19h19"></path></svg>Macbook</div><button type="button" class="hybrid-achievement mobile-hybrid-ach sales-exact-link" data-focus="Macbook" data-dealer="{{ r.salesman|e }}" data-salesman="{{ r.salesman|e }}" data-depo="{{ depo_filters|join(', ')|e }}" data-device-target="{{ r.device_target }}" data-device-ach="{{ r.device }}" data-macbook-target="{{ r.macbook_target }}" data-macbook-ach="{{ r.macbook }}" data-acc-target="{{ r.acc_target }}" data-acc-ach="{{ r.acc }}">{{ r.macbook|rupiah_short }}</button><span class="hybrid-pct">{% if target_available %}{{ '%.1f'|format(r.macbook_pct) }}%{% else %}—{% endif %}</span><div class="mobile-kpi-track"><i style="width:{{ 100 if r.macbook_pct > 100 else r.macbook_pct }}%"></i></div></div>
+          <div class="mobile-hybrid-tile"><div class="mobile-hybrid-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 13v-2a8 8 0 0 1 16 0v2"></path><rect x="3" y="12" width="4" height="7" rx="2"></rect><rect x="17" y="12" width="4" height="7" rx="2"></rect></svg>ACC</div><button type="button" class="hybrid-achievement mobile-hybrid-ach sales-exact-link" data-focus="ACC" data-dealer="{{ r.salesman|e }}" data-salesman="{{ r.salesman|e }}" data-depo="{{ depo_filters|join(', ')|e }}" data-device-target="{{ r.device_target }}" data-device-ach="{{ r.device }}" data-macbook-target="{{ r.macbook_target }}" data-macbook-ach="{{ r.macbook }}" data-acc-target="{{ r.acc_target }}" data-acc-ach="{{ r.acc }}">{{ r.acc|rupiah_short }}</button><span class="hybrid-pct">{% if target_available %}{{ '%.1f'|format(r.acc_pct) }}%{% else %}—{% endif %}</span><div class="mobile-kpi-track"><i style="width:{{ 100 if r.acc_pct > 100 else r.acc_pct }}%"></i></div></div>
+          <div class="mobile-hybrid-tile"><div class="mobile-hybrid-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 8 4-8 4-8-4 8-4Z"></path><path d="m4 12 8 4 8-4"></path><path d="m4 17 8 4 8-4"></path></svg>Grand Total</div><button type="button" class="hybrid-achievement mobile-hybrid-ach sales-exact-link" data-focus="" data-dealer="{{ r.salesman|e }}" data-salesman="{{ r.salesman|e }}" data-depo="{{ depo_filters|join(', ')|e }}" data-device-target="{{ r.device_target }}" data-device-ach="{{ r.device }}" data-macbook-target="{{ r.macbook_target }}" data-macbook-ach="{{ r.macbook }}" data-acc-target="{{ r.acc_target }}" data-acc-ach="{{ r.acc }}">{{ r.total|rupiah_short }}</button><span class="hybrid-pct">{% if target_available %}{{ '%.1f'|format(r.sales_pct) }}%{% else %}—{% endif %}</span><div class="mobile-kpi-track"><i style="width:{{ 100 if r.sales_pct > 100 else r.sales_pct }}%"></i></div></div>
         </div>
-        <div class="mobile-est-row">
-          <div class="mobile-est-box"><span>Est Closing %</span>{% if p %}<button type="button" class="hybrid-proj-btn sales-projection-trigger {% if p.est_closing_pct is not none and p.est_closing_pct >= 100 %}on-track{% elif p.est_closing_pct is not none and p.est_closing_pct < 50 %}risk{% endif %}" data-person="{{ r.salesman|e }}" data-gap="{{ p.gap_vs_timegone if p.gap_vs_timegone is not none else '' }}" data-daily="{{ p.target_daily if p.target_daily is not none else '' }}" data-closing="{{ p.est_closing if p.est_closing is not none else '' }}" data-pct="{{ p.est_closing_pct if p.est_closing_pct is not none else '' }}">{% if p.est_closing_pct is not none %}{{ '%.1f'|format(p.est_closing_pct) }}%{% else %}—{% endif %}</button>{% else %}<strong>—</strong>{% endif %}</div>
+        <div class="mobile-summary-row">
+          <div class="mobile-summary-box est"><div class="mobile-summary-icon red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="4"></circle><path d="M12 2v3M22 12h-3"></path></svg></div><span>Est Closing %</span>{% if p %}<button type="button" class="hybrid-proj-btn sales-projection-trigger {% if p.est_closing_pct is not none and p.est_closing_pct >= 100 %}on-track{% elif p.est_closing_pct is not none and p.est_closing_pct < 50 %}risk{% endif %}" data-person="{{ r.salesman|e }}" data-gap="{{ p.gap_vs_timegone if p.gap_vs_timegone is not none else '' }}" data-daily="{{ p.target_daily if p.target_daily is not none else '' }}" data-closing="{{ p.est_closing if p.est_closing is not none else '' }}" data-pct="{{ p.est_closing_pct if p.est_closing_pct is not none else '' }}">{% if p.est_closing_pct is not none %}{{ '%.1f'|format(p.est_closing_pct) }}%{% else %}—{% endif %}</button>{% else %}<strong>—</strong>{% endif %}</div>
+          <div class="mobile-summary-box"><div class="mobile-summary-icon red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M5 7h14M7 7l-4 7h8L7 7Zm10 0-4 7h8l-4-7Z"></path></svg></div><span>Gap vs Timegone</span><strong class="{% if p and p.gap_vs_timegone is not none and p.gap_vs_timegone >= 0 %}good{% elif p and p.gap_vs_timegone is not none %}bad{% endif %}">{% if not p or p.gap_vs_timegone is none %}—{% else %}{% if p.gap_vs_timegone > 0 %}+{% endif %}{{ p.gap_vs_timegone|rupiah_short }}{% endif %}</strong></div>
+          <div class="mobile-summary-box"><div class="mobile-summary-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 16l5-5 4 4 7-8"></path><path d="M15 7h5v5"></path></svg></div><span>Target Daily</span><strong class="value-blue">{% if not p or p.target_daily is none %}—{% else %}{{ p.target_daily|rupiah_short }}{% endif %}</strong></div>
+          <div class="mobile-summary-box"><div class="mobile-summary-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 21V4M5 5h10l-2 3 2 3H5"></path></svg></div><span>Est Closing</span><strong class="value-blue">{% if not p or p.est_closing is none %}—{% else %}{{ p.est_closing|rupiah_short }}{% endif %}</strong></div>
         </div>
-        {% if p %}<div class="mobile-projection-grid">
-          <div class="mobile-projection-cell"><span>Gap vs Timegone</span><strong class="{% if p.gap_vs_timegone is not none and p.gap_vs_timegone >= 0 %}good{% elif p.gap_vs_timegone is not none %}bad{% endif %}">{% if p.gap_vs_timegone is none %}—{% else %}{% if p.gap_vs_timegone > 0 %}+{% endif %}{{ p.gap_vs_timegone|rupiah_short }}{% endif %}</strong></div>
-          <div class="mobile-projection-cell"><span>Target Daily</span><strong style="color:#1769e8">{% if p.target_daily is none %}—{% else %}{{ p.target_daily|rupiah_short }}{% endif %}</strong></div>
-          <div class="mobile-projection-cell"><span>Est Closing</span><strong style="color:#1769e8">{% if p.est_closing is none %}—{% else %}{{ p.est_closing|rupiah_short }}{% endif %}</strong></div>
-        </div>{% endif %}
       </div>
     {% endfor %}
     </div>
@@ -1065,26 +1103,17 @@ document.addEventListener('click',function(event){
     <div class="mobile-card-list mobile-swipe">
       {% for r in table %}
       {% set qvo_pct = (r.qvo / r.qvo_target * 100) if r.qvo_target else 0 %}
-      <div class="mobile-kpi-card mobile-salesman-kpi" data-salesman="{{ r.salesman|e }}">
-        <div class="mobile-card-head">
-          <div>
-            <div class="mobile-card-title">{{ r.salesman }}</div>
-            <div class="mobile-card-sub">Outlet Performance</div>
+      <div class="mobile-kpi-card mobile-salesman-kpi quality-mobile-shell" data-salesman="{{ r.salesman|e }}">
+        <div class="mobile-card-head"><div><div class="mobile-card-title">{{ r.salesman }}</div><div class="mobile-card-sub">Outlet Performance</div></div></div>
+        <div class="mobile-quality-grid">
+          <div class="mobile-quality-card bo">
+            <div><div class="mobile-quality-top"><div class="mobile-quality-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10h18l-1.5-5h-15L3 10Z"></path><path d="M5 10v9h14v-9"></path><path d="M9 19v-5h6v5"></path></svg></div><div class="mobile-quality-copy"><span>BO</span><strong>{{ r.bo }}</strong></div></div><div class="mobile-quality-rate">{{ '%.1f'|format(r.bo_pct) }}% · Target {{ r.bo_target }}</div></div>
+            <div class="mobile-quality-progress"><i style="width:{{ 100 if r.bo_pct > 100 else r.bo_pct }}%"></i></div>
           </div>
-        </div>
-
-        <div class="mobile-section-label">BO</div>
-        <div class="mobile-grid-3">
-          <div class="mobile-metric"><div class="mobile-metric-label">Target</div><div class="mobile-metric-value">{{ r.bo_target }}</div></div>
-          <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><div class="mobile-metric-value">{{ r.bo }}</div></div>
-          <div class="mobile-metric"><div class="mobile-metric-label">%</div><div class="mobile-metric-value {% if r.bo_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(r.bo_pct) }}%</div></div>
-        </div>
-
-        <div class="mobile-section-label">QVO</div>
-        <div class="mobile-grid-3">
-          <div class="mobile-metric"><div class="mobile-metric-label">Target</div><div class="mobile-metric-value">{{ r.qvo_target }}</div></div>
-          <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><div class="mobile-metric-value">{{ r.qvo }}</div></div>
-          <div class="mobile-metric"><div class="mobile-metric-label">%</div><div class="mobile-metric-value {% if qvo_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(qvo_pct) }}%</div></div>
+          <div class="mobile-quality-card qvo">
+            <div><div class="mobile-quality-top"><div class="mobile-quality-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="9" r="5"></circle><path d="M9 14l-2 7 5-3 5 3-2-7"></path><path d="m12 6 .8 1.6 1.7.2-1.2 1.2.3 1.7-1.6-.8-1.6.8.3-1.7-1.2-1.2 1.7-.2L12 6Z"></path></svg></div><div class="mobile-quality-copy"><span>QVO</span><strong>{{ r.qvo }}</strong></div></div><div class="mobile-quality-rate">{{ '%.1f'|format(qvo_pct) }}% · Target {{ r.qvo_target }}</div></div>
+            <div class="mobile-quality-progress"><i style="width:{{ 100 if qvo_pct > 100 else qvo_pct }}%"></i></div>
+          </div>
         </div>
       </div>
       {% endfor %}
