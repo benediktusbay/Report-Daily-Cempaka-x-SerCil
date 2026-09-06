@@ -725,6 +725,52 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 @media(max-width:1000px){.dealer-actions{grid-template-columns:1fr}.qvo-potential-card{min-width:0}}
 @media(max-width:768px){.qvo-potential-row{min-width:780px}.qvo-history-summary{grid-template-columns:1fr 1fr}.qvo-card-footer{align-items:flex-start}.qvo-analysis-link{width:100%;justify-content:center;box-sizing:border-box}}
 
+
+/* ===== SALES ACHIEVEMENT + PROJECTION — FINAL INTEGRATED UI ===== */
+.sales-achievement-table.integrated-projection{min-width:1500px;table-layout:fixed;width:100%}
+.sales-achievement-table.integrated-projection col.salesman-col{width:220px}
+.sales-achievement-table.integrated-projection .group-head{font-size:12px;font-weight:900;letter-spacing:.02em}
+.sales-achievement-table.integrated-projection .sub-head{font-size:11px;font-weight:900;text-transform:none;letter-spacing:0}
+.sales-achievement-table.integrated-projection .projection-group{background:#fff7ed;color:#9a3412;border-left:3px solid #fed7aa}
+.sales-achievement-table.integrated-projection .projection-sub{background:#fffaf5}
+.sales-achievement-table.integrated-projection th:nth-child(14),
+.sales-achievement-table.integrated-projection td:nth-child(14){border-left:3px solid #fed7aa}
+.sales-achievement-table.integrated-projection tbody td:nth-child(2),
+.sales-achievement-table.integrated-projection tbody td:nth-child(3),
+.sales-achievement-table.integrated-projection tbody td:nth-child(5),
+.sales-achievement-table.integrated-projection tbody td:nth-child(6),
+.sales-achievement-table.integrated-projection tbody td:nth-child(8),
+.sales-achievement-table.integrated-projection tbody td:nth-child(9),
+.sales-achievement-table.integrated-projection tbody td:nth-child(11),
+.sales-achievement-table.integrated-projection tbody td:nth-child(12),
+.sales-achievement-table.integrated-projection tbody td:nth-child(14),
+.sales-achievement-table.integrated-projection tbody td:nth-child(15),
+.sales-achievement-table.integrated-projection tbody td:nth-child(16){text-align:left!important}
+.sales-achievement-table.integrated-projection tbody td:nth-child(4),
+.sales-achievement-table.integrated-projection tbody td:nth-child(7),
+.sales-achievement-table.integrated-projection tbody td:nth-child(10),
+.sales-achievement-table.integrated-projection tbody td:nth-child(13),
+.sales-achievement-table.integrated-projection tbody td:nth-child(17){text-align:center!important}
+.sales-achievement-table.integrated-projection .projection-value{font-size:11.5px}
+.sales-achievement-note{display:flex;align-items:flex-start;gap:9px;margin-top:10px;padding:10px 12px;border:1px solid #dbeafe;border-radius:10px;background:#eff6ff;color:#52647e;font-size:11.5px;line-height:1.45}
+.sales-achievement-note .info-dot{display:grid;place-items:center;flex:0 0 22px;width:22px;height:22px;border-radius:50%;background:#dbeafe;color:#1769e8;font-weight:900}
+
+@media(max-width:768px){
+  .mobile-grid-3 .mobile-metric:nth-child(1),
+  .mobile-grid-3 .mobile-metric:nth-child(2){text-align:left}
+  .mobile-grid-3 .mobile-metric:nth-child(3){text-align:center}
+  .mobile-projection-wrap{margin-top:14px;padding-top:12px;border-top:1px solid #dbe3ee}
+  .mobile-projection-label{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+  .mobile-projection-label strong{font-size:13px;color:#9a3412}
+  .mobile-projection-label span{font-size:10px;color:#94a3b8}
+  .mobile-projection-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .mobile-projection-grid .projection-metric{padding:10px;background:#fffaf5;border-color:#fed7aa;text-align:left}
+  .mobile-projection-grid .projection-metric:nth-child(4){text-align:center}
+  .mobile-projection-grid .projection-label{font-size:10px;margin-bottom:6px;font-weight:800}
+  .mobile-projection-grid .projection-value{font-size:15px!important;white-space:normal}
+  .sales-achievement-note{font-size:11px}
+}
+
 </style>
 {% endblock %}
 
@@ -948,6 +994,18 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
             <div class="mobile-metric"><div class="mobile-metric-label">%</div><div class="mobile-metric-value">{% if target_available %}{{ '%.1f'|format(r.sales_pct) }}%{% else %}—{% endif %}</div></div>
           </div>
         </div>
+
+        {% set p = projection_rows[loop.index0] if projection_rows|length > loop.index0 else none %}
+        {% if p %}
+        <div class="mobile-projection-wrap">
+          <div class="mobile-projection-label"><strong>Projection (vs Timegone)</strong><span>Estimasi akhir bulan</span></div>
+          <div class="mobile-projection-grid">
+            {% for key,label in projection_fields %}
+            <div class="projection-metric"><span class="projection-label">{{ label }}</span>{{ projection_value(p,key,label,r.salesman) }}</div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
       </div>
       {% endfor %}
     </div>
@@ -956,10 +1014,10 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 
 <div class="card table-card desktop-table"><div class="table-wrap">
     {% if table %}
-    <table class="sales-achievement-table">
+    <table class="sales-achievement-table integrated-projection">
       <colgroup>
         <col class="salesman-col">
-        <col span="12">
+        <col span="16">
       </colgroup>
       <thead>
         <tr>
@@ -968,6 +1026,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
           <th colspan="3" class="group-head">Macbook</th>
           <th colspan="3" class="group-head">ACC</th>
           <th colspan="3" class="group-head">Grand Total Sales</th>
+          <th colspan="4" class="group-head projection-group">Projection (vs Timegone)</th>
         </tr>
         <tr>
           {% for i in range(4) %}
@@ -975,11 +1034,16 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
           <th class="sub-head">Achievement</th>
           <th class="sub-head">%</th>
           {% endfor %}
+          <th class="sub-head projection-sub">Gap</th>
+          <th class="sub-head projection-sub">Target Daily</th>
+          <th class="sub-head projection-sub">Est Closing</th>
+          <th class="sub-head projection-sub">Est %</th>
         </tr>
       </thead>
 
       <tbody>
         {% for r in table %}
+        {% set p = projection_rows[loop.index0] if projection_rows|length > loop.index0 else none %}
         <tr>
           <td><strong>{{ r.salesman }}</strong></td>
 
@@ -998,6 +1062,15 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
           <td class="number">{% if target_available %}{{ r.target_total|rupiah_short }}{% else %}Not yet{% endif %}</td>
           <td class="number"><button type="button" class="sales-exact-link" data-focus="" data-bp="" data-dealer="{{ r.salesman|e }}" data-salesman="{{ r.salesman|e }}" data-depo="{{ depo_filters|join(', ')|e }}" data-device-target="{{ r.device_target }}" data-device-ach="{{ r.device }}" data-macbook-target="{{ r.macbook_target }}" data-macbook-ach="{{ r.macbook }}" data-acc-target="{{ r.acc_target }}" data-acc-ach="{{ r.acc }}">{{ r.total|rupiah_short }}</button></td>
           <td class="center">{% if target_available %}{{ '%.1f'|format(r.sales_pct) }}%{% else %}—{% endif %}</td>
+
+          {% if p %}
+          <td>{{ projection_value(p,'gap_vs_timegone','Gap vs Timegone',r.salesman) }}</td>
+          <td>{{ projection_value(p,'target_daily','Target Daily',r.salesman) }}</td>
+          <td>{{ projection_value(p,'est_closing','Est Closing',r.salesman) }}</td>
+          <td>{{ projection_value(p,'est_closing_pct','Est Closing %',r.salesman) }}</td>
+          {% else %}
+          <td>—</td><td>—</td><td>—</td><td>—</td>
+          {% endif %}
         </tr>
         {% endfor %}
 
@@ -1019,6 +1092,11 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
           <td class="number">{{ cards.sales_target|rupiah_short }}</td>
           <td class="number"><button type="button" class="sales-exact-link" data-focus="" data-bp="" data-dealer="Grand Total" data-salesman="All Salesman" data-depo="{{ depo_filters|join(', ')|e }}" data-device-target="{{ cards.device_target }}" data-device-ach="{{ cards.device }}" data-macbook-target="{{ cards.macbook_target }}" data-macbook-ach="{{ cards.macbook }}" data-acc-target="{{ cards.acc_target }}" data-acc-ach="{{ cards.acc }}">{{ cards.sales|rupiah_short }}</button></td>
           <td class="center {% if cards.sales_pct < timegone_pct %}under-time{% endif %}">{{ '%.1f'|format(cards.sales_pct) }}%</td>
+
+          <td>{{ projection_value(projection_summary,'gap_vs_timegone','Gap vs Timegone','Grand Total') }}</td>
+          <td>{{ projection_value(projection_summary,'target_daily','Target Daily','Grand Total') }}</td>
+          <td>{{ projection_value(projection_summary,'est_closing','Est Closing','Grand Total') }}</td>
+          <td>{{ projection_value(projection_summary,'est_closing_pct','Est Closing %','Grand Total') }}</td>
         </tr>
       </tbody>
     </table>
@@ -1026,24 +1104,10 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     <div class="empty">Belum ada target/billing untuk periode ini.</div>
     {% endif %}
   </div></div>
+  <div class="sales-achievement-note"><span class="info-dot">i</span><span>Proyeksi dihitung dari pencapaian MTD dibandingkan dengan time gone. Gap positif berarti laju pencapaian berada di atas kebutuhan target; Est Closing adalah estimasi pencapaian akhir bulan jika laju saat ini berlanjut. Klik angka proyeksi untuk nilai lengkap.</span></div>
+</div>
 </div>
 
-<div class="section">
-  <div class="section-title">
-    <h2>Sales Projection</h2>
-  </div>
-  <p class="projection-note">Klik angka untuk nilai lengkap. Gap positif berarti di atas laju target; negatif berarti tertinggal.</p>
-  <div class="card projection-desktop"><table class="projection-table">
-    <colgroup><col><col span="4"></colgroup>
-    <thead><tr><th>Salesman</th>{% for key,label in projection_fields %}<th>{{ label }}</th>{% endfor %}</tr></thead>
-    <tbody>{% for p in projection_rows %}<tr><td>{{ p.salesman }}</td>{% for key,label in projection_fields %}<td>{{ projection_value(p,key,label,p.salesman) }}</td>{% endfor %}</tr>{% else %}<tr><td colspan="5">Belum ada data salesman untuk filter ini.</td></tr>{% endfor %}</tbody>
-    <tfoot><tr><td>GRAND TOTAL</td>{% for key,label in projection_fields %}<td>{{ projection_value(projection_summary,key,label,'Grand Total') }}</td>{% endfor %}</tr></tfoot>
-  </table></div>
-  <div class="projection-mobile">
-    {% for p in projection_rows %}<div class="card projection-person"><h3>{{ p.salesman }}</h3><div class="projection-grid">{% for key,label in projection_fields %}<div class="projection-metric"><span class="projection-label">{{ label }}</span>{{ projection_value(p,key,label,p.salesman) }}</div>{% endfor %}</div></div>{% endfor %}
-    <div class="card projection-person"><h3>GRAND TOTAL</h3><div class="projection-grid">{% for key,label in projection_fields %}<div class="projection-metric"><span class="projection-label">{{ label }}</span>{{ projection_value(projection_summary,key,label,'Grand Total') }}</div>{% endfor %}</div></div>
-  </div>
-</div>
 <dialog id="projection-dialog" aria-labelledby="projection-title"><h3 id="projection-title"></h3><p id="projection-person"></p><div id="projection-exact"></div><form method="dialog"><button>Tutup</button></form></dialog>
 <script>
 document.addEventListener('click',function(event){
