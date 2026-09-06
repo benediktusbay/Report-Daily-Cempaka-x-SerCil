@@ -12,6 +12,7 @@ from sqlalchemy import inspect, text
 from datetime import datetime, timedelta
 import datetime as dt
 from functools import wraps
+from types import SimpleNamespace
 
 import pandas as pd
 from openpyxl import load_workbook
@@ -327,6 +328,21 @@ class MonthlyTarget(db.Model):
     bo_target = db.Column(db.Integer, default=1)
     qvo_target = db.Column(db.Integer, default=1)
     __table_args__ = (db.UniqueConstraint('month','bp', name='uq_monthly_target_month_bp'),)
+
+
+class DealerAssignment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    month = db.Column(db.String(7), nullable=False, index=True)
+    bp = db.Column(db.String(80), nullable=False, index=True)
+    dealer = db.Column(db.String(255), nullable=False)
+    salesman = db.Column(db.String(160), nullable=False, index=True)
+    depo = db.Column(db.String(80), nullable=False, index=True)
+    valid_from = db.Column(db.Date, nullable=False)
+    valid_to = db.Column(db.Date, nullable=False)
+    __table_args__ = (
+        db.UniqueConstraint('month', 'bp', 'valid_from', name='uq_assignment_start'),
+        db.CheckConstraint('valid_from <= valid_to', name='ck_assignment_dates'),
+    )
 
 
 class UploadLog(db.Model):
@@ -1026,17 +1042,41 @@ def logout():
     return redirect(url_for('login'))
 
 
+class TargetLookup(dict):
+    """One monthly snapshot per BP, with a separately indexed ownership history."""
+    def __init__(self, month, targets, assignments):
+        super().__init__((normalize_bp(t.bp), t) for t in targets)
+        self.assignments = {}
+        for a in assignments:
+            self.assignments.setdefault(normalize_bp(a.bp), []).append(a)
+        start, end = month_range(month)
+        # Legacy databases have no assignment table rows yet. Preserve their
+        # monthly mapping until the first dated upload materializes history.
+        for bp, t in self.items():
+            if bp not in self.assignments:
+                self.assignments[bp] = [SimpleNamespace(
+                    bp=bp, dealer=t.dealer, salesman=t.salesman, depo=t.depo,
+                    valid_from=start, valid_to=end)]
+        for intervals in self.assignments.values():
+            intervals.sort(key=lambda a: a.valid_from)
+
+    def active(self, bp, date):
+        return next((a for a in self.assignments.get(bp, [])
+                     if a.valid_from <= date <= a.valid_to), None)
+
+
 def target_lookup_for_month(month):
     targets = MonthlyTarget.query.filter_by(month=month).all()
-    return targets, {normalize_bp(t.bp): t for t in targets}
+    assignments = DealerAssignment.query.filter_by(month=month).all()
+    return targets, TargetLookup(month, targets, assignments)
 
 
 def resolve_billing_owner(row, target_by_bp):
     """
     Resolve a Billing row into the Apple dashboard ownership rules.
 
-    MAPPED BP (exists in MonthlyTarget for the selected month):
-      - Owner is the salesman stored in MonthlyTarget for that month/BP.
+    MAPPED BP (MonthlyTarget or effective assignment for the selected month):
+      - Owner/depo come from the assignment active on Billing Date.
       - The transaction is valid only when Billing.salesman matches that owner.
       - A cross-salesman billing row is ignored by returning an empty owner.
 
@@ -1049,19 +1089,26 @@ def resolve_billing_owner(row, target_by_bp):
     target = target_by_bp.get(bp)
     billing_salesman = canonical_salesman(row.salesman)
 
-    if target:
-        target_owner = canonical_salesman(target.salesman)
+    assignment = (target_by_bp.active(bp, row.billing_date)
+                  if isinstance(target_by_bp, TargetLookup) else target)
+    mapped = target is not None or (
+        isinstance(target_by_bp, TargetLookup) and bp in target_by_bp.assignments)
+    if mapped:
+        # A gap in an existing assignment history is not an unmapped dealer.
+        if assignment is None:
+            return '', 'Unmapped', normalize_text(row.sold_to_name), target
+        target_owner = canonical_salesman(assignment.salesman)
 
         # A mapped dealer must belong to the locked Apple team.
         if target_owner not in LOCKED_SALESMEN:
-            return '', target.depo, target.dealer, target
+            return '', assignment.depo, assignment.dealer, target
 
         # Cross-salesman billing must not contribute to the mapped dealer,
         # salesman achievement, BO, QVO, SKU, Speed Distribution or incentive.
         if billing_salesman != target_owner:
-            return '', target.depo, target.dealer, target
+            return '', assignment.depo, assignment.dealer, target
 
-        return target_owner, target.depo, target.dealer, target
+        return target_owner, assignment.depo, assignment.dealer, target
 
     # Unmapped dealers are allowed only when the Billing salesman is part of
     # the locked Apple team.
@@ -1070,7 +1117,7 @@ def resolve_billing_owner(row, target_by_bp):
 
     return (
         billing_salesman,
-        SALESMAN_DEPO_FALLBACK.get(billing_salesman, 'Unmapped'),
+        'Unmapped',
         normalize_text(row.sold_to_name),
         None,
     )
@@ -1087,6 +1134,20 @@ def matches_scope(salesman, depo, salesman_filters, depo_filters):
     if depo_filters and depo not in depo_filters:
         return False
     return True
+
+
+def scoped_dealer_totals(dealers):
+    """Count an owner/BP once, even when its mapped area changed this month."""
+    grouped = {}
+    for d in dealers:
+        key = (d['salesman'], d['bp'])
+        g = grouped.setdefault(key, dict(salesman=d['salesman'], bp=d['bp'], dealer=d['dealer'],
+            depos=set(), Device=0.0, Macbook=0.0, ACC=0.0, skus=set()))
+        g['depos'].add(d['depo'])
+        for category in ('Device', 'Macbook', 'ACC'):
+            g[category] += d[category]
+        g['skus'].update(d['skus'])
+    return grouped
 
 
 def business_round(value):
@@ -1148,7 +1209,7 @@ def is_bo_amounts(device_amount=0, macbook_amount=0):
 
     ACC tidak menjadi syarat BO; dealer qualify selama ada Device dan/atau Macbook.
     """
-    return (float(device_amount or 0) + float(macbook_amount or 0)) > 0
+    return (float(device_amount or 0) + float(macbook_amount or 0)) >= 1
 
 
 def sku_bucket(n):
@@ -1206,7 +1267,7 @@ def build_incentive_metrics(month, member_salesmen):
 
     # Defensive fallback: if a target file has no BO rows, preserve the SC monthly
     # default used by the dashboard.
-    if not bo_target:
+    if not bo_target and not monthly_targets:
         bo_target = 25 * len(member_salesmen)
 
     billing_rows = Billing.query.filter(
@@ -1480,7 +1541,8 @@ def dashboard():
     # The target file for the selected month is the source of truth.
     target_depos_by_salesman = {}
     target_salesmen_by_depo = {}
-    for t in monthly_targets:
+    mapping_rows = list(monthly_targets) + [a for intervals in target_by_bp.assignments.values() for a in intervals]
+    for t in mapping_rows:
         s = canonical_salesman(t.salesman)
         d = normalize_text(t.depo)
         if s not in LOCKED_SALESMEN or not d or d == 'Unmapped':
@@ -1504,7 +1566,7 @@ def dashboard():
     # Cascading Salesman -> Depo:
     # when one or more salesmen are selected, the active Depo scope follows
     # the Depo values assigned to them in Monthly Target for this month.
-    if monthly_targets and requested_set:
+    if mapping_rows and requested_set and not requested_depos:
         mapped_depos = set()
         for salesman in requested_set:
             mapped_depos.update(target_depos_by_salesman.get(salesman, set()))
@@ -1525,7 +1587,7 @@ def dashboard():
     # Michael while Cempaka is currently active and the Depo filter can then
     # cascade to Roxy.
     salesman_options = set()
-    if monthly_targets:
+    if mapping_rows:
         salesman_options.update(target_depos_by_salesman.keys())
     else:
         # Before a target is uploaded, fall back to valid locked billing owners.
@@ -1540,7 +1602,7 @@ def dashboard():
     # Explicit salesman selection wins and already cascades Depo above.
     if requested_set:
         salesman_filters = [s for s in salesmen if s in requested_set]
-    elif monthly_targets and depo_filters:
+    elif mapping_rows and depo_filters:
         # Default / Depo-only state:
         # immediately select every locked Apple salesman mapped to the active
         # Depo scope in Monthly Target. Therefore the initial Viewer/Admin
@@ -1558,15 +1620,23 @@ def dashboard():
     # BP remains part of the salesman's BO whether it is mapped or UNMAPPED.
     # The (salesman, BP) key also prevents the same BP from being counted twice.
     bo_billing = []
+    bo_dealer_names = {}
     bo_amounts_by_owner_bp = {}
     for r in billing_rows:
-        owner, _, _, _ = resolve_billing_owner(r, target_by_bp)
+        owner, owner_depo, owner_dealer, _ = resolve_billing_owner(r, target_by_bp)
         if not owner or (salesman_filters and owner not in salesman_filters):
+            continue
+        # Viewer authorization remains narrower than admin; BO can include an
+        # unmapped BP, but must not reveal a mapped dealer outside allowed areas.
+        if session.get('role') != 'admin' and owner_depo not in VIEWER_ALLOWED_DEPOS + ['Unmapped']:
             continue
         bp = normalize_bp(r.sold_to_code)
         if not bp:
             continue
         bo_billing.append((r, owner))
+        meta = bo_dealer_names.setdefault((owner, bp), {'salesman': owner, 'bp': bp,
+                                                       'depo': owner_depo, 'dealer': owner_dealer})
+        meta['depo'] = ', '.join(sorted(set(meta['depo'].split(', ')) | {owner_depo}))
         amounts = bo_amounts_by_owner_bp.setdefault(
             (owner, bp), {'device': 0.0, 'macbook': 0.0}
         )
@@ -1596,14 +1666,14 @@ def dashboard():
     dealer = {}
     for t in scoped_targets:
         bp = normalize_bp(t.bp)
-        key = (canonical_salesman(t.salesman), bp)
+        key = (canonical_salesman(t.salesman), bp, t.depo)
         dealer[key] = {
             'salesman': t.salesman, 'depo': t.depo, 'bp': bp, 'dealer': t.dealer,
             'Device': 0.0, 'Macbook': 0.0, 'ACC': 0.0, 'skus': set(), 'last_date': None,
             'device_items': {},
             'device_target': float(t.device_target or 0), 'macbook_target': float(t.macbook_target or 0),
             'acc_target': float(t.acc_target or 0), 'bo_target': int(t.bo_target or 0), 'qvo_target': int(t.qvo_target or 0),
-            'is_target': True
+            'is_target': True, 'has_target_allocation': True
         }
 
     scoped_billing = []
@@ -1626,7 +1696,8 @@ def dashboard():
             and {'Serang', 'Cilegon'}.issubset(set(depo_filters))
         )
 
-        if full_operational_scope or ikmah_unmapped_combined_scope:
+        if depo == 'Unmapped' and (full_operational_scope or ikmah_unmapped_combined_scope
+                                  or (session.get('role') == 'admin' and bool(requested_set))):
             billing_matches_scope = (
                 owner in LOCKED_SALESMEN
                 and (not salesman_filters or owner in salesman_filters)
@@ -1639,17 +1710,20 @@ def dashboard():
             continue
         scoped_billing.append((r, owner, depo))
         bp = normalize_bp(r.sold_to_code)
-        dealer_key = (canonical_salesman(owner), bp)
+        dealer_key = (canonical_salesman(owner), bp, depo)
+        allocated_target = target if (target and canonical_salesman(target.salesman) == owner
+                                      and target.depo == depo) else None
         d = dealer.setdefault(dealer_key, {
             'salesman': owner, 'depo': depo, 'bp': bp, 'dealer': dealer_name,
             'Device': 0.0, 'Macbook': 0.0, 'ACC': 0.0, 'skus': set(), 'last_date': None,
             'device_items': {},
-            'device_target': float(target.device_target or 0) if target else 0,
-            'macbook_target': float(target.macbook_target or 0) if target else 0,
-            'acc_target': float(target.acc_target or 0) if target else 0,
-            'bo_target': int(target.bo_target or 0) if target else 0,
-            'qvo_target': int(target.qvo_target or 0) if target else 0,
-            'is_target': bool(target)
+            'device_target': float(allocated_target.device_target or 0) if allocated_target else 0,
+            'macbook_target': float(allocated_target.macbook_target or 0) if allocated_target else 0,
+            'acc_target': float(allocated_target.acc_target or 0) if allocated_target else 0,
+            'bo_target': int(allocated_target.bo_target or 0) if allocated_target else 0,
+            'qvo_target': int(allocated_target.qvo_target or 0) if allocated_target else 0,
+            'is_target': bp in target_by_bp.assignments,
+            'has_target_allocation': bool(allocated_target)
         })
         if r.category in ('Device','Macbook','ACC'):
             d[r.category] += float(r.nett_amount or 0)
@@ -1686,12 +1760,14 @@ def dashboard():
     sku_detail = []
     dealer_detail = []
     active_dealers = 0
+    owner_dealers = scoped_dealer_totals(dealer.values())
     for dealer_key, d in dealer.items():
         bp = d['bp']
         total = d['Device'] + d['Macbook'] + d['ACC']
-        bo = (d['Device'] + d['Macbook']) > 0
-        qvo = total >= QVO_THRESHOLD
-        sku_count = len(d['skus'])
+        owner_total = owner_dealers[(d['salesman'], bp)]
+        bo = is_bo_amounts(owner_total['Device'], owner_total['Macbook'])
+        qvo = sum(owner_total[k] for k in ('Device', 'Macbook', 'ACC')) >= QVO_THRESHOLD
+        sku_count = len(owner_total['skus'])
         bucket = sku_bucket(sku_count)
         if total != 0:
             active_dealers += 1
@@ -1700,27 +1776,34 @@ def dashboard():
             'sku_bins':{'1':0,'2-3':0,'4-6':0,'7-10':0,'>10':0}
         })
         s['device'] += d['Device']; s['macbook'] += d['Macbook']; s['acc'] += d['ACC']
-        if bo: s['bo'] += 1
-        if qvo: s['qvo'] += 1
-        if bucket in s['sku_bins']:
-            s['sku_bins'][bucket] += 1
-        if sku_count > 0:
-            sku_detail.append({
-                'salesman': d['salesman'], 'depo': d['depo'], 'bp': bp, 'dealer': d['dealer'],
-                'sku_count': sku_count, 'bucket': bucket, 'sku_list': sorted(d['skus'])
-            })
         dealer_detail.append({
             'salesman': d['salesman'], 'depo': d['depo'], 'bp': bp, 'dealer': d['dealer'],
             'device': d['Device'], 'macbook': d['Macbook'], 'acc': d['ACC'], 'total': total,
             'device_target': d['device_target'], 'macbook_target': d['macbook_target'], 'acc_target': d['acc_target'],
             'bo': bo, 'qvo': qvo, 'sku': sku_count,
-            'sku_list': sorted(d['skus']),
+            'sku_list': sorted(owner_total['skus']),
             'device_items': sorted(
                 d['device_items'].values(),
                 key=lambda item: (-item['value'], item['type'].lower()),
             ),
-            'is_target': d['is_target']
+            'is_target': d['is_target'], 'has_target_allocation': d['has_target_allocation']
         })
+
+    active_dealers = 0
+    for d in owner_dealers.values():
+        s = salesman_actual[d['salesman']]
+        total = sum(d[k] for k in ('Device', 'Macbook', 'ACC'))
+        if total != 0:
+            active_dealers += 1
+        s['bo'] += int(is_bo_amounts(d['Device'], d['Macbook']))
+        s['qvo'] += int(total >= QVO_THRESHOLD)
+        count = len(d['skus'])
+        bucket = sku_bucket(count)
+        if bucket in s['sku_bins']:
+            s['sku_bins'][bucket] += 1
+        if count:
+            sku_detail.append(dict(salesman=d['salesman'], depo=', '.join(sorted(d['depos'])),
+                bp=d['bp'], dealer=d['dealer'], sku_count=count, bucket=bucket, sku_list=sorted(d['skus'])))
 
     # Replace the depo-scoped BO subtotal with the salesman-owned BO total.
     # Revenue, QVO, SKU, and dealer detail intentionally remain depo-scoped.
@@ -1738,10 +1821,10 @@ def dashboard():
     table = []
     for salesman in all_people:
         a = salesman_actual.get(salesman, {'device':0,'macbook':0,'acc':0,'bo':0,'qvo':0,'sku_bins':{'1':0,'2-3':0,'4-6':0,'7-10':0,'>10':0}})
-        t = salesman_target.get(salesman, {'device':0,'macbook':0,'acc':0,'bo':25,'qvo':0,'dealers':0})
+        t = salesman_target.get(salesman, {'device':0,'macbook':0,'acc':0,'bo':0,'qvo':0,'dealers':0})
         total = a['device'] + a['macbook'] + a['acc']
         target_total = t['device'] + t['macbook'] + t['acc']
-        bo_target = t['bo'] or 25
+        bo_target = t['bo'] if monthly_targets else (t['bo'] or 25)
         current_week = min(4, max(1, ((max([r.billing_date.day for r,owner in bo_billing if owner == salesman], default=1)-1)//7)+1))
         current_speed_target = weekly_targets(bo_target)[current_week]
         device_pct = a['device']/t['device']*100 if t['device'] else 0
@@ -1798,7 +1881,7 @@ def dashboard():
                 vals = bo_by_bp.setdefault(bp, {'device':0.0,'macbook':0.0})
                 if r.category == 'Device': vals['device'] += float(r.nett_amount or 0)
                 elif r.category == 'Macbook': vals['macbook'] += float(r.nett_amount or 0)
-            actual = sum(1 for v in bo_by_bp.values() if v['device']+v['macbook']>0)
+            actual = sum(1 for v in bo_by_bp.values() if is_bo_amounts(v['device'], v['macbook']))
             pct = actual/wk_targets[w]*100 if wk_targets[w] else 0
             weekly[w] = {'target':wk_targets[w], 'actual':actual, 'pct':pct, 'status':'On Track' if actual>=wk_targets[w] else 'Need Push'}
         speed_rows.append({'salesman':x['salesman'],'weeks':weekly})
@@ -1836,6 +1919,27 @@ def dashboard():
         target_available and cards['sales_target'] > 0,
     )
 
+    visible_people = {x['salesman'] for x in table}
+    quality_bo_dealers = [bo_dealer_names[key] for key, amounts in bo_amounts_by_owner_bp.items()
+                          if key[0] in visible_people and is_bo_amounts(amounts['device'], amounts['macbook'])]
+    quality_qvo_dealers = [dict(salesman=d['salesman'], bp=d['bp'], dealer=d['dealer'],
+                               depo=', '.join(sorted(d['depos']))) for d in owner_dealers.values()
+                          if d['salesman'] in visible_people
+                          and sum(d[k] for k in ('Device', 'Macbook', 'ACC')) >= QVO_THRESHOLD]
+    dealer_no_purchase = [dict(d, target=d['device_target'] + d['macbook_target'] + d['acc_target'])
+                          for d in dealer_detail if d['salesman'] in visible_people and d['has_target_allocation']
+                          and dealer[(d['salesman'], d['bp'], d['depo'])]['last_date'] is None]
+    qvo_opportunities = [dict(salesman=d['salesman'], bp=d['bp'], dealer=d['dealer'],
+                             depo=', '.join(sorted(d['depos'])),
+                             gap=QVO_THRESHOLD - sum(d[k] for k in ('Device', 'Macbook', 'ACC')))
+                         for d in owner_dealers.values() if d['salesman'] in visible_people
+                         and 0 < sum(d[k] for k in ('Device', 'Macbook', 'ACC')) < QVO_THRESHOLD]
+    dealer_no_purchase.sort(key=lambda d: (-d['target'], d['dealer']))
+    qvo_opportunities.sort(key=lambda d: (d['gap'], d['dealer']))
+    quality_bo_dealers.sort(key=lambda d: (d['salesman'], d['dealer']))
+    quality_qvo_dealers.sort(key=lambda d: (d['salesman'], d['dealer']))
+    projection_timegone = projection_elapsed / working_days_total * 100 if working_days_total else 0
+
     uploads = UploadLog.query.order_by(UploadLog.uploaded_at.desc()).limit(6).all()
     target_uploads = TargetUploadLog.query.order_by(TargetUploadLog.uploaded_at.desc()).limit(6).all()
 
@@ -1862,6 +1966,9 @@ def dashboard():
         qvo_threshold=QVO_THRESHOLD, latest_in_scope=latest_in_scope,
         target_available=target_available,
         projection_rows=projection_rows, projection_summary=projection_summary,
+        projection_timegone=projection_timegone,
+        quality_bo_dealers=quality_bo_dealers, quality_qvo_dealers=quality_qvo_dealers,
+        dealer_no_purchase=dealer_no_purchase, qvo_opportunities=qvo_opportunities,
         timegone_pct=timegone_pct,
         working_days_elapsed=working_days_elapsed,
         working_days_total=working_days_total
@@ -2285,6 +2392,136 @@ def upload():
     return redirect(url_for('dashboard', month=return_month))
 
 
+TARGET_VALUES = ('device_target', 'macbook_target', 'acc_target', 'bo_target', 'qvo_target')
+
+
+def assignment_record(a):
+    return {key: getattr(a, key) for key in
+            ('bp', 'dealer', 'salesman', 'depo', 'valid_from', 'valid_to')}
+
+
+def read_target_workbook(source, month):
+    """Read all sheets; dates describe ownership, values describe ONE BP target."""
+    start, end = month_range(month)
+    grouped, rows_read, sheet_counts = {}, 0, []
+    def date_value(value, default):
+        if pd.isna(value) or str(value).strip() == '':
+            return default
+        if isinstance(value, (int, float)):
+            value = pd.Timestamp('1899-12-30') + pd.to_timedelta(value, unit='D')
+        if isinstance(value, str) and re.fullmatch(r'\d{4}-\d{2}-\d{2}', value.strip()):
+            date = dt.date.fromisoformat(value.strip())
+        else:
+            date = pd.to_datetime(value, dayfirst=True, errors='raise').date()
+        if not start <= date <= end:
+            raise ValueError(f'Tanggal effective {date} harus dalam bulan {month}.')
+        return date
+    with pd.ExcelFile(source) as workbook:
+        for sheet in workbook.sheet_names:
+            df = workbook.parse(sheet)
+            if df.dropna(how='all').empty:
+                continue
+            columns = {}
+            for col in df.columns:
+                columns.setdefault(normalize_col(col), col)
+            cmap = {}
+            for key, aliases in TARGET_ALIASES.items():
+                for alias in aliases:
+                    if normalize_col(alias) in columns:
+                        cmap[key] = columns[normalize_col(alias)]
+                        break
+            missing = set(TARGET_ALIASES) - set(cmap)
+            if missing:
+                raise ValueError(f'Sheet {sheet}: kolom wajib belum ada: ' + ', '.join(sorted(missing)))
+            from_col = columns.get(normalize_col('Effective From'))
+            to_col = columns.get(normalize_col('Effective To'))
+            rows_read += len(df)
+            bps = set()
+            for rownum, (_, rr) in enumerate(df.iterrows(), 2):
+                bp = normalize_bp(rr[cmap['bp']])
+                if not bp:
+                    continue
+                owner = canonical_salesman(rr[cmap['salesman']])
+                raw_dealer = rr[cmap['dealer']]
+                dealer = '' if pd.isna(raw_dealer) else normalize_text(raw_dealer)
+                raw_depo = rr[cmap['depo']]
+                if not owner or not dealer or pd.isna(raw_depo) or not normalize_text(raw_depo):
+                    raise ValueError(f'Sheet {sheet}, baris {rownum}, BP {bp}: nama dealer/salesman/depo kosong.')
+                raw_from = rr[from_col] if from_col is not None else None
+                raw_to = rr[to_col] if to_col is not None else None
+                explicit = any(v is not None and not pd.isna(v) and str(v).strip()
+                               for v in (raw_from, raw_to))
+                valid_from, valid_to = date_value(raw_from, start), date_value(raw_to, end)
+                if valid_from > valid_to:
+                    raise ValueError(f'Sheet {sheet}, BP {bp}: Effective From melebihi Effective To.')
+                values = {k: to_num(rr[cmap[k]]) for k in TARGET_VALUES}
+                for k in ('bo_target', 'qvo_target'):
+                    values[k] = int(round(values[k]))
+                entry = dict(bp=bp, dealer=dealer, salesman=owner, depo=canonical_depo(raw_depo),
+                             valid_from=valid_from, valid_to=valid_to)
+                group = grouped.setdefault(bp, {'values': None, 'assignments': [], 'explicit': False})
+                # Blank/zero repeat rows may carry only a new assignment.
+                if any(values.values()):
+                    if group['values'] is not None and any(
+                        not math.isclose(values[k], group['values'][k], rel_tol=0, abs_tol=.01)
+                        for k in TARGET_VALUES
+                    ):
+                        raise ValueError(f'BP {bp}: target bulanan berbeda antar baris. Ulangi nilai target yang sama atau kosongkan target pada baris assignment tambahan.')
+                    group['values'] = values
+                if entry not in group['assignments']:
+                    group['assignments'].append(entry)
+                group['explicit'] = group['explicit'] or explicit
+                bps.add(bp)
+            sheet_counts.append((sheet, len(bps)))
+    if not grouped:
+        raise ValueError('Tidak ada dealer/BP valid yang dapat dibaca.')
+    for bp, group in grouped.items():
+        intervals = sorted(group['assignments'], key=lambda a: a['valid_from'])
+        for left, right in zip(intervals, intervals[1:]):
+            if left['valid_to'] >= right['valid_from']:
+                raise ValueError(f'BP {bp}: tanggal assignment bertumpuk. Isi Effective From/To tanpa overlap.')
+        group['assignments'] = intervals
+        group['values'] = group['values'] or dict.fromkeys(TARGET_VALUES, 0)
+    return grouped, rows_read, sheet_counts
+
+
+def merge_assignment_history(bp, existing, incoming, explicit):
+    """Overlay only dated ranges; never reinterpret earlier dates as new owner."""
+    if existing and not explicit:
+        latest = max(existing, key=lambda a: a['valid_to'])
+        proposed = incoming[-1]
+        if (latest['salesman'], latest['depo']) != (proposed['salesman'], proposed['depo']):
+            raise ValueError(f'BP {bp}: owner/depo berubah. Isi Effective From/To agar histori sebelum perpindahan tetap tersimpan.')
+        return existing
+    history = list(existing)
+    for new in incoming:
+        kept = []
+        for old in history:
+            if old['valid_to'] < new['valid_from'] or old['valid_from'] > new['valid_to']:
+                kept.append(old)
+                continue
+            if old['valid_from'] < new['valid_from']:
+                kept.append(dict(old, valid_to=new['valid_from'] - timedelta(days=1)))
+            if old['valid_to'] > new['valid_to']:
+                kept.append(dict(old, valid_from=new['valid_to'] + timedelta(days=1)))
+        history = kept + [new]
+    return sorted(history, key=lambda a: a['valid_from'])
+
+
+def prepare_target_snapshot(month, grouped, lookup):
+    history = {bp: [assignment_record(a) for a in intervals]
+               for bp, intervals in lookup.assignments.items()}
+    targets = []
+    for bp, group in grouped.items():
+        merged = merge_assignment_history(bp, history.get(bp, []),
+                                          group['assignments'], group['explicit'])
+        history[bp] = merged
+        current = max(merged, key=lambda a: a['valid_to'])
+        targets.append(dict(month=month, bp=bp, dealer=current['dealer'],
+                            salesman=current['salesman'], depo=current['depo'], **group['values']))
+    return targets, [dict(month=month, **a) for intervals in history.values() for a in intervals]
+
+
 @app.route('/upload-target', methods=['POST'])
 @admin_required
 def upload_target():
@@ -2297,41 +2534,22 @@ def upload_target():
         flash('Format Target harus Excel (.xlsx/.xls).', 'danger')
         return redirect(url_for('dashboard', month=target_month))
     try:
-        df = pd.read_excel(f, sheet_name=0)
-        cmap = map_columns(df.columns, TARGET_ALIASES, 'Target Bulanan')
-        collapsed = {}
-        for _, rr in df.iterrows():
-            bp = normalize_bp(rr[cmap['bp']])
-            if not bp:
-                continue
-            salesman = canonical_salesman(rr[cmap['salesman']])
-            depo = canonical_depo(rr[cmap['depo']])
-            dealer_name = normalize_text(rr[cmap['dealer']])
-            if not salesman or not dealer_name:
-                continue
-            rec = collapsed.setdefault(bp, {
-                'depo':depo,'bp':bp,'dealer':dealer_name,'salesman':salesman,
-                'device_target':0.0,'macbook_target':0.0,'acc_target':0.0,'bo_target':0,'qvo_target':0
-            })
-            rec['device_target'] += to_num(rr[cmap['device_target']])
-            rec['macbook_target'] += to_num(rr[cmap['macbook_target']])
-            rec['acc_target'] += to_num(rr[cmap['acc_target']])
-            rec['bo_target'] += int(round(to_num(rr[cmap['bo_target']])))
-            rec['qvo_target'] += int(round(to_num(rr[cmap['qvo_target']])))
-
-        if not collapsed:
-            raise ValueError('Tidak ada dealer/BP valid yang dapat dibaca.')
+        grouped, rows_read, sheet_counts = read_target_workbook(f, target_month)
+        _, lookup = target_lookup_for_month(target_month)
+        target_records, assignment_records = prepare_target_snapshot(target_month, grouped, lookup)
 
         # Monthly target is a snapshot: re-uploading a month cleanly replaces that month.
         MonthlyTarget.query.filter_by(month=target_month).delete(synchronize_session=False)
-        for rec in collapsed.values():
-            db.session.add(MonthlyTarget(month=target_month, **rec))
+        DealerAssignment.query.filter_by(month=target_month).delete(synchronize_session=False)
+        db.session.bulk_insert_mappings(MonthlyTarget, target_records)
+        db.session.bulk_insert_mappings(DealerAssignment, assignment_records)
         db.session.add(TargetUploadLog(
             month=target_month, filename=secure_filename(f.filename), uploaded_by=session.get('username'),
-            rows_read=len(df), dealers_loaded=len(collapsed)
+            rows_read=rows_read, dealers_loaded=len(target_records)
         ))
         db.session.commit()
-        flash(f'Target {target_month} berhasil: {len(collapsed)} dealer/BP dimuat.', 'success')
+        details = ', '.join(f'{name}: {count} BP' for name, count in sheet_counts)
+        flash(f'Target {target_month} berhasil: {len(target_records)} dealer/BP unik dimuat dari {len(sheet_counts)} sheet ({details}).', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'Upload Target gagal: {e}', 'danger')
