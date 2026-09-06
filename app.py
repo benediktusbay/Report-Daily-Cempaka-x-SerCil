@@ -348,6 +348,7 @@ class DealerAssignment(db.Model):
 class UploadLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     filename = db.Column(db.String(255), nullable=False)
+    upload_mode = db.Column(db.String(20), nullable=False, default='routine')
     uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
     uploaded_by = db.Column(db.String(80))
     rows_read = db.Column(db.Integer, default=0)
@@ -1003,6 +1004,12 @@ def ensure_db():
             'ALTER TABLE billing ADD COLUMN nett_amount_with_tax FLOAT DEFAULT 0'
         ))
         db.session.commit()
+    upload_log_columns = {c['name'] for c in inspect(db.engine).get_columns('upload_log')}
+    if 'upload_mode' not in upload_log_columns:
+        db.session.execute(text(
+            "ALTER TABLE upload_log ADD COLUMN upload_mode VARCHAR(20) DEFAULT 'routine'"
+        ))
+        db.session.commit()
     if User.query.count() == 0:
         username = os.environ.get('ADMIN_USERNAME', 'admin')
         password = os.environ.get('ADMIN_PASSWORD', 'admin123')
@@ -1492,6 +1499,235 @@ def calculate_incentive(level, person, month):
     }
 
 
+
+def previous_month_keys(month, count=8):
+    """Return up to `count` completed calendar months immediately before month."""
+    start, _ = month_range(month)
+    cursor = pd.Timestamp(start) - pd.offsets.MonthBegin(1)
+    keys = []
+    for _ in range(count):
+        keys.append(cursor.strftime('%Y-%m'))
+        cursor = cursor - pd.offsets.MonthBegin(1)
+    return list(reversed(keys))
+
+
+def historical_dealer_sales(month, bps, history_count=8):
+    """Monthly historical sales by BP using the same ownership validity rules as dashboard."""
+    bps = {normalize_bp(bp) for bp in bps if normalize_bp(bp)}
+    months = previous_month_keys(month, history_count)
+    if not bps or not months:
+        return months, {}
+    start, _ = month_range(months[0])
+    _, end = month_range(months[-1])
+    rows = Billing.query.filter(
+        Billing.billing_date >= start,
+        Billing.billing_date <= end,
+    ).all()
+    lookup_cache = {}
+    monthly = {bp: {m: 0.0 for m in months} for bp in bps}
+    for r in rows:
+        bp = normalize_bp(r.sold_to_code)
+        if bp not in bps or r.category not in ('Device', 'Macbook', 'ACC'):
+            continue
+        m = r.billing_date.strftime('%Y-%m')
+        if m not in monthly[bp]:
+            continue
+        if m not in lookup_cache:
+            _, lookup_cache[m] = target_lookup_for_month(m)
+        owner, _, _, _ = resolve_billing_owner(r, lookup_cache[m])
+        if not owner:
+            continue
+        monthly[bp][m] += float(r.nett_amount or 0)
+    return months, monthly
+
+
+def qvo_trend(values):
+    if not values:
+        return 'Stable', 70.0
+    recent = values[-3:] if len(values) >= 3 else values
+    previous = values[-6:-3] if len(values) >= 6 else values[:-len(recent)]
+    recent_avg = sum(recent) / len(recent) if recent else 0
+    previous_avg = sum(previous) / len(previous) if previous else recent_avg
+    if previous_avg <= 0:
+        if recent_avg > 0:
+            return 'Up', 100.0
+        return 'Stable', 70.0
+    change = (recent_avg - previous_avg) / previous_avg
+    if change >= .10:
+        return 'Up', 100.0
+    if change <= -.10:
+        return 'Down', 30.0
+    return 'Stable', 70.0
+
+
+def qvo_consistency(values):
+    if not values:
+        return 0.0
+    avg = sum(values) / len(values)
+    if avg <= 0:
+        return 0.0
+    variance = sum((v - avg) ** 2 for v in values) / len(values)
+    cv = math.sqrt(variance) / avg
+    return max(0.0, min(100.0, 100.0 - cv * 55.0))
+
+
+def build_qvo_potential(month, current_dealers, history_count=8):
+    """Create ranked QVO potential rows from current MTD + prior completed months."""
+    candidates = []
+    normalized = []
+    for d in current_dealers:
+        bp = normalize_bp(d.get('bp'))
+        if not bp:
+            continue
+        sales_mtd = float(d.get('sales_mtd', 0) or 0)
+        if sales_mtd >= QVO_THRESHOLD:
+            continue
+        normalized.append(dict(d, bp=bp, sales_mtd=sales_mtd))
+    months, history = historical_dealer_sales(month, [d['bp'] for d in normalized], history_count)
+    for d in normalized:
+        vals = [float(history.get(d['bp'], {}).get(m, 0) or 0) for m in months]
+        history_count_actual = len(months)
+        qvo_months = [m for m, v in zip(months, vals) if v >= QVO_THRESHOLD]
+        qvo_achieved = len(qvo_months)
+        avg_sales = sum(vals) / history_count_actual if history_count_actual else 0
+        recent_vals = vals[-2:] if vals else []
+        recent_avg = sum(recent_vals) / len(recent_vals) if recent_vals else 0
+        trend, trend_score = qvo_trend(vals)
+        consistency = qvo_consistency(vals)
+        gap = max(QVO_THRESHOLD - d['sales_mtd'], 0)
+        gap_score = max(0.0, min(100.0, (1 - gap / QVO_THRESHOLD) * 100))
+        history_score = qvo_achieved / history_count_actual * 100 if history_count_actual else 0
+        recent_score = max(0.0, min(100.0, recent_avg / QVO_THRESHOLD * 100))
+        consistency_trend = consistency * .60 + trend_score * .40
+        score = gap_score * .40 + history_score * .25 + recent_score * .20 + consistency_trend * .15
+
+        historical_strong = qvo_achieved >= 2 or avg_sales >= QVO_THRESHOLD * .85
+        recent_drop = bool(vals) and (
+            d['sales_mtd'] == 0 or
+            (avg_sales > 0 and d['sales_mtd'] < avg_sales * .30 and trend == 'Down')
+        )
+        if historical_strong and recent_drop:
+            action = 'Re-activate'
+        elif gap <= 10_000_000 and (qvo_achieved >= 1 or avg_sales >= QVO_THRESHOLD * .75 or score >= 60):
+            action = 'Push Now'
+        elif gap <= 20_000_000 or score >= 45:
+            action = 'Follow Up'
+        else:
+            action = 'Low Priority'
+
+        history_rows = []
+        for m, value in zip(months, vals):
+            label = pd.to_datetime(m + '-01').strftime('%b %Y')
+            history_rows.append({
+                'month': m,
+                'label': label,
+                'sales': value,
+                'qvo': value >= QVO_THRESHOLD,
+            })
+        last_qvo = qvo_months[-1] if qvo_months else None
+        candidates.append({
+            'bp': d['bp'],
+            'dealer': d.get('dealer') or d['bp'],
+            'salesman': canonical_salesman(d.get('salesman')),
+            'depo': d.get('depo') or 'Unmapped',
+            'sales_mtd': d['sales_mtd'],
+            'gap': gap,
+            'avg_sales': avg_sales,
+            'recent_avg': recent_avg,
+            'history_qvo': qvo_achieved,
+            'history_total': history_count_actual,
+            'history_label': f'{qvo_achieved} / {history_count_actual}',
+            'last_qvo': last_qvo,
+            'last_qvo_label': pd.to_datetime(last_qvo + '-01').strftime('%B %Y') if last_qvo else 'Belum pernah',
+            'trend': trend,
+            'consistency': consistency,
+            'score': round(score, 1),
+            'action': action,
+            'history': history_rows,
+        })
+    action_rank = {'Re-activate': 0, 'Push Now': 1, 'Follow Up': 2, 'Low Priority': 3}
+    candidates.sort(key=lambda x: (-x['score'], action_rank.get(x['action'], 9), x['gap'], x['dealer']))
+    return candidates, months
+
+
+def qvo_analysis_scope(month, requested_depos=None, requested_salesmen=None):
+    """Build current dealer scope for QVO Analysis while preserving dashboard ownership rules."""
+    requested_depos = [normalize_text(x) for x in (requested_depos or []) if normalize_text(x)]
+    requested_salesmen = [canonical_salesman(x) for x in (requested_salesmen or []) if canonical_salesman(x)]
+    start, end = month_range(month)
+    monthly_targets, lookup = target_lookup_for_month(month)
+    billing_rows = Billing.query.filter(Billing.billing_date >= start, Billing.billing_date <= end).all()
+
+    mapping_rows = list(monthly_targets) + [a for intervals in lookup.assignments.values() for a in intervals]
+    target_depos_by_salesman, target_salesmen_by_depo = {}, {}
+    for t in mapping_rows:
+        owner = canonical_salesman(t.salesman)
+        depo = normalize_text(t.depo)
+        if owner not in LOCKED_SALESMEN or not depo or depo == 'Unmapped':
+            continue
+        target_depos_by_salesman.setdefault(owner, set()).add(depo)
+        target_salesmen_by_depo.setdefault(depo, set()).add(owner)
+    all_depos = sorted(target_salesmen_by_depo)
+    if session.get('role') == 'admin':
+        depos = all_depos
+        depo_filters = requested_depos or VIEWER_ALLOWED_DEPOS.copy()
+    else:
+        depos = [d for d in VIEWER_ALLOWED_DEPOS if d in set(all_depos)]
+        depo_filters = [d for d in requested_depos if d in VIEWER_ALLOWED_DEPOS] or VIEWER_ALLOWED_DEPOS.copy()
+    selected_salesmen = [s for s in requested_salesmen if s in LOCKED_SALESMEN]
+    if selected_salesmen and not requested_depos:
+        mapped = set()
+        for s in selected_salesmen:
+            mapped.update(target_depos_by_salesman.get(s, set()))
+        if session.get('role') != 'admin':
+            mapped &= set(VIEWER_ALLOWED_DEPOS)
+        if mapped:
+            depo_filters = [d for d in (all_depos if session.get('role') == 'admin' else VIEWER_ALLOWED_DEPOS) if d in mapped]
+    if selected_salesmen:
+        salesman_filters = selected_salesmen
+    else:
+        mapped = set()
+        for d in depo_filters:
+            mapped.update(target_salesmen_by_depo.get(d, set()))
+        salesman_filters = [s for s in LOCKED_SALESMEN if s in mapped]
+    salesmen = [s for s in LOCKED_SALESMEN if s in target_depos_by_salesman]
+    full_operational_scope = set(depo_filters) == set(VIEWER_ALLOWED_DEPOS)
+
+    current = {}
+    for t in monthly_targets:
+        if not matches_scope(t.salesman, t.depo, salesman_filters, depo_filters):
+            continue
+        owner = canonical_salesman(t.salesman)
+        bp = normalize_bp(t.bp)
+        current[(owner, bp)] = {
+            'salesman': owner, 'bp': bp, 'dealer': t.dealer, 'depo': t.depo, 'sales_mtd': 0.0,
+        }
+    for r in billing_rows:
+        owner, depo, dealer_name, target = resolve_billing_owner(r, lookup)
+        if not owner:
+            continue
+        ikmah_unmapped = (
+            target is None and owner == 'Ikmah Novtianingrum' and depo == 'Unmapped'
+            and {'Serang', 'Cilegon'}.issubset(set(depo_filters))
+        )
+        if depo == 'Unmapped' and (full_operational_scope or ikmah_unmapped or (session.get('role') == 'admin' and bool(selected_salesmen))):
+            in_scope = not salesman_filters or owner in salesman_filters
+        else:
+            in_scope = matches_scope(owner, depo, salesman_filters, depo_filters)
+        if not in_scope:
+            continue
+        bp = normalize_bp(r.sold_to_code)
+        key = (owner, bp)
+        rec = current.setdefault(key, {
+            'salesman': owner, 'bp': bp, 'dealer': dealer_name, 'depo': depo, 'sales_mtd': 0.0,
+        })
+        if depo != 'Unmapped':
+            rec['depo'] = depo
+        if r.category in ('Device', 'Macbook', 'ACC'):
+            rec['sales_mtd'] += float(r.nett_amount or 0)
+    return list(current.values()), depos, salesmen, depo_filters, salesman_filters
+
+
 @app.route('/')
 def dashboard():
     # Public Viewer mode:
@@ -1929,13 +2165,18 @@ def dashboard():
     dealer_no_purchase = [dict(d, target=d['device_target'] + d['macbook_target'] + d['acc_target'])
                           for d in dealer_detail if d['salesman'] in visible_people and d['has_target_allocation']
                           and dealer[(d['salesman'], d['bp'], d['depo'])]['last_date'] is None]
-    qvo_opportunities = [dict(salesman=d['salesman'], bp=d['bp'], dealer=d['dealer'],
-                             depo=', '.join(sorted(d['depos'])),
-                             gap=QVO_THRESHOLD - sum(d[k] for k in ('Device', 'Macbook', 'ACC')))
-                         for d in owner_dealers.values() if d['salesman'] in visible_people
-                         and 0 < sum(d[k] for k in ('Device', 'Macbook', 'ACC')) < QVO_THRESHOLD]
+    qvo_current_dealers = [
+        dict(
+            salesman=d['salesman'], bp=d['bp'], dealer=d['dealer'],
+            depo=', '.join(sorted(d['depos'])),
+            sales_mtd=sum(d[k] for k in ('Device', 'Macbook', 'ACC')),
+        )
+        for d in owner_dealers.values() if d['salesman'] in visible_people
+    ]
+    qvo_potential, qvo_history_months = build_qvo_potential(month, qvo_current_dealers)
+    # Backward-compatible alias for older partial templates.
+    qvo_opportunities = qvo_potential
     dealer_no_purchase.sort(key=lambda d: (-d['target'], d['dealer']))
-    qvo_opportunities.sort(key=lambda d: (d['gap'], d['dealer']))
     quality_bo_dealers.sort(key=lambda d: (d['salesman'], d['dealer']))
     quality_qvo_dealers.sort(key=lambda d: (d['salesman'], d['dealer']))
     projection_timegone = projection_elapsed / working_days_total * 100 if working_days_total else 0
@@ -1969,9 +2210,56 @@ def dashboard():
         projection_timegone=projection_timegone,
         quality_bo_dealers=quality_bo_dealers, quality_qvo_dealers=quality_qvo_dealers,
         dealer_no_purchase=dealer_no_purchase, qvo_opportunities=qvo_opportunities,
+        qvo_potential=qvo_potential, qvo_history_months=qvo_history_months,
         timegone_pct=timegone_pct,
         working_days_elapsed=working_days_elapsed,
         working_days_total=working_days_total
+    )
+
+
+@app.route('/qvo-analysis')
+def qvo_analysis():
+    if 'user_id' not in session:
+        session['username'] = 'Viewer'
+        session['role'] = 'viewer'
+    latest = db.session.query(db.func.max(Billing.billing_date)).scalar()
+    latest_target_month = db.session.query(db.func.max(MonthlyTarget.month)).scalar()
+    default_month = latest.strftime('%Y-%m') if latest else (latest_target_month or datetime.now().strftime('%Y-%m'))
+    month = request.args.get('month', default_month)
+    current, depos, salesmen, depo_filters, salesman_filters = qvo_analysis_scope(
+        month, request.args.getlist('depo'), request.args.getlist('salesman')
+    )
+    rows, history_months = build_qvo_potential(month, current)
+    by_salesman = []
+    for salesman in LOCKED_SALESMEN:
+        subset = [r for r in rows if r['salesman'] == salesman]
+        if subset:
+            by_salesman.append({
+                'salesman': salesman,
+                'count': len(subset),
+                'push': sum(r['action'] == 'Push Now' for r in subset),
+                'reactivate': sum(r['action'] == 'Re-activate' for r in subset),
+                'avg_score': sum(r['score'] for r in subset) / len(subset),
+            })
+    gap_bands = [
+        {'label': '≤ Rp5 jt', 'count': sum(r['gap'] <= 5_000_000 for r in rows)},
+        {'label': 'Rp5–10 jt', 'count': sum(5_000_000 < r['gap'] <= 10_000_000 for r in rows)},
+        {'label': 'Rp10–20 jt', 'count': sum(10_000_000 < r['gap'] <= 20_000_000 for r in rows)},
+        {'label': '> Rp20 jt', 'count': sum(r['gap'] > 20_000_000 for r in rows)},
+    ]
+    conversion = []
+    for m in history_months:
+        conversion.append({
+            'month': m,
+            'label': pd.to_datetime(m + '-01').strftime('%b %Y'),
+            'count': sum(any(h['month'] == m and h['qvo'] for h in r['history']) for r in rows),
+        })
+    recovery = [r for r in rows if r['action'] == 'Re-activate']
+    return render_template(
+        'qvo_analysis.html', month=month, rows=rows, top_rows=rows[:10], recovery=recovery,
+        by_salesman=by_salesman, gap_bands=gap_bands, conversion=conversion,
+        qvo_threshold=QVO_THRESHOLD, depos=depos, salesmen=salesmen,
+        depo_filters=depo_filters, salesman_filters=salesman_filters,
     )
 
 
@@ -2290,6 +2578,9 @@ def incentive():
 def upload():
     f = request.files.get('file')
     return_month = request.form.get('month', datetime.now().strftime('%Y-%m'))
+    upload_mode = normalize_text(request.form.get('upload_mode') or 'routine').lower()
+    if upload_mode not in ('routine', 'historical'):
+        upload_mode = 'routine'
     if not f or not f.filename:
         flash('Pilih file Billing Detail terlebih dahulu.', 'danger')
         return redirect(url_for('dashboard', month=return_month))
@@ -2317,6 +2608,14 @@ def upload():
 
         if first_date is None or last_date is None:
             raise ValueError('Tidak ada baris Billing Detail valid yang dapat diimpor.')
+
+        if upload_mode == 'historical':
+            active_start, _ = month_range(return_month)
+            if last_date >= active_start:
+                raise ValueError(
+                    'Historical Billing / Backfill harus berakhir sebelum bulan dashboard yang dipilih. '
+                    'Gunakan Upload Billing rutin untuk data bulan berjalan.'
+                )
 
         # Billing exports are snapshots. Replace the uploaded date range so old
         # with-tax values and records removed from the latest export cannot remain.
@@ -2376,12 +2675,13 @@ def upload():
         if not added:
             raise ValueError('Tidak ada baris Billing Detail valid yang dapat diimpor.')
         db.session.add(UploadLog(
-            filename=secure_filename(f.filename), uploaded_by=session.get('username'),
+            filename=secure_filename(f.filename), upload_mode=upload_mode, uploaded_by=session.get('username'),
             rows_read=rows_read, rows_added=added
         ))
         db.session.commit()
+        mode_label = 'Historical Backfill' if upload_mode == 'historical' else 'Billing'
         flash(
-            f'Billing berhasil: {added} baris No Tax disinkronkan untuk '
+            f'{mode_label} berhasil: {added} baris No Tax disinkronkan untuk '
             f'{first_date.strftime("%d %b %Y")}–{last_date.strftime("%d %b %Y")}. '
             f'{replaced} baris lama diganti.',
             'success'
