@@ -706,6 +706,25 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   .dealer-count-copy span{display:block;font-size:10px;margin-top:2px}
 }
 
+
+/* ===== QVO POTENTIAL ANALYTICS CARD ===== */
+.dealer-actions{grid-template-columns:minmax(300px,.72fr) minmax(0,1.55fr)}
+.qvo-potential-card{overflow:hidden}
+.qvo-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.qvo-potential-row{display:grid;grid-template-columns:minmax(175px,1.45fr) minmax(125px,1fr) 92px 88px 88px 84px 96px;gap:9px;align-items:center;min-width:835px;padding:11px 8px;border-bottom:1px solid #e8eef6;font-size:11px}
+.qvo-potential-row.qvo-potential-head{background:#f6f8fb;color:#61738e;font-size:10px;font-weight:800;border:0;border-radius:9px;text-transform:uppercase;letter-spacing:.02em}
+.qvo-potential-row .dealer-cell{min-width:0}.qvo-potential-row .dealer-cell b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.qvo-potential-row .dealer-cell small{display:block;color:#61738e;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qvo-money{white-space:nowrap;color:#0f172a;font-weight:800}.qvo-gap{color:#1769e8}
+.qvo-history-btn{border:0;background:transparent;padding:0;color:#1769e8;font:inherit;font-weight:900;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}.qvo-history-btn:hover{color:#0b4fa3}
+.qvo-action{display:inline-flex;align-items:center;justify-content:center;width:max-content;max-width:100%;padding:5px 8px;border-radius:999px;font-size:9px;font-weight:900;white-space:nowrap}
+.qvo-action.push-now{background:#dcfce7;color:#166534}.qvo-action.follow-up{background:#dbeafe;color:#1d4ed8}.qvo-action.re-activate{background:#ffedd5;color:#c2410c}.qvo-action.low-priority{background:#f1f5f9;color:#64748b}
+.qvo-card-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:auto;padding-top:14px}.qvo-focus{font-size:11px;color:#61738e;line-height:1.4}.qvo-focus strong{color:#0f172a}.qvo-analysis-link{display:inline-flex;align-items:center;gap:7px;text-decoration:none;border:1px solid #1769e8;color:#1769e8;background:#fff;padding:9px 14px;border-radius:8px;font-size:12px;font-weight:800}.qvo-analysis-link:hover{background:#eff6ff}
+.qvo-history-dialog{border:1px solid #dce5f2;border-radius:16px;padding:0;width:min(720px,calc(100vw - 28px));max-height:86vh;overflow:hidden;color:#102a48;box-shadow:0 24px 70px rgba(15,23,42,.25)}.qvo-history-dialog::backdrop{background:rgba(15,35,60,.48)}
+.qvo-history-head{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;padding:18px 20px;border-bottom:1px solid #e5e7eb}.qvo-history-head h3{margin:0 0 4px;font-size:19px}.qvo-history-head p{margin:0;color:#64748b;font-size:12px}.qvo-history-close{border:0;background:#eef2f7;width:34px;height:34px;border-radius:8px;cursor:pointer;font-size:18px}
+.qvo-history-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:16px 20px 4px}.qvo-history-summary>div{background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:11px}.qvo-history-summary span{display:block;color:#64748b;font-size:10px;text-transform:uppercase;font-weight:800;margin-bottom:5px}.qvo-history-summary strong{font-size:15px}.qvo-history-body{padding:12px 20px 20px;max-height:58vh;overflow:auto}.qvo-history-table{min-width:0}.qvo-history-table th,.qvo-history-table td{padding:10px 8px;font-size:12px}.qvo-history-status{font-weight:900;color:#15803d}.qvo-history-miss{color:#94a3b8}
+@media(max-width:1000px){.dealer-actions{grid-template-columns:1fr}.qvo-potential-card{min-width:0}}
+@media(max-width:768px){.qvo-potential-row{min-width:780px}.qvo-history-summary{grid-template-columns:1fr 1fr}.qvo-card-footer{align-items:flex-start}.qvo-analysis-link{width:100%;justify-content:center;box-sizing:border-box}}
+
 </style>
 {% endblock %}
 
@@ -799,8 +818,20 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     <p>Upload billing harian untuk achievement, BO, QVO dan SKU.</p>
     <form method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data">
       <input type="hidden" name="month" value="{{ month }}">
+      <input type="hidden" name="upload_mode" value="routine">
       <input type="file" name="file" accept=".xlsx,.xls" required>
       <button type="submit" class="btn">Upload Billing</button>
+    </form>
+  </div>
+
+  <div class="upload-card">
+    <h3>Historical Billing / Backfill</h3>
+    <p>Upload histori Billing bulan-bulan sebelum periode aktif (contoh Jan–Ags 2026). Data dipakai untuk History QVO, Avg Sales, Trend dan Potential Score.</p>
+    <form method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data">
+      <input type="hidden" name="month" value="{{ month }}">
+      <input type="hidden" name="upload_mode" value="historical">
+      <input type="file" name="file" accept=".xlsx,.xls" required>
+      <button type="submit" class="btn">Upload Backfill</button>
     </form>
   </div>
 
@@ -1138,11 +1169,11 @@ document.addEventListener('click',function(event){
 </div>
 
 
-{% macro opportunity_row(d, opportunity) %}
+{% macro no_purchase_row(d) %}
 <div class="dealer-action-row">
   <span><b>{{ d.dealer }}</b><small>{{ d.bp }} · {{ d.depo }}</small></span>
   <span>{{ d.salesman }}</span>
-  <strong>{{ (d.gap if opportunity else d.target)|rupiah_short }}</strong>
+  <strong>{{ d.target|rupiah_short }}</strong>
 </div>
 {% endmacro %}
 
@@ -1153,82 +1184,79 @@ document.addEventListener('click',function(event){
       <div class="dealer-count-badge no-purchase" aria-label="{{ dealer_no_purchase|length }} dealer belum belanja">
         <span class="dealer-count-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="9" cy="20" r="1"></circle>
-            <circle cx="19" cy="20" r="1"></circle>
-            <path d="M3 4h2l2.6 10.4a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L21 8H7"></path>
+            <circle cx="9" cy="20" r="1"></circle><circle cx="19" cy="20" r="1"></circle><path d="M3 4h2l2.6 10.4a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L21 8H7"></path>
           </svg>
         </span>
         <span class="dealer-count-copy"><strong>{{ dealer_no_purchase|length }}</strong><span>Dealer</span></span>
       </div>
     </div>
-    <div class="dealer-action-row dealer-action-head">
-      <span>Dealer</span><span>Salesman</span><span>Target</span>
-    </div>
-    {% for d in dealer_no_purchase[:5] %}
-      {{ opportunity_row(d,false) }}
-    {% else %}
-      <p class="empty">Tidak ada dealer untuk filter ini.</p>
-    {% endfor %}
-    {% if dealer_no_purchase %}
-      <button type="button" class="dealer-show-all" data-dealer-dialog="no-purchase-list">Lihat Semua <span class="arrow">→</span></button>
-    {% endif %}
+    <div class="dealer-action-row dealer-action-head"><span>Dealer</span><span>Salesman</span><span>Target</span></div>
+    {% for d in dealer_no_purchase[:5] %}{{ no_purchase_row(d) }}{% else %}<p class="empty">Tidak ada dealer untuk filter ini.</p>{% endfor %}
+    {% if dealer_no_purchase %}<button type="button" class="dealer-show-all" data-dealer-dialog="no-purchase-list">Lihat Semua <span class="arrow">→</span></button>{% endif %}
   </div>
 
   <dialog class="dealer-list-dialog" id="no-purchase-list" aria-labelledby="no-purchase-list-title">
-    <form method="dialog"><button>Tutup</button></form>
-    <h3 id="no-purchase-list-title">Dealer Belum Belanja</h3>
-    <div class="dealer-action-row dealer-action-head">
-      <span>Dealer</span><span>Salesman</span><span>Target</span>
-    </div>
-    {% for d in dealer_no_purchase %}{{ opportunity_row(d,false) }}{% endfor %}
+    <form method="dialog"><button>Tutup</button></form><h3 id="no-purchase-list-title">Dealer Belum Belanja</h3>
+    <div class="dealer-action-row dealer-action-head"><span>Dealer</span><span>Salesman</span><span>Target</span></div>
+    {% for d in dealer_no_purchase %}{{ no_purchase_row(d) }}{% endfor %}
   </dialog>
 
-  <div class="card dealer-action-card">
+  <div class="card dealer-action-card qvo-potential-card">
     <div class="dealer-action-header">
       <h3>QVO Potential</h3>
-      <div class="dealer-count-badge qvo-potential" aria-label="{{ qvo_opportunities|length }} dealer QVO potential">
+      <div class="dealer-count-badge qvo-potential" aria-label="{{ qvo_potential|length }} dealer QVO potential">
         <span class="dealer-count-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="8"></circle>
-            <circle cx="12" cy="12" r="4"></circle>
-            <path d="M12 12l7-7"></path>
-            <path d="M16 5h3v3"></path>
-          </svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="4"></circle><path d="M12 12l7-7"></path><path d="M16 5h3v3"></path></svg>
         </span>
-        <span class="dealer-count-copy"><strong>{{ qvo_opportunities|length }}</strong><span>Dealer</span></span>
+        <span class="dealer-count-copy"><strong>{{ qvo_potential|length }}</strong><span>Dealer</span></span>
       </div>
     </div>
-    <div class="dealer-action-row dealer-action-head">
-      <span>Dealer</span><span>Salesman</span><span>Kekurangan</span>
+    <div class="qvo-table-wrap">
+      <div class="qvo-potential-row qvo-potential-head"><span>Dealer</span><span>Salesman</span><span>Sales MTD</span><span>Gap</span><span>Avg Sales</span><span>History QVO</span><span>Action</span></div>
+      {% for d in qvo_potential[:5] %}
+      <div class="qvo-potential-row">
+        <span class="dealer-cell"><b>{{ d.dealer }}</b><small>{{ d.bp }} · {{ d.depo }}</small></span>
+        <span>{{ d.salesman }}</span><span class="qvo-money">{{ d.sales_mtd|rupiah_short }}</span><span class="qvo-money qvo-gap">{{ d.gap|rupiah_short }}</span><span class="qvo-money">{{ d.avg_sales|rupiah_short }}</span>
+        <button type="button" class="qvo-history-btn" data-qvo-history='{{ d|tojson }}'>{{ d.history_label }}</button>
+        <span class="qvo-action {{ d.action|lower|replace(' ','-') }}">{{ d.action }}</span>
+      </div>
+      {% else %}<p class="empty">Tidak ada dealer QVO Potential untuk filter ini.</p>{% endfor %}
     </div>
-    {% for d in qvo_opportunities[:5] %}
-      {{ opportunity_row(d,true) }}
-    {% else %}
-      <p class="empty">Tidak ada dealer untuk filter ini.</p>
-    {% endfor %}
-    {% if qvo_opportunities %}
-      <button type="button" class="dealer-show-all" data-dealer-dialog="qvo-potential-list">Lihat Semua <span class="arrow">→</span></button>
-    {% endif %}
+    {% set focus = namespace(count=0) %}{% for d in qvo_potential %}{% if d.gap <= 10000000 %}{% set focus.count = focus.count + 1 %}{% endif %}{% endfor %}
+    <div class="qvo-card-footer">
+      <div class="qvo-focus">💡 Fokus bulan ini: <strong>Push {{ focus.count }} dealer</strong> dengan gap ≤ Rp10 jt.</div>
+      <a class="qvo-analysis-link" href="{{ url_for('qvo_analysis', month=month, depo=depo_filters, salesman=salesman_filters) }}">Lihat Analisis <span>→</span></a>
+    </div>
   </div>
-
-  <dialog class="dealer-list-dialog" id="qvo-potential-list" aria-labelledby="qvo-potential-list-title">
-    <form method="dialog"><button>Tutup</button></form>
-    <h3 id="qvo-potential-list-title">QVO Potential</h3>
-    <div class="dealer-action-row dealer-action-head">
-      <span>Dealer</span><span>Salesman</span><span>Kekurangan</span>
-    </div>
-    {% for d in qvo_opportunities %}{{ opportunity_row(d,true) }}{% endfor %}
-  </dialog>
 </div>
 
+<dialog class="qvo-history-dialog" id="qvoHistoryDialog" aria-labelledby="qvoHistoryTitle">
+  <div class="qvo-history-head"><div><h3 id="qvoHistoryTitle">History QVO</h3><p id="qvoHistorySubtitle"></p></div><button type="button" class="qvo-history-close" id="qvoHistoryClose">×</button></div>
+  <div class="qvo-history-summary"><div><span>QVO Achieved</span><strong id="qvoHistoryAchieved">—</strong></div><div><span>Terakhir QVO</span><strong id="qvoHistoryLast">—</strong></div></div>
+  <div class="qvo-history-body"><table class="qvo-history-table"><thead><tr><th>Bulan</th><th class="number">Sales</th><th class="center">Status</th></tr></thead><tbody id="qvoHistoryBody"></tbody></table></div>
+</dialog>
+
 <script>
-document.addEventListener('click',function(event){
-  const button=event.target.closest('[data-dealer-dialog]');
-  if(button){
-    const dialog=document.getElementById(button.dataset.dealerDialog);
-    if(dialog) dialog.showModal();
-  }
-});
+(function(){
+  document.addEventListener('click',function(event){
+    const listButton=event.target.closest('[data-dealer-dialog]');
+    if(listButton){const dialog=document.getElementById(listButton.dataset.dealerDialog);if(dialog)dialog.showModal();}
+  });
+  const dialog=document.getElementById('qvoHistoryDialog'), title=document.getElementById('qvoHistoryTitle'), subtitle=document.getElementById('qvoHistorySubtitle'), achieved=document.getElementById('qvoHistoryAchieved'), last=document.getElementById('qvoHistoryLast'), body=document.getElementById('qvoHistoryBody'), close=document.getElementById('qvoHistoryClose');
+  function money(v){return 'Rp '+Number(v||0).toLocaleString('id-ID',{maximumFractionDigits:0});}
+  function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
+  document.addEventListener('click',function(event){
+    const btn=event.target.closest('.qvo-history-btn');if(!btn||!dialog)return;
+    let d={};try{d=JSON.parse(btn.dataset.qvoHistory||'{}')}catch(e){}
+    title.textContent='History QVO — '+(d.dealer||'Dealer');subtitle.textContent=(d.bp||'')+' · '+(d.salesman||'')+' · '+(d.depo||'');
+    achieved.textContent=(d.history_qvo||0)+' dari '+(d.history_total||0)+' bulan';last.textContent=d.last_qvo_label||'Belum pernah';
+    body.innerHTML=(d.history||[]).map(h=>'<tr><td>'+esc(h.label)+'</td><td class="number">'+money(h.sales)+'</td><td class="center '+(h.qvo?'qvo-history-status':'qvo-history-miss')+'">'+(h.qvo?'✓ QVO':'—')+'</td></tr>').join('')||'<tr><td colspan="3" class="empty">Belum ada historical billing.</td></tr>';
+    dialog.showModal();
+  });
+  close?.addEventListener('click',()=>dialog.close());
+})();
+</script>
+
 </script>
 
 <div class="section">
