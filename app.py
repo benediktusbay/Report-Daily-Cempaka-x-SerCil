@@ -6,6 +6,7 @@ import hashlib
 import io
 import json
 import secrets
+from threading import Lock
 import urllib.error
 import urllib.request
 from sqlalchemy import inspect, text
@@ -16,7 +17,7 @@ from types import SimpleNamespace
 
 import pandas as pd
 from openpyxl import load_workbook
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, g, has_request_context
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -993,8 +994,24 @@ app.jinja_env.filters['rupiah_short'] = rupiah_short
 app.jinja_env.filters['number_id'] = number_id
 
 
+_schema_ready = False
+_schema_lock = Lock()
+
+
 @app.before_request
 def ensure_db():
+    # Run the existing compatibility checks once per worker, not per page.
+    # Set ready only after success; failures can retry on the next request.
+    global _schema_ready
+    if _schema_ready:
+        return
+    with _schema_lock:
+        if not _schema_ready:
+            initialize_database_schema()
+            _schema_ready = True
+
+
+def initialize_database_schema():
     db.create_all()
     # db.create_all() does not add columns to an existing Render database.
     # Apply this small backward-compatible migration automatically.
@@ -1073,9 +1090,15 @@ class TargetLookup(dict):
 
 
 def target_lookup_for_month(month):
+    # Request-local only: never retain stale assignments after a later upload.
+    cache = g.setdefault('_target_lookups', {}) if has_request_context() else {}
+    if month in cache:
+        return cache[month]
     targets = MonthlyTarget.query.filter_by(month=month).all()
     assignments = DealerAssignment.query.filter_by(month=month).all()
-    return targets, TargetLookup(month, targets, assignments)
+    result = targets, TargetLookup(month, targets, assignments)
+    cache[month] = result
+    return result
 
 
 def resolve_billing_owner(row, target_by_bp):
@@ -1245,6 +1268,19 @@ def incentive_pct(actual, target):
     return (actual / target * 100) if target else 0
 
 
+def incentive_billing_for_month(month):
+    # All recipients in one page share ONE fetch, with only consumed columns.
+    cache = g.setdefault('_incentive_billing', {}) if has_request_context() else {}
+    if month not in cache:
+        start, end = month_range(month)
+        cache[month] = db.session.query(
+            Billing.billing_date, Billing.sold_to_code, Billing.salesman,
+            Billing.sold_to_name, Billing.category, Billing.nett_amount,
+            Billing.article, Billing.item_group,
+        ).filter(Billing.billing_date >= start, Billing.billing_date <= end).all()
+    return cache[month]
+
+
 def build_incentive_metrics(month, member_salesmen):
     """
     Aggregate target + actual by the SC names covered by one incentive recipient.
@@ -1277,10 +1313,7 @@ def build_incentive_metrics(month, member_salesmen):
     if not bo_target and not monthly_targets:
         bo_target = 25 * len(member_salesmen)
 
-    billing_rows = Billing.query.filter(
-        Billing.billing_date >= start,
-        Billing.billing_date <= end
-    ).all()
+    billing_rows = incentive_billing_for_month(month)
 
     dealer = {}
     relevant_billing = []
@@ -1519,10 +1552,22 @@ def historical_dealer_sales(month, bps, history_count=8):
         return months, {}
     start, _ = month_range(months[0])
     _, end = month_range(months[-1])
-    rows = Billing.query.filter(
+    history_filter = (
         Billing.billing_date >= start,
         Billing.billing_date <= end,
-    ).all()
+        Billing.category.in_(('Device', 'Macbook', 'ACC')),
+    )
+    # Fetch unique BP codes first so legacy .0/scientific notation retains the
+    # exact existing normalize_bp behavior, without downloading its transactions.
+    raw_bps = [raw for (raw,) in db.session.query(Billing.sold_to_code)
+               .filter(*history_filter).distinct()
+               if normalize_bp(raw) in bps]
+    if not raw_bps:
+        return months, {bp: {m: 0.0 for m in months} for bp in bps}
+    rows = db.session.query(
+        Billing.billing_date, Billing.sold_to_code, Billing.salesman,
+        Billing.sold_to_name, Billing.category, Billing.nett_amount,
+    ).filter(*history_filter, Billing.sold_to_code.in_(raw_bps)).yield_per(500)
     lookup_cache = {}
     monthly = {bp: {m: 0.0 for m in months} for bp in bps}
     for r in rows:
