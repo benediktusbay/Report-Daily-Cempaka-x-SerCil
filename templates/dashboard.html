@@ -684,6 +684,16 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   background:#edf3fb;
   cursor:pointer
 }
+
+.dealer-dialog-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0 14px;flex-wrap:wrap}
+.dealer-dialog-toolbar .dealer-dialog-scope{font-size:12px;color:#64748b;font-weight:700}
+.dealer-copy-excel{display:inline-flex;align-items:center;gap:7px;border:1px solid #16884b!important;background:#16884b!important;color:#fff!important;font-weight:900}
+.dealer-copy-excel:hover{background:#10733e!important}.dealer-copy-excel.copied{background:#0f766e!important;border-color:#0f766e!important}
+.no-purchase-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid #e5e7eb;border-radius:10px}
+.no-purchase-export-table{min-width:1120px;width:100%;table-layout:auto}
+.no-purchase-export-table th,.no-purchase-export-table td{padding:9px 10px;font-size:11px;white-space:nowrap}
+.no-purchase-export-table th{font-size:9.5px}.no-purchase-export-table td:nth-child(2){white-space:normal;min-width:220px}
+.no-purchase-export-table tr[hidden]{display:none}
 @media(max-width:768px){
   .dealer-actions{grid-template-columns:1fr;gap:12px}
   .dealer-action-card{padding:16px}
@@ -1209,13 +1219,69 @@ document.addEventListener('click',function(event){
 </div>
 
 
-{% macro no_purchase_row(d) %}<div class="dealer-action-row"><span><b>{{ d.dealer }}</b><small>{{ d.bp }} · {{ d.depo }}</small></span><span>{{ d.salesman }}</span><strong>{{ d.target|rupiah_short }}</strong></div>{% endmacro %}
+{% macro no_purchase_row(d) %}<div class="dealer-action-row" data-no-purchase-card-row data-salesman="{{ d.salesman|e }}" data-depo="{{ d.depo|e }}"><span><b>{{ d.dealer }}</b><small>{{ d.bp }} · {{ d.depo }}</small></span><span>{{ d.salesman }}</span><strong>{{ d.target|rupiah_short }}</strong></div>{% endmacro %}
 <div class="dealer-actions">
-  <div class="card dealer-action-card"><div class="dealer-action-header"><h3>Dealer Belum Belanja</h3><div class="dealer-count-badge no-purchase" aria-label="{{ dealer_no_purchase|length }} dealer belum belanja"><span class="dealer-count-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1"></circle><circle cx="19" cy="20" r="1"></circle><path d="M3 4h2l2.6 10.4a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L21 8H7"></path></svg></span><span class="dealer-count-copy"><strong>{{ dealer_no_purchase|length }}</strong><span>Dealer</span></span></div></div><div class="dealer-action-row dealer-action-head"><span>Dealer</span><span>Salesman</span><span>Target</span></div>{% for d in dealer_no_purchase[:3] %}{{ no_purchase_row(d) }}{% else %}<p class="empty">Tidak ada dealer untuk filter ini.</p>{% endfor %}<div class="dealer-card-footer"><span class="dealer-card-count">Menampilkan {{ 3 if dealer_no_purchase|length > 3 else dealer_no_purchase|length }} dari {{ dealer_no_purchase|length }} dealer</span>{% if dealer_no_purchase %}<button type="button" class="dealer-show-all" data-dealer-dialog="no-purchase-list">Lihat Semua <span class="arrow">→</span></button>{% endif %}</div></div>
-  <dialog class="dealer-list-dialog" id="no-purchase-list" aria-labelledby="no-purchase-list-title"><form method="dialog"><button>Tutup</button></form><h3 id="no-purchase-list-title">Dealer Belum Belanja</h3><div class="dealer-action-row dealer-action-head"><span>Dealer</span><span>Salesman</span><span>Target</span></div>{% for d in dealer_no_purchase %}{{ no_purchase_row(d) }}{% endfor %}</dialog>
+  <div class="card dealer-action-card" id="noPurchaseCard">
+    <div class="dealer-action-header"><h3>Dealer Belum Belanja</h3><div class="dealer-count-badge no-purchase" id="noPurchaseBadge" aria-label="{{ dealer_no_purchase|length }} dealer belum belanja"><span class="dealer-count-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1"></circle><circle cx="19" cy="20" r="1"></circle><path d="M3 4h2l2.6 10.4a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L21 8H7"></path></svg></span><span class="dealer-count-copy"><strong id="noPurchaseCount">{{ dealer_no_purchase|length }}</strong><span>Dealer</span></span></div></div>
+    <div class="dealer-action-row dealer-action-head"><span>Dealer</span><span>Salesman</span><span>Target</span></div>
+    <div id="noPurchaseCardRows">{% for d in dealer_no_purchase[:3] %}{{ no_purchase_row(d) }}{% else %}<p class="empty" id="noPurchaseEmpty">Tidak ada dealer untuk filter ini.</p>{% endfor %}</div>
+    <div class="dealer-card-footer"><span class="dealer-card-count" id="noPurchaseCardCount">Menampilkan {{ 3 if dealer_no_purchase|length > 3 else dealer_no_purchase|length }} dari {{ dealer_no_purchase|length }} dealer</span>{% if dealer_no_purchase %}<button type="button" class="dealer-show-all" id="noPurchaseShowAll" data-dealer-dialog="no-purchase-list">Lihat Semua <span class="arrow">→</span></button>{% endif %}</div>
+  </div>
+  <dialog class="dealer-list-dialog" id="no-purchase-list" aria-labelledby="no-purchase-list-title">
+    <form method="dialog"><button>Tutup</button></form>
+    <h3 id="no-purchase-list-title">Dealer Belum Belanja</h3>
+    <div class="dealer-dialog-toolbar"><span class="dealer-dialog-scope" id="noPurchaseDialogScope">Sesuai filter dashboard aktif</span><button type="button" class="dealer-copy-excel" id="copyNoPurchaseExcel">⧉ Copy to Excel</button></div>
+    <div class="no-purchase-table-wrap"><table class="no-purchase-export-table"><thead><tr><th>BP</th><th>Dealer</th><th>Salesman</th><th>Depo</th><th class="number">Device Target</th><th class="number">Macbook Target</th><th class="number">ACC Target</th><th class="number">Grand Total Target</th></tr></thead><tbody id="noPurchaseTableBody">
+      {% for d in dealer_no_purchase %}<tr data-no-purchase-row data-bp="{{ d.bp|e }}" data-dealer="{{ d.dealer|e }}" data-salesman="{{ d.salesman|e }}" data-depo="{{ d.depo|e }}" data-device-target="{{ d.device_target or 0 }}" data-macbook-target="{{ d.macbook_target or 0 }}" data-acc-target="{{ d.acc_target or 0 }}" data-total-target="{{ d.target or 0 }}"><td>{{ d.bp }}</td><td>{{ d.dealer }}</td><td>{{ d.salesman }}</td><td>{{ d.depo }}</td><td class="number">{{ d.device_target|rupiah }}</td><td class="number">{{ d.macbook_target|rupiah }}</td><td class="number">{{ d.acc_target|rupiah }}</td><td class="number">{{ d.target|rupiah }}</td></tr>{% endfor %}
+    </tbody></table></div>
+  </dialog>
   <div class="card dealer-action-card qvo-potential-card"><div class="dealer-action-header"><h3>QVO Potential</h3><div class="dealer-count-badge qvo-potential" aria-label="{{ qvo_potential|length }} dealer QVO potential"><span class="dealer-count-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="4"></circle><path d="M12 12l7-7"></path><path d="M16 5h3v3"></path></svg></span><span class="dealer-count-copy"><strong>{{ qvo_potential|length }}</strong><span>Dealer</span></span></div></div><div class="qvo-compact-row qvo-potential-head"><span>Dealer</span><span>Sales MTD</span><span>Gap</span><span>Action</span></div>{% for d in qvo_potential[:3] %}<div class="qvo-compact-row"><span class="dealer-cell"><b>{{ d.dealer }}</b><small>{{ d.bp }} · {{ d.depo }}</small></span><span class="qvo-money">{{ d.sales_mtd|rupiah_short }}</span><span class="qvo-money qvo-gap">{{ d.gap|rupiah_short }}</span><span class="qvo-action {{ d.action|lower|replace(' ','-') }}">{{ d.action }}</span></div>{% else %}<p class="empty">Tidak ada dealer QVO Potential untuk filter ini.</p>{% endfor %}<div class="qvo-card-footer"><span class="dealer-card-count">Menampilkan {{ 3 if qvo_potential|length > 3 else qvo_potential|length }} dari {{ qvo_potential|length }} dealer</span><a class="qvo-analysis-link" href="{{ url_for('qvo_analysis', month=month, depo=depo_filters, salesman=salesman_filters) }}">Lihat Analisis <span>→</span></a></div></div>
 </div>
-<script>(function(){document.addEventListener('click',function(event){const listButton=event.target.closest('[data-dealer-dialog]');if(listButton){const dialog=document.getElementById(listButton.dataset.dealerDialog);if(dialog)dialog.showModal();}})})();</script>
+<script>
+(function(){
+  const dialog=document.getElementById('no-purchase-list');
+  const sourceRows=Array.from(document.querySelectorAll('#noPurchaseTableBody [data-no-purchase-row]'));
+  const cardRows=document.getElementById('noPurchaseCardRows');
+  const countNode=document.getElementById('noPurchaseCount');
+  const cardCount=document.getElementById('noPurchaseCardCount');
+  const badge=document.getElementById('noPurchaseBadge');
+  const showAll=document.getElementById('noPurchaseShowAll');
+  const copyBtn=document.getElementById('copyNoPurchaseExcel');
+  const scopeNode=document.getElementById('noPurchaseDialogScope');
+  const mobileSelector=document.getElementById('mobileSalesmanFocus');
+  const mobileQuery=window.matchMedia('(max-width:768px)');
+  function norm(v){return String(v||'').trim().toLowerCase();}
+  function activeSalesman(){return mobileQuery.matches&&mobileSelector?mobileSelector.value:'';}
+  function filteredRows(){const salesman=norm(activeSalesman());return sourceRows.filter(row=>!salesman||norm(row.dataset.salesman)===salesman);}
+  function shortRp(value){const n=Number(value||0);if(Math.abs(n)>=1e9)return 'Rp'+(n/1e9).toLocaleString('id-ID',{maximumFractionDigits:2})+' M';if(Math.abs(n)>=1e6)return 'Rp'+(n/1e6).toLocaleString('id-ID',{maximumFractionDigits:1})+' Jt';if(Math.abs(n)>=1e3)return 'Rp'+(n/1e3).toLocaleString('id-ID',{maximumFractionDigits:1})+' Rb';return 'Rp'+n.toLocaleString('id-ID',{maximumFractionDigits:0});}
+  function esc(v){return String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
+  function render(){
+    const rows=filteredRows();const salesman=activeSalesman();
+    sourceRows.forEach(row=>{row.hidden=!rows.includes(row);});
+    if(countNode)countNode.textContent=rows.length;
+    if(badge){badge.setAttribute('aria-label',rows.length+' dealer belum belanja');}
+    if(cardCount)cardCount.textContent='Menampilkan '+Math.min(3,rows.length)+' dari '+rows.length+' dealer';
+    if(scopeNode)scopeNode.textContent=salesman?'Filter aktif: '+salesman:'Sesuai filter Depo + Salesman dashboard aktif';
+    if(showAll)showAll.style.display=rows.length?'inline-flex':'none';
+    if(cardRows){
+      cardRows.innerHTML=rows.slice(0,3).map(row=>'<div class="dealer-action-row" data-salesman="'+esc(row.dataset.salesman)+'" data-depo="'+esc(row.dataset.depo)+'"><span><b>'+esc(row.dataset.dealer)+'</b><small>'+esc(row.dataset.bp)+' · '+esc(row.dataset.depo)+'</small></span><span>'+esc(row.dataset.salesman)+'</span><strong>'+shortRp(row.dataset.totalTarget)+'</strong></div>').join('')||'<p class="empty">Tidak ada dealer untuk filter ini.</p>';
+    }
+  }
+  document.addEventListener('click',function(event){const listButton=event.target.closest('[data-dealer-dialog]');if(listButton){render();const target=document.getElementById(listButton.dataset.dealerDialog);if(target)target.showModal();}});
+  mobileSelector?.addEventListener('change',render);
+  if(mobileQuery.addEventListener)mobileQuery.addEventListener('change',render);else mobileQuery.addListener?.(render);
+  copyBtn?.addEventListener('click',async function(){
+    const rows=filteredRows();
+    const header=['BP','Dealer','Salesman','Depo','Device Target','Macbook Target','ACC Target','Grand Total Target'];
+    const lines=[header.join('\t'),...rows.map(row=>[row.dataset.bp,row.dataset.dealer,row.dataset.salesman,row.dataset.depo,row.dataset.deviceTarget,row.dataset.macbookTarget,row.dataset.accTarget,row.dataset.totalTarget].join('\t'))];
+    const text=lines.join('\n');
+    try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(text);}else{throw new Error('fallback');}}
+    catch(e){const area=document.createElement('textarea');area.value=text;area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();document.execCommand('copy');area.remove();}
+    const old=this.textContent;this.textContent='✓ Tersalin ke Excel';this.classList.add('copied');setTimeout(()=>{this.textContent=old;this.classList.remove('copied');},1800);
+  });
+  render();
+})();
+</script>
 
 <dialog class="qvo-history-dialog" id="qvoHistoryDialog" aria-labelledby="qvoHistoryTitle">
   <div class="qvo-history-head"><div><h3 id="qvoHistoryTitle">History QVO</h3><p id="qvoHistorySubtitle"></p></div><button type="button" class="qvo-history-close" id="qvoHistoryClose">×</button></div>
