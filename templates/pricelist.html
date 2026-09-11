@@ -109,27 +109,29 @@
     return dp[a.length][b.length];
   }
   function normalizeCapacityToken(raw){
-    let token=String(raw||'').toUpperCase().replace(/[.,]+$/,'').replace(/\s+/g,'');
-    token=token.replace(/T[8B]$/,'TB').replace(/G[8B]$/,'GB');
-    if(/^\d+(?:GB|TB)$/.test(token))return token;
-    const glued=token.match(/^(\d{2,4})(?:68|G8|G6|GB8|G8B)$/);
-    if(glued)token=glued[1]+'GB';
-    const gb=token.match(/^(\d{1,4})(?:GB)$/);
-    if(gb){
-      const digits=gb[1];
-      const known=['64','128','256','512'];
-      let best=known[0],score=99;
-      known.forEach(cap=>{const d=editDistance(digits,cap);if(d<score){score=d;best=cap;}});
-      if(score<=1)return best+'GB';
-      return digits+'GB';
-    }
-    return token;
+    let token=String(raw||'').toUpperCase().replace(/[.,;:]+$/,'').replace(/\s+/g,'');
+    token=token.replace(/[|Il]/g,'1');
+    token=token.replace(/^\$12(?=G|$)/,'512');
+    token=token.replace(/^S12(?=G|$)/,'512');
+    token=token.replace(/T[8B]$/,'TB').replace(/G[8B]$/,'GB').replace(/G6$/,'GB').replace(/68$/,'GB');
+    const match=token.match(/^(\d{1,4})(GB|TB)$/);
+    if(!match)return token;
+    const digits=match[1],unit=match[2];
+    if(unit==='TB')return digits+'TB';
+    // Common Apple storage capacities. Correct only obvious one-character OCR misses.
+    const known=['64','128','256','512'];
+    if(known.includes(digits))return digits+'GB';
+    let best='',score=99;
+    known.forEach(cap=>{const d=editDistance(digits,cap);if(d<score){score=d;best=cap;}});
+    if(score<=1)return best+'GB';
+    return digits+'GB';
   }
   function normalizeStorageInModel(text){
     let value=String(text||'');
+    // Tesseract often reads 512 as S12/$12 and GB as G8/68.
+    value=value.replace(/\b(?:\$|S)12\s*(?:G[B8]|G6|68)\b/gi,'512GB');
     value=value.replace(/\b(\d{1,4})\s*(G[B8]|G6|68)\b/gi,(m,n,suf)=>normalizeCapacityToken(n+suf));
     value=value.replace(/\b([12])\s*T[8B]\b/gi,(m,n)=>n+'TB');
-    value=value.replace(/\b(56|126|236)\s*GB\b/gi,m=>normalizeCapacityToken(m));
     return value;
   }
   function normalizeModel(model,category){
@@ -137,22 +139,27 @@
       .replace(/[|]+/g,' ')
       .replace(/[“”]/g,'"')
       .replace(/\s+/g,' ')
-      .replace(/^[^A-Za-z0-9]+/,'')
+      .replace(/^[^A-Za-z0-9$]+/,'')
       .replace(/[.,;:]+$/,'')
       .trim();
     value=normalizeStorageInModel(value);
 
     if(category==='iphone'){
       value=value.replace(/^(?:[il1|]\s*)?phone\b/i,'iPhone');
-      if(/^iPhone\s*[\[(]?6c\b/i.test(value))value=value.replace(/^iPhone\s*[\[(]?6c\b/i,'iPhone 16c');
+      value=value.replace(/^iphone\s+[il]\s*(?=\d)/i,'iPhone 1');
+      value=value.replace(/^iphone\s+l(?=7\b)/i,'iPhone 1');
       value=value.replace(/\biPhone\s+([0-9]{2})\s*pro\s*max\b/i,'iPhone $1 Pro Max');
       value=value.replace(/\biPhone\s+([0-9]{2})\s*pro\b/i,'iPhone $1 Pro');
       value=value.replace(/\biPhone\s+([0-9]{2})\s*plus\b/i,'iPhone $1 Plus');
       value=value.replace(/\biPhone\s+([0-9]{2})\s*air\b/i,'iPhone $1 Air');
-      value=value.replace(/\biPhone\s+([0-9]{2})c\b/i,'iPhone $1c');
+      // Current pricelist uses iPhone 16e/17e; OCR commonly reads e as c/¢.
+      value=value.replace(/\biPhone\s+(16|17)\s*[c¢]\b/gi,'iPhone $1e');
+      value=value.replace(/\biPhone\s+(16|17)[c¢]\b/gi,'iPhone $1e');
+      value=value.replace(/\biPhone\s+(16|17)\s+e\b/gi,'iPhone $1e');
+      value=value.replace(/\biPhone\s+(16|17)e\b/gi,'iPhone $1e');
     }else if(category==='ipad'){
       value=value.replace(/^(?:[il1|]\s*)?pad\b/i,'iPad');
-      value=value.replace(/\bwifi\b/gi,'WiFi').replace(/\bcell\b/gi,'Cell');
+      value=value.replace(/\bwifi\b/gi,'WiFi').replace(/\bcell\b/gi,'Cell').replace(/\bnano\b/gi,'Nano');
       value=value.replace(/\bmini\b/gi,'mini').replace(/\bair\b/gi,'Air').replace(/\bpro\b/gi,'Pro');
       value=value.replace(/\b([0-9]{1,2})\s*inch\b/gi,'$1 Inch');
       value=value.replace(/\b([0-9]+)(?:st|nd|rd|th)\s+gen\b/gi,(m,n)=>n+({1:'st',2:'nd',3:'rd'}[n.slice(-1)]||'th')+' Gen');
@@ -192,6 +199,40 @@
       if(match)return normalizePeriod(match[0]);
     }
     return '';
+  }
+  async function preprocessPriceImage(file){
+    const bitmap=await createImageBitmap(file);
+    const source=document.createElement('canvas');
+    source.width=bitmap.width;source.height=bitmap.height;
+    const sctx=source.getContext('2d',{willReadFrequently:true});
+    sctx.drawImage(bitmap,0,0);bitmap.close();
+    const image=sctx.getImageData(0,0,source.width,source.height);
+    const d=image.data,w=source.width,h=source.height;
+    const dark=new Uint8Array(w*h);
+    const rowCounts=new Uint32Array(h),colCounts=new Uint32Array(w);
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+      const i=(y*w+x)*4;
+      const g=Math.round(d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114);
+      if(g<165){dark[y*w+x]=1;rowCounts[y]++;colCounts[x]++;}
+    }
+    // Grid borders span almost the full table width/height. Remove those lines before OCR.
+    const eraseRows=new Uint8Array(h),eraseCols=new Uint8Array(w);
+    for(let y=0;y<h;y++)if(rowCounts[y]/w>0.62)for(let yy=Math.max(0,y-1);yy<=Math.min(h-1,y+1);yy++)eraseRows[yy]=1;
+    for(let x=0;x<w;x++)if(colCounts[x]/h>0.58)for(let xx=Math.max(0,x-1);xx<=Math.min(w-1,x+1);xx++)eraseCols[xx]=1;
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+      const i=(y*w+x)*4;
+      if(eraseRows[y]||eraseCols[x]){d[i]=d[i+1]=d[i+2]=255;continue;}
+      let g=Math.round(d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114);
+      // Gentle contrast boost keeps small characters while making them easier for OCR.
+      g=Math.max(0,Math.min(255,Math.round((g-128)*1.45+128)));
+      d[i]=d[i+1]=d[i+2]=g;
+    }
+    sctx.putImageData(image,0,0);
+    const scale=4;
+    const out=document.createElement('canvas');out.width=w*scale;out.height=h*scale;
+    const octx=out.getContext('2d');octx.imageSmoothingEnabled=true;octx.imageSmoothingQuality='high';
+    octx.fillStyle='#fff';octx.fillRect(0,0,out.width,out.height);octx.drawImage(source,0,0,out.width,out.height);
+    return {source:out,width:out.width,height:out.height};
   }
   function imageDimensions(file){
     if(window.createImageBitmap){
@@ -267,30 +308,38 @@
     const rawLines=String(text||'').split(/\r?\n/).map(x=>x.replace(/\s+/g,' ').trim()).filter(Boolean);
     const pricePattern=/\d{1,3}(?:[., ]\d{3}){2}/g;
     const fallbackPeriod=rawLines.map(extractPeriod).find(Boolean)||'';
+    let candidates=0;
     for(let i=0;i<rawLines.length;i++){
-      if(/^(model|srp|promo sell out)/i.test(rawLines[i]))continue;
+      if(/^(?:[|\s]*)?(model|srp|promo sell out)/i.test(rawLines[i]))continue;
       let candidate=rawLines[i];
       let prices=candidate.match(pricePattern)||[];
       let period=extractPeriod(candidate)||fallbackPeriod;
-      if(prices.length<4||!period){
+      // Only 3 formatted prices are mandatory: SRP, SRP Promo, STP Promo. Support may be 0.
+      if(prices.length<3||!period){
         for(let extra=1;extra<=2&&i+extra<rawLines.length;extra++){
           const combined=candidate+' '+rawLines[i+extra];
           const combinedPrices=combined.match(pricePattern)||[];
           const combinedPeriod=extractPeriod(combined)||period||fallbackPeriod;
-          if(combinedPrices.length>=4){candidate=combined;prices=combinedPrices;period=combinedPeriod;break;}
+          if(combinedPrices.length>=3){candidate=combined;prices=combinedPrices;period=combinedPeriod;break;}
         }
       }
-      if(prices.length<4)continue;
+      if(prices.length<3)continue;
+      candidates++;
       const firstPrice=candidate.search(pricePattern);
       if(firstPrice<0)continue;
-      const model=candidate.slice(0,firstPrice).replace(/[|:]+$/,'').trim();
+      let model=candidate.slice(0,firstPrice).replace(/^[|\s]+|[|:]+$/g,'').trim();
       const srpPromo=numeric(prices[1]);
       const stpPromo=numeric(prices[2]);
       if(!model||srpPromo===null||stpPromo===null||!period)continue;
-      rows.push({model:normalizeModel(model,category),srp_promo:srpPromo,stp_promo:stpPromo,period:period});
+      if(srpPromo<10000||stpPromo<10000)continue;
+      model=normalizeModel(model,category);
+      if(!model||/^(model|srp)$/i.test(model))continue;
+      rows.push({model:model,srp_promo:srpPromo,stp_promo:stpPromo,period:period});
     }
     const seen=new Set();
-    return rows.filter(row=>{const key=String(row.model||'').toLowerCase().replace(/\s+/g,' ').trim();if(!key||seen.has(key))return false;seen.add(key);return true;});
+    const clean=rows.filter(row=>{const key=String(row.model||'').toLowerCase().replace(/\s+/g,' ').trim();if(!key||seen.has(key))return false;seen.add(key);return true;});
+    clean._candidateCount=candidates;
+    return clean;
   }
   uploadButton.addEventListener('click',async function(){
     const files=Array.from(uploadFile.files||[]);
@@ -305,19 +354,20 @@
       const failed=[];
       let activeFileName='';
       worker=await Tesseract.createWorker('eng',1,{logger:m=>{if(m.status==='recognizing text'&&activeFileName)showProgress('Membaca '+activeFileName+' · '+Math.round((m.progress||0)*100)+'%');}});
-      await worker.setParameters({tessedit_pageseg_mode:Tesseract.PSM.AUTO,preserve_interword_spaces:'1'});
+      await worker.setParameters({tessedit_pageseg_mode:(Tesseract.PSM.SINGLE_BLOCK||6),preserve_interword_spaces:'1',user_defined_dpi:'300'});
       for(let index=0;index<files.length;index++){
         const file=files[index];
         try{
           activeFileName=file.name;
           showProgress('Membaca '+file.name+' ('+(index+1)+'/'+files.length+')...');
-          const dims=await imageDimensions(file);
-          const result=await worker.recognize(file,{}, {blocks:true,text:true});
+          const prepared=await preprocessPriceImage(file);
+          const result=await worker.recognize(prepared.source,{}, {blocks:true,text:true});
           const category=detectCategory(result.data.text);
           if(!category)throw new Error('kategori tidak dikenali');
-          let rows=parsePriceBlocks(result.data.blocks,dims.width,category);
-          if(!rows.length)rows=parsePriceImage(result.data.text,category);
-          if(!rows.length)throw new Error('baris harga belum terbaca dari posisi tabel maupun teks OCR');
+          // After grid removal, line OCR is substantially more complete. Use it first.
+          let rows=parsePriceImage(result.data.text,category);
+          if(!rows.length)rows=parsePriceBlocks(result.data.blocks,prepared.width,category);
+          if(!rows.length)throw new Error('baris harga belum terbaca dari tabel OCR');
           if(!groupedByCategory[category])groupedByCategory[category]={files:[],rows:[]};
           groupedByCategory[category].files.push(file.name);
           groupedByCategory[category].rows.push(...rows);
@@ -350,7 +400,7 @@
       }
 
       if(!totalRows)throw new Error('Semua hasil OCR gagal disimpan. '+saveFailed.join(' | '));
-      let summary=processed.length+' kategori dan '+totalRows+' baris pricelist berhasil diperbarui.';
+      let summary=processed.map(item=>item.category+': '+item.rows.length+' row').join(' | ')+' berhasil diperbarui. Total '+totalRows+' row.';
       if(failed.length)summary+=' Dilewati: '+failed.join(' | ')+'.';
       if(saveFailed.length)summary+=' Gagal simpan: '+saveFailed.join(' | ')+'.';
       showProgress(summary,failed.length||saveFailed.length?'':'success');
