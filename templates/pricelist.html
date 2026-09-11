@@ -98,22 +98,78 @@
     if(/airpods|apple\s*pencil|power\s*adapter|watch\s*(?:se|s\d|series)|accessor/.test(value))return 'acc';
     return '';
   }
+  function normalizePeriod(value){
+    return String(value||'')
+      .replace(/Scp/ig,'Sep')
+      .replace(/Sept/ig,'Sep')
+      .replace(/Agu/ig,'Aug')
+      .replace(/\s*[-–—]\s*/g,'-')
+      .replace(/\s+/g,' ')
+      .trim();
+  }
+  function extractPeriod(line){
+    const text=String(line||'');
+    const patterns=[
+      /\b\d{1,2}\s*[-–—]\s*\d{1,2}\s*(?:Sep|Sept|Scp|Aug|Agu)\b/i,
+      /\b\d{1,2}\s*(?:Sep|Sept|Scp|Aug|Agu)\s*[-–—]\s*\d{1,2}\s*(?:Sep|Sept|Scp|Aug|Agu)?\b/i,
+      /\b(?:\d{1,2}\s*)?(?:Aug|Agu)\D{0,5}\d{1,2}\s*(?:Sep|Sept|Scp)\b/i
+    ];
+    for(const pattern of patterns){
+      const match=text.match(pattern);
+      if(match)return normalizePeriod(match[0]);
+    }
+    return '';
+  }
   function parsePriceImage(text){
     const rows=[];
-    const pricePattern=/\d{1,3}(?:[.,]\d{3}){2}/g;
-    String(text||'').split(/\r?\n/).forEach(raw=>{
-      let line=raw.replace(/\s+/g,' ').trim();
-      if(!line||/^(model|srp|promo sell out)/i.test(line))return;
-      const prices=line.match(pricePattern)||[];
-      if(prices.length<4)return;
-      const firstPrice=line.search(pricePattern);
-      const model=line.slice(0,firstPrice).replace(/[|:]+$/,'').trim();
-      let period='';
-      const periodMatch=line.match(/(?:\d{1,2}\s*)?(?:Aug|Agu)[^0-9]{0,5}\d{1,2}\s*(?:Sep|Scp)|\d{1,2}[^0-9]{0,3}\d{1,2}\s*(?:Aug|Agu)/i);
-      if(periodMatch)period=periodMatch[0].replace(/Scp/ig,'Sep').replace(/Agu/ig,'Aug').replace(/\s+/g,' ').trim();
-      if(model&&period)rows.push({model:model,srp_promo:numeric(prices[1]),stp_promo:numeric(prices[3]),period:period});
+    const rawLines=String(text||'').split(/\r?\n/).map(x=>x.replace(/\s+/g,' ').trim()).filter(Boolean);
+    const pricePattern=/\d{1,3}(?:[., ]\d{3}){2}/g;
+    const fallbackPeriod=rawLines.map(extractPeriod).find(Boolean)||'';
+
+    for(let i=0;i<rawLines.length;i++){
+      if(/^(model|srp|promo sell out)/i.test(rawLines[i]))continue;
+
+      let candidate=rawLines[i];
+      let prices=candidate.match(pricePattern)||[];
+      let period=extractPeriod(candidate)||fallbackPeriod;
+
+      // OCR sering memecah satu baris tabel menjadi 2-3 baris; gabungkan seperlunya.
+      if(prices.length<4 || !period){
+        for(let extra=1;extra<=2 && i+extra<rawLines.length;extra++){
+          const combined=candidate+' '+rawLines[i+extra];
+          const combinedPrices=combined.match(pricePattern)||[];
+          const combinedPeriod=extractPeriod(combined)||period||fallbackPeriod;
+          if(combinedPrices.length>=4){
+            candidate=combined;
+            prices=combinedPrices;
+            period=combinedPeriod;
+            break;
+          }
+        }
+      }
+
+      if(prices.length<4)continue;
+      const firstPrice=candidate.search(pricePattern);
+      if(firstPrice<0)continue;
+      const model=candidate.slice(0,firstPrice).replace(/[|:]+$/,'').trim();
+      if(!model)continue;
+
+      // Format tabel Erajaya: Model | SRP | SRP Promo | STP Promo | Support | Period
+      // Jadi SRP Promo = harga index 1, STP Promo = harga index 2.
+      const srpPromo=numeric(prices[1]);
+      const stpPromo=numeric(prices[2]);
+      if(srpPromo===null || stpPromo===null)continue;
+
+      rows.push({model:model,srp_promo:srpPromo,stp_promo:stpPromo,period:period||fallbackPeriod||''});
+    }
+
+    // Dedupe model hasil OCR berulang; pertahankan kemunculan pertama.
+    const seen=new Set();
+    return rows.filter(row=>{
+      const key=String(row.model||'').toLowerCase().replace(/\s+/g,' ').trim();
+      if(!key || seen.has(key))return false;
+      seen.add(key);return true;
     });
-    return rows;
   }
   uploadButton.addEventListener('click',async function(){
     const files=Array.from(uploadFile.files||[]);
@@ -123,30 +179,54 @@
     if(!window.Tesseract){showProgress('Pembaca JPG belum termuat. Muat ulang halaman lalu coba lagi.','error');return;}
     uploadButton.disabled=true;
     try{
-      const processed=[];
-      const categories=new Set();
+      const groupedByCategory={};
+      const failed=[];
       for(let index=0;index<files.length;index++){
         const file=files[index];
-        showProgress('Membaca '+file.name+' ('+(index+1)+'/'+files.length+')...');
-        const result=await Tesseract.recognize(file,'eng',{logger:m=>{if(m.status==='recognizing text')showProgress('Membaca '+file.name+' · '+Math.round((m.progress||0)*100)+'%');}});
-        const category=detectCategory(result.data.text);
-        if(!category)throw new Error('Kategori '+file.name+' tidak dikenali. Pastikan judul atau nama produknya terlihat jelas.');
-        if(categories.has(category))throw new Error('Ada dua gambar yang terbaca sebagai kategori '+category+'. Gunakan satu gambar per kategori.');
-        const rows=parsePriceImage(result.data.text);
-        if(!rows.length)throw new Error('Baris harga pada '+file.name+' belum berhasil dibaca. Pastikan gambar tidak buram.');
-        categories.add(category);processed.push({file:file,category:category,rows:rows});
+        try{
+          showProgress('Membaca '+file.name+' ('+(index+1)+'/'+files.length+')...');
+          const result=await Tesseract.recognize(file,'eng',{logger:m=>{if(m.status==='recognizing text')showProgress('Membaca '+file.name+' · '+Math.round((m.progress||0)*100)+'%');}});
+          const category=detectCategory(result.data.text);
+          if(!category)throw new Error('kategori tidak dikenali');
+          const rows=parsePriceImage(result.data.text);
+          if(!rows.length)throw new Error('baris harga belum terbaca');
+          if(!groupedByCategory[category])groupedByCategory[category]={files:[],rows:[]};
+          groupedByCategory[category].files.push(file.name);
+          groupedByCategory[category].rows.push(...rows);
+        }catch(err){
+          failed.push(file.name+': '+(err.message||'gagal dibaca'));
+        }
       }
+
+      const processed=Object.entries(groupedByCategory).map(([category,item])=>{
+        const seen=new Set();
+        const rows=item.rows.filter(row=>{
+          const key=String(row.model||'').toLowerCase().replace(/\s+/g,' ').trim();
+          if(!key||seen.has(key))return false;
+          seen.add(key);return true;
+        });
+        return {category:category,filename:item.files.join(' + '),rows:rows};
+      }).filter(item=>item.rows.length);
+
+      if(!processed.length)throw new Error('Tidak ada gambar yang berhasil dibaca. '+(failed.length?failed.join(' | '):''));
+
       let totalRows=0;
+      const saveFailed=[];
       for(let index=0;index<processed.length;index++){
         const item=processed[index];
-        showProgress('Menyimpan '+item.file.name+' ('+(index+1)+'/'+processed.length+')...');
-        const response=await fetch('{{ url_for("upload_pricelist_image") }}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({category:item.category,filename:item.file.name,rows:item.rows})});
+        showProgress('Menyimpan '+item.category+' ('+(index+1)+'/'+processed.length+')...');
+        const response=await fetch('{{ url_for("upload_pricelist_image") }}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({category:item.category,filename:item.filename,rows:item.rows})});
         const resultJson=await response.json();
-        if(!response.ok||!resultJson.ok)throw new Error(resultJson.message||('Pricelist '+item.file.name+' gagal disimpan.'));
+        if(!response.ok||!resultJson.ok){saveFailed.push(item.category+': '+(resultJson.message||'gagal disimpan'));continue;}
         totalRows+=item.rows.length;
       }
-      showProgress(processed.length+' gambar dan '+totalRows+' baris pricelist berhasil diperbarui.','success');
-      setTimeout(()=>window.location.reload(),900);
+
+      if(!totalRows)throw new Error('Semua hasil OCR gagal disimpan. '+saveFailed.join(' | '));
+      let summary=processed.length+' kategori dan '+totalRows+' baris pricelist berhasil diperbarui.';
+      if(failed.length)summary+=' Dilewati: '+failed.join(' | ')+'.';
+      if(saveFailed.length)summary+=' Gagal simpan: '+saveFailed.join(' | ')+'.';
+      showProgress(summary,failed.length||saveFailed.length?'':'success');
+      setTimeout(()=>window.location.reload(),1200);
     }catch(error){showProgress(error.message||'JPG gagal dibaca.','error');}
     finally{uploadButton.disabled=false;}
   });
