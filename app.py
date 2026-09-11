@@ -29,6 +29,14 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
     'DATABASE_URL', 'sqlite:///' + os.path.join(BASE_DIR, 'sales.db')
 ).replace('postgres://', 'postgresql://', 1)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# Keep pooled PostgreSQL connections healthy on Render. pool_pre_ping checks a
+# connection before SQLAlchemy reuses it, while pool_recycle avoids keeping
+# long-lived SSL connections around indefinitely. These options are harmless
+# for the local SQLite fallback as well.
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,
+    'pool_recycle': 300,
+}
 app.config['MAX_CONTENT_LENGTH'] = 30 * 1024 * 1024
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 
@@ -2501,21 +2509,36 @@ def upload_pricelist_image():
     if not isinstance(rows, list) or not rows:
         return jsonify({'ok': False, 'message': 'Tidak ada baris pricelist yang berhasil dibaca.'}), 400
     cleaned = []
+    skipped_rows = []
     for index, raw in enumerate(rows):
+        # Be tolerant of OCR/parser noise: one unreadable row must not cancel
+        # every other valid row extracted from the image batch.
+        if not isinstance(raw, dict):
+            skipped_rows.append(index + 1)
+            continue
         model = normalize_text(raw.get('model'))
         period = normalize_text(raw.get('period'))
         srp_promo = to_num(raw.get('srp_promo'), default=-1)
         stp_promo = to_num(raw.get('stp_promo'), default=-1)
         if not model or not period or srp_promo < 0 or stp_promo < 0:
-            return jsonify({
-                'ok': False,
-                'message': f'Baris {index + 1} belum lengkap. Pastikan Model, SRP Promo, STP Promo, dan Period terbaca.',
-            }), 400
+            skipped_rows.append(index + 1)
+            continue
         cleaned.append({
             'model': model, 'period': period,
             'srp_promo': srp_promo, 'stp_promo': stp_promo,
-            'sort_order': index,
+            'sort_order': len(cleaned),
         })
+
+    if not cleaned:
+        return jsonify({
+            'ok': False,
+            'message': (
+                'Tidak ada baris pricelist lengkap yang dapat disimpan. '
+                'Pastikan Model, SRP Promo, STP Promo, dan Period terbaca.'
+            ),
+            'skipped_rows': skipped_rows,
+        }), 400
+
     try:
         PricelistItem.query.filter_by(category=category).delete(synchronize_session=False)
         now = datetime.utcnow()
@@ -2531,9 +2554,18 @@ def upload_pricelist_image():
     except Exception as exc:
         db.session.rollback()
         return jsonify({'ok': False, 'message': f'Pricelist gagal disimpan: {exc}'}), 500
+    warning = ''
+    if skipped_rows:
+        warning = f' {len(skipped_rows)} baris tidak lengkap dilewati: {", ".join(map(str, skipped_rows))}.'
     return jsonify({
         'ok': True,
-        'message': f'{len(cleaned)} baris {PRICELIST_CATEGORIES[category]} berhasil diperbarui.',
+        'message': (
+            f'{len(cleaned)} baris {PRICELIST_CATEGORIES[category]} berhasil diperbarui.'
+            f'{warning}'
+        ),
+        'rows_loaded': len(cleaned),
+        'rows_skipped': len(skipped_rows),
+        'skipped_rows': skipped_rows,
         'redirect': url_for('pricelist'),
     })
 
