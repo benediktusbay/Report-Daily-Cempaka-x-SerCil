@@ -556,15 +556,18 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 .projection-timegone-head{font-size:11px;font-weight:800;color:#52647e}.projection-timegone-head strong{font-size:18px;color:#1769e8}
 .projection-timegone-track{height:7px;border-radius:999px;background:#e8eef6;overflow:hidden;margin:7px 0}.projection-timegone-track span{display:block;height:100%;border-radius:inherit;background:#1769e8}
 .projection-timegone-foot{justify-content:flex-end;color:#64748b;font-size:10px}
-.projection-category-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.projection-category{min-width:0;border:1px solid #e0e8f4;border-radius:11px;padding:10px}
-.projection-category-title{display:flex;align-items:center;gap:7px;margin:0 0 10px;font-size:10px;font-weight:900;text-transform:uppercase}
+.projection-category-table-wrap{overflow-x:auto}
+.projection-category-table{width:100%;min-width:600px;table-layout:auto;border-collapse:collapse}
+.projection-category-table th,.projection-category-table td{text-align:left;padding:13px 10px;border-bottom:1px solid #e5eaf2;vertical-align:middle}
+.projection-category-table thead th{background:transparent;color:#64748b;font-size:10px;font-weight:700;line-height:1.25;text-transform:none;letter-spacing:0;white-space:nowrap}
+.projection-category-table tbody th{font-size:11px}.projection-category-table td{color:#1769e8;font-size:13px;font-weight:900;white-space:nowrap;font-variant-numeric:tabular-nums}
+.projection-category-table td.negative{color:#dc2626}.projection-category-table td.positive{color:#15803d}
+.projection-category-name{display:flex;align-items:center;gap:8px;font-weight:900;text-transform:uppercase;white-space:nowrap}
 .projection-category-icon{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;flex:0 0 30px}.projection-category-icon svg{width:16px;height:16px;display:block}
-.projection-category.device .projection-category-title{color:#16a34a}.projection-category.device .projection-category-icon{background:#e7f8ed}
-.projection-category.macbook .projection-category-title{color:#ef3f48}.projection-category.macbook .projection-category-icon{background:#ffe9eb}
-.projection-category.acc .projection-category-title{color:#f97316}.projection-category.acc .projection-category-icon{background:#fff0df}
-.projection-category-metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px 6px}.projection-category-metric{min-width:0}.projection-category-metric span{display:block;color:#64748b;font-size:9px;line-height:1.2;margin-bottom:3px}.projection-category-metric strong{display:block;color:#1769e8;font-size:12px;line-height:1.2;white-space:nowrap}.projection-category-metric strong.negative{color:#dc2626}.projection-category-metric strong.positive{color:#15803d}
-.projection-total{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px;padding:10px 12px;border-radius:10px;background:#f8fafc}.projection-total-item span{display:block;color:#64748b;font-size:9px;margin-bottom:3px}.projection-total-item .projection-value{font-size:13px!important;text-align:left;text-decoration:none}
+.projection-category-name.device{color:#16a34a}.projection-category-name.device .projection-category-icon{background:#e7f8ed}
+.projection-category-name.macbook{color:#ef3f48}.projection-category-name.macbook .projection-category-icon{background:#ffe9eb}
+.projection-category-name.acc{color:#f97316}.projection-category-name.acc .projection-category-icon{background:#fff0df}
+.projection-category-table tfoot th,.projection-category-table tfoot td{background:#f8fafc;border-bottom:0;padding-top:14px;padding-bottom:14px}.projection-category-table tfoot th{color:#0f172a;font-size:12px;font-weight:900}.projection-category-table tfoot .projection-value{font-size:13px!important;text-align:left;text-decoration:none}
 .projection-table{width:100%;min-width:0;table-layout:fixed}
 .projection-table col:first-child{width:220px}
 .projection-table th,.projection-table td{padding:12px 8px;height:44px;font-size:11.5px;text-align:left;vertical-align:middle}
@@ -575,7 +578,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 #projection-dialog::backdrop{background:rgba(15,35,60,.45)}
 #projection-dialog h3{margin:0 0 12px}#projection-exact{font-size:24px;font-weight:800;overflow-wrap:anywhere}
 #projection-dialog button{margin-top:20px;background:#1769e8;color:white;border:0;border-radius:8px;padding:10px 20px;cursor:pointer}
-@media(max-width:768px){.projection-desktop{display:none}.projection-mobile{display:block}.projection-metric{padding:12px}.projection-metric .projection-value{font-size:18px}.projection-grid{gap:8px}.projection-category-grid{grid-template-columns:1fr}.projection-category-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}.projection-total{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:768px){.projection-desktop{display:none}.projection-mobile{display:block}.projection-metric{padding:12px}.projection-metric .projection-value{font-size:18px}.projection-grid{gap:8px}}
 @media(max-width:360px){.projection-grid{grid-template-columns:1fr}}
 
 /* ===== DEALER ACTION CARDS — FINAL MOCKUP ===== */
@@ -927,19 +930,17 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   {% set daily = (target - actual) / remaining_days if remaining_days > 0 else none %}
   {% set closing = actual * 100 / timegone_pct if timegone_pct > 0 else none %}
   {% set closing_pct = closing * 100 / target if target and closing is not none else none %}
-  <article class="projection-category {{ kind }}">
-    <h4 class="projection-category-title"><span class="projection-category-icon">
+  <tr>
+    <th scope="row"><span class="projection-category-name {{ kind }}"><span class="projection-category-icon">
       {% if kind == 'device' %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="7" y="2.5" width="10" height="19" rx="2"></rect><path d="M10 18.5h4"></path></svg>
       {% elif kind == 'macbook' %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="4" y="5" width="16" height="11" rx="1.5"></rect><path d="M2.5 19h19"></path></svg>
       {% else %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 13v-2a8 8 0 0 1 16 0v2"></path><rect x="3" y="12" width="4" height="7" rx="2"></rect><rect x="17" y="12" width="4" height="7" rx="2"></rect></svg>{% endif %}
-    </span>{{ label }}</h4>
-    <div class="projection-category-metrics">
-      <div class="projection-category-metric"><span>Gap vs Timegone</span><strong class="{% if gap < 0 %}negative{% elif gap > 0 %}positive{% endif %}">{{ projection_money(gap, true) }}</strong></div>
-      <div class="projection-category-metric"><span>Target Daily</span><strong>{{ projection_money(daily) }}</strong></div>
-      <div class="projection-category-metric"><span>Est Closing</span><strong>{{ projection_money(closing) }}</strong></div>
-      <div class="projection-category-metric"><span>Est Closing %</span><strong>{% if closing_pct is not none %}{{ '%.1f'|format(closing_pct) }}%{% else %}—{% endif %}</strong></div>
-    </div>
-  </article>
+    </span>{{ label }}</span></th>
+    <td class="{% if gap < 0 %}negative{% elif gap > 0 %}positive{% endif %}">{{ projection_money(gap, true) }}</td>
+    <td>{{ projection_money(daily) }}</td>
+    <td>{{ projection_money(closing) }}</td>
+    <td>{% if closing_pct is not none %}{{ '%.1f'|format(closing_pct) }}%{% else %}—{% endif %}</td>
+  </tr>
 {% endmacro %}
 
 <div class="filters" id="dashboardFilters">
@@ -1082,13 +1083,16 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     <div class="projection-timegone-track" role="progressbar" aria-label="Timegone hari kerja" aria-valuenow="{{ timegone_pct }}" aria-valuemin="0" aria-valuemax="100"><span style="width:{{ 100 if timegone_pct > 100 else timegone_pct }}%"></span></div>
     <div class="projection-timegone-foot"><span>{{ working_days_total - working_days_elapsed }} hari kerja tersisa</span></div>
   </div>
-  <div class="projection-category-grid">
-    {{ projection_category('Device', 'device', cards.device, cards.device_target) }}
-    {{ projection_category('MacBook', 'macbook', cards.macbook, cards.macbook_target) }}
-    {{ projection_category('ACC', 'acc', cards.acc, cards.acc_target) }}
-  </div>
-  <div class="projection-total" aria-label="Total semua kategori">
-    {% for key,label in projection_fields %}<div class="projection-total-item"><span>{{ label }}</span>{{ projection_value(projection_summary,key,label,'Grand Total') }}</div>{% endfor %}
+  <div class="projection-category-table-wrap">
+    <table class="projection-category-table" aria-label="Sales Projection per kategori">
+      <thead><tr><th scope="col">Kategori</th><th scope="col">Gap vs Timegone</th><th scope="col">Target Daily</th><th scope="col">Est Closing</th><th scope="col">Est Closing %</th></tr></thead>
+      <tbody>
+        {{ projection_category('Device', 'device', cards.device, cards.device_target) }}
+        {{ projection_category('MacBook', 'macbook', cards.macbook, cards.macbook_target) }}
+        {{ projection_category('ACC', 'acc', cards.acc, cards.acc_target) }}
+      </tbody>
+      <tfoot><tr><th scope="row">Total</th>{% for key,label in projection_fields %}<td>{{ projection_value(projection_summary,key,label,'Grand Total') }}</td>{% endfor %}</tr></tfoot>
+    </table>
   </div>
 </div>
 </div>
