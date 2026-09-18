@@ -38,6 +38,7 @@
 .category-donut{width:132px;height:132px;border-radius:50%;position:relative;flex:0 0 auto}.category-donut:after{content:"";position:absolute;inset:25px;border-radius:50%;background:#fff}
 .category-legend{display:grid;gap:9px;flex:1}.category-row{display:grid;grid-template-columns:12px 1fr auto;align-items:center;gap:8px;font-size:12px}.category-dot{width:10px;height:10px;border-radius:3px}
 .gap-card{padding:18px}.gap-card h3{margin:0 0 16px;font-size:15px}.gap-list{display:grid;gap:15px}.gap-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:7px;font-size:12px}.gap-track{height:8px;border-radius:999px;background:#e8eef6;overflow:hidden}.gap-track span{display:block;height:100%;border-radius:inherit}.gap-result{padding:5px 8px;border-radius:8px;font-size:10px;font-weight:900;white-space:nowrap}.gap-result.positive{background:#e6f7ec;color:#15803d}.gap-result.negative{background:#fff1f2;color:#b91c1c}
+.gap-category-label{display:inline-flex;align-items:center;gap:9px;font-weight:900}.gap-category-icon{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;flex:0 0 32px}.gap-category-icon svg{width:17px;height:17px;display:block}.gap-category-label.device{color:#16a34a}.gap-category-label.device .gap-category-icon{background:#e7f8ed}.gap-category-label.macbook{color:#ef3f48}.gap-category-label.macbook .gap-category-icon{background:#ffe9eb}.gap-category-label.acc{color:#f97316}.gap-category-label.acc .gap-category-icon{background:#fff0df}
 .quality-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.quality-card{min-height:112px;padding:18px;display:grid;grid-template-columns:52px 1fr;align-items:center;gap:16px;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease}.quality-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(15,23,42,.10)}.quality-icon{display:grid;place-items:center;width:52px;height:52px;border-radius:50%;background:#e8f1ff;color:#1769e8;font-size:14px;font-weight:900}.quality-copy{min-width:0}.quality-top{display:flex;align-items:center;justify-content:space-between;gap:12px}.quality-value{font-size:28px;line-height:1;font-weight:900;color:#0b2545}.quality-rate{font-size:18px;font-weight:900;color:#1769e8}.quality-progress{grid-column:1/-1;height:7px;border-radius:999px;background:#e8eef6;overflow:hidden}.quality-progress span{display:block;height:100%;border-radius:inherit;background:#1769e8}
 .section{margin-top:22px}.section-title{margin-bottom:12px}.section-title h2{margin:0 0 4px;font-size:20px}.section-title p{margin:0;color:#6b7280;font-size:13px}
 .timegone-box{display:inline-flex;align-items:center;gap:8px;margin-top:8px;padding:7px 10px;border-radius:9px;background:#fff7ed;color:#9a3412;font-size:12px;font-weight:800;border:1px solid #fed7aa}
@@ -1071,18 +1072,19 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 {% set device_gap = cards.device - cards.device_target %}
 {% set macbook_gap = cards.macbook - cards.macbook_target %}
 {% set acc_gap = cards.acc - cards.acc_target %}
-<div class="card gap-card"><h3>Gap to Target</h3><div class="gap-list">
+<div class="card gap-card"><h3>Gap to Target</h3>
+<div class="projection-timegone">
+  <div class="projection-timegone-head"><span>Timegone · hari kerja</span><strong>{{ '%.1f'|format(timegone_pct) }}%</strong></div>
+  <div class="projection-timegone-track" role="progressbar" aria-label="Timegone hari kerja" aria-valuenow="{{ timegone_pct }}" aria-valuemin="0" aria-valuemax="100"><span style="width:{{ 100 if timegone_pct > 100 else timegone_pct }}%"></span></div>
+  <div class="projection-timegone-foot"><span>{{ working_days_total - working_days_elapsed }} hari kerja tersisa</span></div>
+</div>
+<div class="gap-list">
   {% for label, gap, pct, color in [('Device', device_gap, cards.device_pct, '#16a34a'), ('Macbook', macbook_gap, cards.macbook_pct, '#dc2626'), ('Accessories', acc_gap, cards.acc_pct, '#f97316')] %}
   {% set gap_abs = gap if gap >= 0 else -gap %}
-  <div class="gap-row"><div class="gap-head"><strong>{{ label }}</strong><span class="gap-result {% if gap >= 0 %}positive{% else %}negative{% endif %}">{% if target_available %}{{ gap_abs|rupiah_short }}{% else %}Not yet{% endif %}</span></div><div class="gap-track"><span style="width:{{ 100 if pct > 100 else pct }}%;background:{{ color }}"></span></div></div>
+  <div class="gap-row"><div class="gap-head"><span class="gap-category-label {% if label == 'Device' %}device{% elif label == 'Macbook' %}macbook{% else %}acc{% endif %}"><span class="gap-category-icon">{% if label == 'Device' %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="7" y="2.5" width="10" height="19" rx="2"></rect><path d="M10 18.5h4"></path></svg>{% elif label == 'Macbook' %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="4" y="5" width="16" height="11" rx="1.5"></rect><path d="M2.5 19h19"></path></svg>{% else %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 13v-2a8 8 0 0 1 16 0v2"></path><rect x="3" y="12" width="4" height="7" rx="2"></rect><rect x="17" y="12" width="4" height="7" rx="2"></rect></svg>{% endif %}</span>{{ label }}</span><span class="gap-result {% if gap >= 0 %}positive{% else %}negative{% endif %}">{% if target_available %}{{ gap_abs|rupiah_short }}{% else %}Not yet{% endif %}</span></div><div class="gap-track"><span style="width:{{ 100 if pct > 100 else pct }}%;background:{{ color }}"></span></div></div>
   {% endfor %}
 </div></div>
 <div class="card gap-card projection-summary-card"><h3>Sales Projection — Summary</h3>
-  <div class="projection-timegone">
-    <div class="projection-timegone-head"><span>Timegone · hari kerja</span><strong>{{ '%.1f'|format(timegone_pct) }}%</strong></div>
-    <div class="projection-timegone-track" role="progressbar" aria-label="Timegone hari kerja" aria-valuenow="{{ timegone_pct }}" aria-valuemin="0" aria-valuemax="100"><span style="width:{{ 100 if timegone_pct > 100 else timegone_pct }}%"></span></div>
-    <div class="projection-timegone-foot"><span>{{ working_days_total - working_days_elapsed }} hari kerja tersisa</span></div>
-  </div>
   <div class="projection-category-table-wrap">
     <table class="projection-category-table" aria-label="Sales Projection per kategori">
       <thead><tr><th scope="col">Kategori</th><th scope="col">Gap vs Timegone</th><th scope="col">Target Daily</th><th scope="col">Est Closing</th><th scope="col">Est Closing %</th></tr></thead>
