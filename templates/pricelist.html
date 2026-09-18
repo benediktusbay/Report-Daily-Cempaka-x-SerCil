@@ -9,6 +9,7 @@
 .price-field label{display:block;margin-bottom:6px;color:#64748b;font-size:11px;font-weight:800;text-transform:uppercase}.price-field select,.price-field input{width:100%;min-height:41px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;padding:8px 10px}
 .price-btn{min-height:41px;border:0;border-radius:9px;background:#0b3765;color:#fff;padding:9px 15px;font-weight:800;cursor:pointer}.price-btn.copy{background:#16884b}.price-btn:disabled{opacity:.6;cursor:wait}
 .price-progress{display:none;margin-top:12px;padding:10px 12px;border-radius:9px;background:#eef5fc;color:#0b3765;font-size:13px}.price-progress.error{background:#fff1f2;color:#b42318}.price-progress.success{background:#ecfdf3;color:#167044}
+.price-preview[hidden]{display:none}.price-preview{position:fixed;inset:0;z-index:1000;background:rgba(15,23,42,.62);padding:24px;overflow:auto}.price-preview-card{max-width:1180px;margin:auto;background:#fff;border-radius:16px;padding:18px;box-shadow:0 24px 70px rgba(15,23,42,.3)}.price-preview-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:12px}.price-preview-head h2{margin:0 0 5px}.price-preview-head p{margin:0;color:#64748b;font-size:13px}.price-preview-table{width:100%;min-width:980px;border-collapse:collapse}.price-preview-table th,.price-preview-table td{padding:8px;border-bottom:1px solid #e2e8f0;vertical-align:top}.price-preview-table th{background:#f1f5f9;text-align:left;font-size:12px}.price-preview-table input{width:100%;min-width:105px;border:1px solid #cbd5e1;border-radius:7px;padding:7px}.price-preview-table .model-input{min-width:240px}.price-preview-table tr.suspicious{background:#fff7ed}.price-warning{max-width:260px;color:#b45309;font-size:12px;line-height:1.35}.price-ok{color:#16884b;font-weight:800}.price-preview-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:15px}.price-btn.secondary{background:#e2e8f0;color:#334155}.price-btn.danger{background:#b42318}.price-preview-summary{padding:9px 11px;margin-bottom:10px;border-radius:8px;background:#f8fafc;color:#475569;font-size:13px}
 .price-controls{padding:15px;margin-bottom:14px}.price-search{display:flex;gap:10px;align-items:end}.price-search .price-field{flex:1}
 .price-tabs{display:flex;gap:8px;overflow-x:auto;margin:0 0 12px}.price-tab{flex:0 0 auto;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#334155;padding:9px 14px;font-weight:800;cursor:pointer}.price-tab.active{background:#0b3765;border-color:#0b3765;color:#fff}
 .price-count{margin-left:auto;align-self:center;color:#64748b;font-size:12px;white-space:nowrap}.price-table-wrap{overflow-x:auto;border-radius:14px}.price-table{min-width:760px;background:#fff}.price-table th{background:#eaf2fb;color:#334155}.price-table td:nth-child(n+2){text-align:right;white-space:nowrap}.price-table th:nth-child(n+2){text-align:right}.price-table td:first-child{font-weight:700}.price-table td:last-child,.price-table th:last-child{text-align:center}.price-empty{text-align:center!important;padding:35px!important;color:#64748b;font-weight:400!important}
@@ -24,7 +25,7 @@
   <summary>Perbarui pricelist dari JPG</summary>
   <div class="price-upload">
     <div class="price-field"><label>Gambar pricelist—maksimal 4 JPG</label><input id="priceUploadFile" type="file" accept="image/jpeg,.jpg,.jpeg" multiple></div>
-    <button type="button" class="price-btn" id="priceUploadButton">Baca &amp; Simpan Semua JPG</button>
+    <button type="button" class="price-btn" id="priceUploadButton">Baca &amp; Preview JPG</button>
   </div>
   <div class="price-progress" id="priceUploadProgress" role="status"></div>
 </details>
@@ -36,6 +37,17 @@
     <button type="button" class="price-btn copy" id="priceCopy">Copy untuk WhatsApp</button>
   </div>
 </div>
+
+{% if session.get('role') == 'admin' %}
+<div class="price-preview" id="pricePreview" hidden>
+  <div class="price-preview-card" role="dialog" aria-modal="true" aria-labelledby="pricePreviewTitle">
+    <div class="price-preview-head"><div><h2 id="pricePreviewTitle">Periksa hasil OCR</h2><p>Edit data yang salah. Baris oranye perlu perhatian sebelum disimpan.</p></div><button type="button" class="price-btn secondary" id="pricePreviewClose">Tutup</button></div>
+    <div class="price-preview-summary" id="pricePreviewSummary"></div>
+    <div class="price-table-wrap"><table class="price-preview-table"><thead><tr><th>Kategori</th><th>Model</th><th>SRP</th><th>SRP Promo</th><th>STP Promo</th><th>Support</th><th>Period</th><th>Status</th></tr></thead><tbody id="pricePreviewBody"></tbody></table></div>
+    <div class="price-preview-actions"><button type="button" class="price-btn secondary" id="pricePreviewCancel">Batal</button><button type="button" class="price-btn" id="pricePreviewSave">Simpan Pricelist</button></div>
+  </div>
+</div>
+{% endif %}
 
 <div class="price-tabs" id="priceTabs">
   {% for key,label in category_labels.items() %}<button type="button" class="price-tab {% if loop.first %}active{% endif %}" data-category="{{ key }}">{{ label }}</button>{% endfor %}
@@ -286,15 +298,21 @@
       const srpText=cleanCellText(cells[1]);
       const srpPromoText=cleanCellText(cells[2]);
       const stpPromoText=cleanCellText(cells[3]);
+      const supportText=cleanCellText(cells[4]);
       const periodText=cleanCellText(cells[5]);
       if(!model||/^(model|promo sell out)/i.test(model))return;
       const srpPromo=numeric(srpPromoText);
       const stpPromo=numeric(stpPromoText);
       let period=extractPeriod(periodText)||extractPeriod(cleanCellText(rowWords));
-      if(srpPromo===null||stpPromo===null||!period)return;
-      // Tolak header/noise. Harga promo normalnya jutaan; threshold rendah agar tetap aman untuk ACC murah.
-      if(srpPromo<10000||stpPromo<10000)return;
-      rows.push({model:normalizeModel(model,category),srp_promo:srpPromo,stp_promo:stpPromo,period:period});
+      // Keep structurally valid rows even when the first full-table OCR misses a
+      // price. The per-cell digit-only pass below can recover that value.
+      if(!period)return;
+      if((srpPromo!==null&&srpPromo<10000)||(stpPromo!==null&&stpPromo<10000))return;
+      rows.push({
+        model:normalizeModel(model,category),srp:numeric(srpText),srp_promo:srpPromo,
+        stp_promo:stpPromo,support:numeric(supportText),period:period,
+        _bbox:{y0:Math.min(...rowWords.map(word=>word.bbox.y0)),y1:Math.max(...rowWords.map(word=>word.bbox.y1))}
+      });
     });
     const seen=new Set();
     return rows.filter(row=>{
@@ -341,70 +359,157 @@
     clean._candidateCount=candidates;
     return clean;
   }
+  const preview=document.getElementById('pricePreview');
+  const previewBody=document.getElementById('pricePreviewBody');
+  const previewSummary=document.getElementById('pricePreviewSummary');
+  const previewSave=document.getElementById('pricePreviewSave');
+  let pendingItems=[];
+
+  function makePriceCrop(source,x0,x1,y0,y1,variant){
+    const pad=Math.max(8,Math.round((y1-y0)*0.35));
+    const sx=Math.max(0,Math.round(x0)),sy=Math.max(0,Math.round(y0-pad));
+    const sw=Math.min(source.width-sx,Math.round(x1-x0));
+    const sh=Math.min(source.height-sy,Math.round(y1-y0+pad*2));
+    const out=document.createElement('canvas');out.width=Math.max(1,sw*2);out.height=Math.max(1,sh*2);
+    const ctx=out.getContext('2d',{willReadFrequently:true});
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,out.width,out.height);ctx.drawImage(source,sx,sy,sw,sh,0,0,out.width,out.height);
+    const image=ctx.getImageData(0,0,out.width,out.height),pixels=image.data;
+    for(let i=0;i<pixels.length;i+=4){
+      const gray=Math.round(pixels[i]*.299+pixels[i+1]*.587+pixels[i+2]*.114);
+      const value=variant===0?(gray<180?0:255):Math.max(0,Math.min(255,Math.round((gray-135)*1.9+135)));
+      pixels[i]=pixels[i+1]=pixels[i+2]=value;
+    }
+    ctx.putImageData(image,0,0);return out;
+  }
+  function normalizePrice(value){
+    const digits=String(value||'').replace(/[^0-9]/g,'');
+    if(!digits||digits.length<4||digits.length>11)return null;
+    const amount=Number(digits);return Number.isSafeInteger(amount)?amount:null;
+  }
+  async function readPriceTwice(worker,source,x0,x1,y0,y1){
+    const values=[];
+    for(let variant=0;variant<2;variant++){
+      const crop=makePriceCrop(source,x0,x1,y0,y1,variant);
+      const result=await worker.recognize(crop);
+      values.push(normalizePrice(result.data.text));
+    }
+    const valid=values.filter(value=>value!==null);
+    return {value:valid[0]??null,agree:valid.length===2&&valid[0]===valid[1],reads:values};
+  }
+  async function refinePrices(worker,prepared,rows,fileName){
+    const cuts=[.447,.550,.659,.768,.877];
+    await worker.setParameters({tessedit_pageseg_mode:(Tesseract.PSM.SINGLE_LINE||7),tessedit_char_whitelist:'0123456789.,',preserve_interword_spaces:'0'});
+    for(let rowIndex=0;rowIndex<rows.length;rowIndex++){
+      const row=rows[rowIndex];if(!row._bbox)continue;
+      showProgress('Memeriksa angka '+fileName+' · baris '+(rowIndex+1)+'/'+rows.length);
+      const fields=['srp','srp_promo','stp_promo','support'];row._dual={};
+      for(let column=0;column<fields.length;column++){
+        const result=await readPriceTwice(worker,prepared.source,prepared.width*cuts[column],prepared.width*cuts[column+1],row._bbox.y0,row._bbox.y1);
+        if(result.value!==null)row[fields[column]]=result.value;
+        row._dual[fields[column]]=result;
+      }
+    }
+  }
+  function previousRow(category,model){
+    const key=String(model||'').toLowerCase().replace(/\s+/g,' ').trim();
+    return (data[category]||[]).find(row=>String(row.model||'').toLowerCase().replace(/\s+/g,' ').trim()===key);
+  }
+  function warningsFor(row,category){
+    const warnings=[];
+    ['srp','srp_promo','stp_promo'].forEach(field=>{
+      if(row[field]!==null&&row[field]!==undefined&&(row[field]<100000||row[field]>100000000))warnings.push(field.replaceAll('_',' ')+' di luar rentang umum');
+      if(row._dual&&row._dual[field]&&!row._dual[field].agree)warnings.push('dua pembacaan '+field.replaceAll('_',' ')+' berbeda');
+    });
+    if(row.srp&&row.srp_promo&&row.srp<row.srp_promo)warnings.push('SRP lebih kecil dari SRP Promo');
+    if(row.srp_promo&&row.stp_promo&&row.srp_promo<row.stp_promo)warnings.push('SRP Promo lebih kecil dari STP Promo');
+    const old=previousRow(category,row.model);
+    if(old){
+      ['srp_promo','stp_promo'].forEach(field=>{
+        const before=Number(old[field]||0),after=Number(row[field]||0);
+        if(before&&after&&Math.abs(after-before)/before>.35)warnings.push(field.replaceAll('_',' ')+' berubah lebih dari 35% dari periode sebelumnya');
+      });
+    }
+    if(!row.model)warnings.push('model kosong');
+    if(!row.period)warnings.push('periode tidak terbaca');
+    if(!row.srp_promo||!row.stp_promo)warnings.push('harga promo belum lengkap');
+    return [...new Set(warnings)];
+  }
+  function inputCell(field,value,className){return '<input '+(className?'class="'+className+'" ':'')+'data-field="'+field+'" value="'+esc(value??'')+'">';}
+  function renderPreview(){
+    const flat=pendingItems.flatMap((item,itemIndex)=>item.rows.map((row,rowIndex)=>({item,row,itemIndex,rowIndex,warnings:warningsFor(row,item.category)})));
+    const suspicious=flat.filter(entry=>entry.warnings.length).length;
+    previewSummary.textContent=flat.length+' baris siap diperiksa · '+suspicious+' baris memiliki peringatan. Peringatan tidak menghalangi edit atau simpan.';
+    previewBody.innerHTML=flat.map(entry=>'<tr class="'+(entry.warnings.length?'suspicious':'')+'" data-item="'+entry.itemIndex+'" data-row="'+entry.rowIndex+'"><td>'+esc(entry.item.category)+'</td><td>'+inputCell('model',entry.row.model,'model-input')+'</td><td>'+inputCell('srp',entry.row.srp)+'</td><td>'+inputCell('srp_promo',entry.row.srp_promo)+'</td><td>'+inputCell('stp_promo',entry.row.stp_promo)+'</td><td>'+inputCell('support',entry.row.support)+'</td><td>'+inputCell('period',entry.row.period)+'</td><td class="'+(entry.warnings.length?'price-warning':'price-ok')+'">'+(entry.warnings.length?entry.warnings.map(esc).join('<br>'):'✓ Wajar')+'</td></tr>').join('');
+    preview.hidden=false;
+  }
+  function syncPreviewEdits(){
+    previewBody.querySelectorAll('tr[data-item]').forEach(tr=>{
+      const row=pendingItems[Number(tr.dataset.item)].rows[Number(tr.dataset.row)];
+      tr.querySelectorAll('input[data-field]').forEach(input=>{
+        const field=input.dataset.field;row[field]=['srp','srp_promo','stp_promo','support'].includes(field)?normalizePrice(input.value):input.value.trim();
+      });
+    });
+  }
+  function closePreview(){preview.hidden=true;}
+  document.getElementById('pricePreviewClose').addEventListener('click',closePreview);
+  document.getElementById('pricePreviewCancel').addEventListener('click',closePreview);
+  previewBody.addEventListener('change',()=>{syncPreviewEdits();renderPreview();});
+
+  previewSave.addEventListener('click',async function(){
+    syncPreviewEdits();
+    const invalid=pendingItems.flatMap(item=>item.rows).some(row=>!row.model||!row.period||!row.srp_promo||!row.stp_promo);
+    if(invalid){showProgress('Lengkapi model, periode, SRP Promo, dan STP Promo sebelum menyimpan.','error');return;}
+    previewSave.disabled=true;
+    try{
+      let totalRows=0;const saveFailed=[];
+      for(let index=0;index<pendingItems.length;index++){
+        const item=pendingItems[index];showProgress('Menyimpan '+item.category+' ('+(index+1)+'/'+pendingItems.length+')...');
+        // Keep the existing backend contract. OCR-only metadata never leaves the browser.
+        const rows=item.rows.map(row=>({model:row.model,srp_promo:row.srp_promo,stp_promo:row.stp_promo,period:row.period}));
+        const response=await fetch('{{ url_for("upload_pricelist_image") }}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({category:item.category,filename:item.filename,rows:rows})});
+        let resultJson={};try{resultJson=await response.json();}catch(error){}
+        if(!response.ok||!resultJson.ok){saveFailed.push(item.category+': '+(resultJson.message||'gagal disimpan'));continue;}
+        totalRows+=rows.length;
+      }
+      if(!totalRows)throw new Error('Semua hasil gagal disimpan. '+saveFailed.join(' | '));
+      showProgress(totalRows+' baris berhasil disimpan.'+(saveFailed.length?' Gagal: '+saveFailed.join(' | '):''),saveFailed.length?'error':'success');
+      closePreview();setTimeout(()=>window.location.reload(),1200);
+    }catch(error){showProgress(error.message||'Pricelist gagal disimpan.','error');}
+    finally{previewSave.disabled=false;}
+  });
+
   uploadButton.addEventListener('click',async function(){
     const files=Array.from(uploadFile.files||[]);
     if(!files.length){showProgress('Pilih satu sampai empat gambar JPG terlebih dahulu.','error');return;}
     if(files.length>4){showProgress('Maksimal empat gambar JPG dalam sekali upload.','error');return;}
     if(files.some(file=>!/image\/jpeg/.test(file.type)&&!/\.jpe?g$/i.test(file.name))){showProgress('Semua gambar harus berformat JPG/JPEG.','error');return;}
     if(!window.Tesseract){showProgress('Pembaca JPG belum termuat. Muat ulang halaman lalu coba lagi.','error');return;}
-    uploadButton.disabled=true;
-    let worker=null;
+    uploadButton.disabled=true;let worker=null;
     try{
-      const groupedByCategory={};
-      const failed=[];
-      let activeFileName='';
+      const groupedByCategory={},failed=[];let activeFileName='';
       worker=await Tesseract.createWorker('eng',1,{logger:m=>{if(m.status==='recognizing text'&&activeFileName)showProgress('Membaca '+activeFileName+' · '+Math.round((m.progress||0)*100)+'%');}});
-      await worker.setParameters({tessedit_pageseg_mode:(Tesseract.PSM.SINGLE_BLOCK||6),preserve_interword_spaces:'1',user_defined_dpi:'300'});
       for(let index=0;index<files.length;index++){
         const file=files[index];
         try{
-          activeFileName=file.name;
-          showProgress('Membaca '+file.name+' ('+(index+1)+'/'+files.length+')...');
+          activeFileName=file.name;showProgress('Membaca '+file.name+' ('+(index+1)+'/'+files.length+')...');
           const prepared=await preprocessPriceImage(file);
+          await worker.setParameters({tessedit_pageseg_mode:(Tesseract.PSM.SINGLE_BLOCK||6),tessedit_char_whitelist:'',preserve_interword_spaces:'1',user_defined_dpi:'300'});
           const result=await worker.recognize(prepared.source,{}, {blocks:true,text:true});
-          const category=detectCategory(result.data.text);
-          if(!category)throw new Error('kategori tidak dikenali');
-          // After grid removal, line OCR is substantially more complete. Use it first.
-          let rows=parsePriceImage(result.data.text,category);
-          if(!rows.length)rows=parsePriceBlocks(result.data.blocks,prepared.width,category);
+          const category=detectCategory(result.data.text);if(!category)throw new Error('kategori tidak dikenali');
+          let rows=parsePriceBlocks(result.data.blocks,prepared.width,category);
+          if(rows.length)await refinePrices(worker,prepared,rows,file.name);
+          else rows=parsePriceImage(result.data.text,category);
           if(!rows.length)throw new Error('baris harga belum terbaca dari tabel OCR');
           if(!groupedByCategory[category])groupedByCategory[category]={files:[],rows:[]};
-          groupedByCategory[category].files.push(file.name);
-          groupedByCategory[category].rows.push(...rows);
-        }catch(err){
-          failed.push(file.name+': '+(err.message||'gagal dibaca'));
-        }
+          groupedByCategory[category].files.push(file.name);groupedByCategory[category].rows.push(...rows);
+        }catch(error){failed.push(file.name+': '+(error.message||'gagal dibaca'));}
       }
-
-      const processed=Object.entries(groupedByCategory).map(([category,item])=>{
-        const seen=new Set();
-        const rows=item.rows.filter(row=>{
-          const key=String(row.model||'').toLowerCase().replace(/\s+/g,' ').trim();
-          if(!key||seen.has(key))return false;
-          seen.add(key);return true;
-        });
+      pendingItems=Object.entries(groupedByCategory).map(([category,item])=>{
+        const seen=new Set();const rows=item.rows.filter(row=>{const key=String(row.model||'').toLowerCase().replace(/\s+/g,' ').trim();if(!key||seen.has(key))return false;seen.add(key);return true;});
         return {category:category,filename:item.files.join(' + '),rows:rows};
       }).filter(item=>item.rows.length);
-
-      if(!processed.length)throw new Error('Tidak ada gambar yang berhasil dibaca. '+(failed.length?failed.join(' | '):''));
-
-      let totalRows=0;
-      const saveFailed=[];
-      for(let index=0;index<processed.length;index++){
-        const item=processed[index];
-        showProgress('Menyimpan '+item.category+' ('+(index+1)+'/'+processed.length+')...');
-        const response=await fetch('{{ url_for("upload_pricelist_image") }}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({category:item.category,filename:item.filename,rows:item.rows})});
-        const resultJson=await response.json();
-        if(!response.ok||!resultJson.ok){saveFailed.push(item.category+': '+(resultJson.message||'gagal disimpan'));continue;}
-        totalRows+=item.rows.length;
-      }
-
-      if(!totalRows)throw new Error('Semua hasil OCR gagal disimpan. '+saveFailed.join(' | '));
-      let summary=processed.map(item=>item.category+': '+item.rows.length+' row').join(' | ')+' berhasil diperbarui. Total '+totalRows+' row.';
-      if(failed.length)summary+=' Dilewati: '+failed.join(' | ')+'.';
-      if(saveFailed.length)summary+=' Gagal simpan: '+saveFailed.join(' | ')+'.';
-      showProgress(summary,failed.length||saveFailed.length?'':'success');
-      setTimeout(()=>window.location.reload(),1200);
+      if(!pendingItems.length)throw new Error('Tidak ada gambar yang berhasil dibaca. '+failed.join(' | '));
+      showProgress('OCR selesai. Periksa hasil sebelum menyimpan.'+(failed.length?' Dilewati: '+failed.join(' | '):''),failed.length?'error':'success');renderPreview();
     }catch(error){showProgress(error.message||'JPG gagal dibaca.','error');}
     finally{if(worker){try{await worker.terminate();}catch(error){}}uploadButton.disabled=false;}
   });
