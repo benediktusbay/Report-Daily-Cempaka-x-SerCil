@@ -550,6 +550,21 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 .projection-metric .projection-value{font-size:clamp(16px,1.7vw,24px)}
 .projection-positive{color:#15803d!important}.projection-negative{color:#dc2626!important}
 .projection-note{font-size:12px;color:#61738e;margin:12px 0 0;line-height:1.5}
+.projection-summary-card{display:flex;flex-direction:column}
+.projection-timegone{padding:11px 12px;border-radius:11px;background:#f8fafc;margin-bottom:12px}
+.projection-timegone-head,.projection-timegone-foot{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.projection-timegone-head{font-size:11px;font-weight:800;color:#52647e}.projection-timegone-head strong{font-size:18px;color:#1769e8}
+.projection-timegone-track{height:7px;border-radius:999px;background:#e8eef6;overflow:hidden;margin:7px 0}.projection-timegone-track span{display:block;height:100%;border-radius:inherit;background:#1769e8}
+.projection-timegone-foot{justify-content:flex-end;color:#64748b;font-size:10px}
+.projection-category-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.projection-category{min-width:0;border:1px solid #e0e8f4;border-radius:11px;padding:10px}
+.projection-category-title{display:flex;align-items:center;gap:7px;margin:0 0 10px;font-size:10px;font-weight:900;text-transform:uppercase}
+.projection-category-icon{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;flex:0 0 30px}.projection-category-icon svg{width:16px;height:16px;display:block}
+.projection-category.device .projection-category-title{color:#16a34a}.projection-category.device .projection-category-icon{background:#e7f8ed}
+.projection-category.macbook .projection-category-title{color:#ef3f48}.projection-category.macbook .projection-category-icon{background:#ffe9eb}
+.projection-category.acc .projection-category-title{color:#f97316}.projection-category.acc .projection-category-icon{background:#fff0df}
+.projection-category-metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px 6px}.projection-category-metric{min-width:0}.projection-category-metric span{display:block;color:#64748b;font-size:9px;line-height:1.2;margin-bottom:3px}.projection-category-metric strong{display:block;color:#1769e8;font-size:12px;line-height:1.2;white-space:nowrap}.projection-category-metric strong.negative{color:#dc2626}.projection-category-metric strong.positive{color:#15803d}
+.projection-total{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px;padding:10px 12px;border-radius:10px;background:#f8fafc}.projection-total-item span{display:block;color:#64748b;font-size:9px;margin-bottom:3px}.projection-total-item .projection-value{font-size:13px!important;text-align:left;text-decoration:none}
 .projection-table{width:100%;min-width:0;table-layout:fixed}
 .projection-table col:first-child{width:220px}
 .projection-table th,.projection-table td{padding:12px 8px;height:44px;font-size:11.5px;text-align:left;vertical-align:middle}
@@ -560,7 +575,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 #projection-dialog::backdrop{background:rgba(15,35,60,.45)}
 #projection-dialog h3{margin:0 0 12px}#projection-exact{font-size:24px;font-weight:800;overflow-wrap:anywhere}
 #projection-dialog button{margin-top:20px;background:#1769e8;color:white;border:0;border-radius:8px;padding:10px 20px;cursor:pointer}
-@media(max-width:768px){.projection-desktop{display:none}.projection-mobile{display:block}.projection-metric{padding:12px}.projection-metric .projection-value{font-size:18px}.projection-grid{gap:8px}}
+@media(max-width:768px){.projection-desktop{display:none}.projection-mobile{display:block}.projection-metric{padding:12px}.projection-metric .projection-value{font-size:18px}.projection-grid{gap:8px}.projection-category-grid{grid-template-columns:1fr}.projection-category-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}.projection-total{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:360px){.projection-grid{grid-template-columns:1fr}}
 
 /* ===== DEALER ACTION CARDS — FINAL MOCKUP ===== */
@@ -892,11 +907,39 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 
 {% block body %}
 {% set projection_fields = [('gap_vs_timegone','Gap vs Timegone'),('target_daily','Target Daily'),('est_closing','Est Closing'),('est_closing_pct','Est Closing %')] %}
+{% macro projection_money(value, show_plus=false) %}
+  {% if value is none %}—{% else %}
+    {% set absolute = value if value >= 0 else -value %}
+    {% if value < 0 %}-{% elif show_plus and value > 0 %}+{% endif %}Rp{% if absolute >= 1000000000 %}{{ '%.2f'|format(absolute / 1000000000)|replace('.', ',') }} M{% else %}{{ '%.0f'|format(absolute / 1000000) }} juta{% endif %}
+  {% endif %}
+{% endmacro %}
 {% macro projection_value(p, key, label, person) %}
   {% set value = p[key] %}
   {% if value is not none %}
-  <button type="button" class="projection-value {% if key == 'gap_vs_timegone' %}{% if value < 0 %}projection-negative{% elif value > 0 %}projection-positive{% endif %}{% endif %}" data-projection-value="{{ value }}" data-projection-percent="{{ 'true' if key == 'est_closing_pct' else 'false' }}" data-projection-label="{{ label }}" data-projection-person="{{ person }}" aria-label="{{ person }} — {{ label }}: tampilkan angka lengkap">{% if key == 'est_closing_pct' %}{{ '%.1f'|format(value) }}%{% else %}{% if key == 'gap_vs_timegone' and value > 0 %}+{% endif %}{{ value|rupiah_short }}{% endif %}</button>
+  <button type="button" class="projection-value {% if key == 'gap_vs_timegone' %}{% if value < 0 %}projection-negative{% elif value > 0 %}projection-positive{% endif %}{% endif %}" data-projection-value="{{ value }}" data-projection-percent="{{ 'true' if key == 'est_closing_pct' else 'false' }}" data-projection-label="{{ label }}" data-projection-person="{{ person }}" aria-label="{{ person }} — {{ label }}: tampilkan angka lengkap">{% if key == 'est_closing_pct' %}{{ '%.1f'|format(value) }}%{% else %}{{ projection_money(value, key == 'gap_vs_timegone') }}{% endif %}</button>
   {% else %}<span title="Target atau hari kerja belum tersedia, atau sisa hari kerja sudah habis">—</span>{% endif %}
+{% endmacro %}
+
+{% macro projection_category(label, kind, actual, target) %}
+  {% set target_at_timegone = target * timegone_pct / 100 if target else 0 %}
+  {% set gap = actual - target_at_timegone %}
+  {% set remaining_days = working_days_total - working_days_elapsed %}
+  {% set daily = (target - actual) / remaining_days if remaining_days > 0 else none %}
+  {% set closing = actual * 100 / timegone_pct if timegone_pct > 0 else none %}
+  {% set closing_pct = closing * 100 / target if target and closing is not none else none %}
+  <article class="projection-category {{ kind }}">
+    <h4 class="projection-category-title"><span class="projection-category-icon">
+      {% if kind == 'device' %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="7" y="2.5" width="10" height="19" rx="2"></rect><path d="M10 18.5h4"></path></svg>
+      {% elif kind == 'macbook' %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="4" y="5" width="16" height="11" rx="1.5"></rect><path d="M2.5 19h19"></path></svg>
+      {% else %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 13v-2a8 8 0 0 1 16 0v2"></path><rect x="3" y="12" width="4" height="7" rx="2"></rect><rect x="17" y="12" width="4" height="7" rx="2"></rect></svg>{% endif %}
+    </span>{{ label }}</h4>
+    <div class="projection-category-metrics">
+      <div class="projection-category-metric"><span>Gap vs Timegone</span><strong class="{% if gap < 0 %}negative{% elif gap > 0 %}positive{% endif %}">{{ projection_money(gap, true) }}</strong></div>
+      <div class="projection-category-metric"><span>Target Daily</span><strong>{{ projection_money(daily) }}</strong></div>
+      <div class="projection-category-metric"><span>Est Closing</span><strong>{{ projection_money(closing) }}</strong></div>
+      <div class="projection-category-metric"><span>Est Closing %</span><strong>{% if closing_pct is not none %}{{ '%.1f'|format(closing_pct) }}%{% else %}—{% endif %}</strong></div>
+    </div>
+  </article>
 {% endmacro %}
 
 <div class="filters" id="dashboardFilters">
@@ -1033,11 +1076,20 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   <div class="gap-row"><div class="gap-head"><strong>{{ label }}</strong><span class="gap-result {% if gap >= 0 %}positive{% else %}negative{% endif %}">{% if target_available %}{{ gap_abs|rupiah_short }}{% else %}Not yet{% endif %}</span></div><div class="gap-track"><span style="width:{{ 100 if pct > 100 else pct }}%;background:{{ color }}"></span></div></div>
   {% endfor %}
 </div></div>
-<div class="card gap-card"><h3>Sales Projection — Summary</h3>
-  <div class="projection-grid">{% for key,label in projection_fields %}
-    <div class="projection-metric"><span class="projection-label">{{ label }}</span>{{ projection_value(projection_summary,key,label,'Grand Total') }}</div>
-  {% endfor %}</div>
-  <p class="projection-note">{{ projection_summary.elapsed_days }} / {{ projection_summary.total_days }} hari kerja · {{ projection_summary.remaining_days }} hari kerja tersisa{% if latest_in_scope %} · Billing through {{ latest_in_scope.strftime('%d %b %Y') }}{% else %} · Belum ada billing{% endif %}<br>Proyeksi mengikuti laju MTD dan filter aktif. Klik angka untuk nilai lengkap.</p>
+<div class="card gap-card projection-summary-card"><h3>Sales Projection — Summary</h3>
+  <div class="projection-timegone">
+    <div class="projection-timegone-head"><span>Timegone · hari kerja</span><strong>{{ '%.1f'|format(timegone_pct) }}%</strong></div>
+    <div class="projection-timegone-track" role="progressbar" aria-label="Timegone hari kerja" aria-valuenow="{{ timegone_pct }}" aria-valuemin="0" aria-valuemax="100"><span style="width:{{ 100 if timegone_pct > 100 else timegone_pct }}%"></span></div>
+    <div class="projection-timegone-foot"><span>{{ working_days_total - working_days_elapsed }} hari kerja tersisa</span></div>
+  </div>
+  <div class="projection-category-grid">
+    {{ projection_category('Device', 'device', cards.device, cards.device_target) }}
+    {{ projection_category('MacBook', 'macbook', cards.macbook, cards.macbook_target) }}
+    {{ projection_category('ACC', 'acc', cards.acc, cards.acc_target) }}
+  </div>
+  <div class="projection-total" aria-label="Total semua kategori">
+    {% for key,label in projection_fields %}<div class="projection-total-item"><span>{{ label }}</span>{{ projection_value(projection_summary,key,label,'Grand Total') }}</div>{% endfor %}
+  </div>
 </div>
 </div>
 <div class="quality-grid">
