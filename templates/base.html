@@ -312,6 +312,10 @@
         Dashboard
       </a>
 
+      <a class="{% if request.endpoint == 'pjp' %}active{% endif %}" href="{{ url_for('pjp') }}">
+        PJP
+      </a>
+
       <a class="{% if request.endpoint in ['stock', 'stock_login', 'stock_verify'] %}active{% endif %}" href="{{ url_for('stock') }}">
         Stock
       </a>
