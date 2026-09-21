@@ -390,6 +390,71 @@ class Billing(db.Model):
     sku_key = db.Column(db.String(300))
 
 
+class PJPWeeklyPlan(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    month = db.Column(db.String(7), nullable=False, index=True)
+    week = db.Column(db.Integer, nullable=False, index=True)
+    salesman = db.Column(db.String(160), nullable=False, index=True)
+    depot = db.Column(db.String(80), nullable=False, default='Unmapped')
+    status = db.Column(db.String(20), nullable=False, default='DRAFT')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    submitted_at = db.Column(db.DateTime)
+    __table_args__ = (db.UniqueConstraint('month', 'week', 'salesman', name='uq_pjp_plan_week_salesman'),)
+
+
+class PJPPlanItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    weekly_plan_id = db.Column(db.Integer, db.ForeignKey('pjp_weekly_plan.id'), nullable=False, index=True)
+    plan_date = db.Column(db.Date, nullable=False, index=True)
+    bp_code = db.Column(db.String(80), nullable=False, index=True)
+    dealer_name = db.Column(db.String(255), nullable=False)
+    activity_type = db.Column(db.String(20), nullable=False)
+    note = db.Column(db.String(500))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
+class AppSheetActivity(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    source_uid = db.Column(db.String(160), nullable=False)
+    row_hash = db.Column(db.String(64), unique=True, nullable=False)
+    activity_date = db.Column(db.Date, nullable=False, index=True)
+    salesman = db.Column(db.String(160), nullable=False, index=True)
+    bp_code = db.Column(db.String(80), nullable=False, index=True)
+    dealer_name = db.Column(db.String(255), nullable=False)
+    activity_type = db.Column(db.String(20), nullable=False)
+    result = db.Column(db.Text)
+    result_note = db.Column(db.Text)
+    completed_at = db.Column(db.DateTime)
+    duration = db.Column(db.String(40))
+    location = db.Column(db.String(160))
+    imported_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    __table_args__ = (
+        db.Index('ix_app_sheet_activity_salesman_date_bp', 'salesman', 'activity_date', 'bp_code'),
+    )
+
+
+class PJPRecommendationSummary(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    month = db.Column(db.String(7), nullable=False, index=True)
+    salesman = db.Column(db.String(160), nullable=False, index=True)
+    bp_code = db.Column(db.String(80), nullable=False, index=True)
+    dealer_name = db.Column(db.String(255), nullable=False)
+    last_order_date = db.Column(db.Date)
+    active_months = db.Column(db.Integer, default=0)
+    order_days = db.Column(db.Integer, default=0)
+    total_revenue = db.Column(db.Float, default=0)
+    average_monthly_revenue = db.Column(db.Float, default=0)
+    preferred_weekday = db.Column(db.Integer)
+    preferred_day_count = db.Column(db.Integer, default=0)
+    preferred_strength = db.Column(db.Float, default=0)
+    current_revenue = db.Column(db.Float, default=0)
+    qvo_gap = db.Column(db.Float, default=0)
+    source_latest_date = db.Column(db.Date)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    __table_args__ = (db.UniqueConstraint('month', 'salesman', 'bp_code', name='uq_pjp_reco_month_sales_bp'),)
+
+
 class StockSnapshot(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     stock_date = db.Column(db.Date, nullable=False, unique=True, index=True)
@@ -1021,6 +1086,17 @@ def ensure_db():
 
 def initialize_database_schema():
     db.create_all()
+    # db.create_all() creates this index for new databases, but does not add it
+    # to an existing AppSheet table. Create it idempotently without recreating
+    # the table or touching existing activity rows.
+    appsheet_indexes = {idx['name'] for idx in inspect(db.engine).get_indexes('app_sheet_activity')}
+    if 'ix_app_sheet_activity_salesman_date_bp' not in appsheet_indexes:
+        db.Index(
+            'ix_app_sheet_activity_salesman_date_bp',
+            AppSheetActivity.salesman,
+            AppSheetActivity.activity_date,
+            AppSheetActivity.bp_code,
+        ).create(bind=db.engine, checkfirst=True)
     # db.create_all() does not add columns to an existing Render database.
     # Apply this small backward-compatible migration automatically.
     billing_columns = {c['name'] for c in inspect(db.engine).get_columns('billing')}
@@ -1779,6 +1855,215 @@ def qvo_analysis_scope(month, requested_depos=None, requested_salesmen=None):
         if r.category in ('Device', 'Macbook', 'ACC'):
             rec['sales_mtd'] += float(r.nett_amount or 0)
     return list(current.values()), depos, salesmen, depo_filters, salesman_filters
+
+
+def pjp_completed_history_months(month):
+    start, _ = month_range(month)
+    cursor = pd.Timestamp(start) - pd.offsets.MonthBegin(1)
+    return [(cursor - pd.offsets.MonthBegin(i)).strftime('%Y-%m') for i in range(5, -1, -1)]
+
+
+def pjp_recommendations(month, salesman):
+    """Build/reuse a small Billing-derived summary for PJP recommendations."""
+    salesman = canonical_salesman(salesman)
+    months = pjp_completed_history_months(month)
+    hist_start, _ = month_range(months[0]); _, hist_end = month_range(months[-1])
+    current_start, current_end = month_range(month)
+    latest = db.session.query(db.func.max(Billing.billing_date)).filter(Billing.salesman == salesman).scalar()
+    latest_upload = db.session.query(db.func.max(UploadLog.uploaded_at)).scalar()
+    cached = PJPRecommendationSummary.query.filter_by(month=month, salesman=salesman).all()
+    if cached and max((r.source_latest_date for r in cached), default=None) == latest and (
+        not latest_upload or max((r.updated_at for r in cached), default=None) >= latest_upload
+    ):
+        source = cached
+    else:
+        targets = MonthlyTarget.query.filter_by(month=month, salesman=salesman).all()
+        bps = {normalize_bp(t.bp): t.dealer for t in targets if normalize_bp(t.bp)}
+        if not bps:
+            return []
+        rows = db.session.query(Billing.billing_date, Billing.sold_to_code, Billing.nett_amount).filter(
+            Billing.salesman == salesman, Billing.billing_date >= hist_start, Billing.billing_date <= current_end,
+            Billing.category.in_(('Device', 'Macbook', 'ACC')), Billing.sold_to_code.in_(list(bps)),
+        ).all()
+        grouped = {}
+        for d, raw_bp, amount in rows:
+            bp = normalize_bp(raw_bp); rec = grouped.setdefault(bp, {'dates': set(), 'months': set(), 'revenue': 0.0, 'current': 0.0})
+            rec['dates'].add(d); rec['months'].add(d.strftime('%Y-%m')); rec['revenue'] += float(amount or 0)
+            if current_start <= d <= current_end: rec['current'] += float(amount or 0)
+        PJPRecommendationSummary.query.filter_by(month=month, salesman=salesman).delete(synchronize_session=False)
+        source = []
+        for bp, dealer in bps.items():
+            rec = grouped.get(bp, {'dates': set(), 'months': set(), 'revenue': 0.0, 'current': 0.0})
+            weekdays = {}
+            for d in rec['dates']:
+                if d.strftime('%Y-%m') in months and is_working_day(d):
+                    weekdays[d.weekday()] = weekdays.get(d.weekday(), 0) + 1
+            pref, count = (max(weekdays.items(), key=lambda x: x[1]) if weekdays else (None, 0))
+            total_days = len(rec['dates']); strength = count / total_days if total_days else 0
+            row = PJPRecommendationSummary(month=month, salesman=salesman, bp_code=bp, dealer_name=dealer,
+                last_order_date=max(rec['dates']) if rec['dates'] else None, active_months=len(rec['months'] & set(months)),
+                order_days=total_days, total_revenue=rec['revenue'], average_monthly_revenue=rec['revenue'] / 6,
+                preferred_weekday=pref if strength >= .35 else None, preferred_day_count=count if strength >= .35 else 0,
+                preferred_strength=strength if strength >= .35 else 0, current_revenue=rec['current'],
+                qvo_gap=max(QVO_THRESHOLD - rec['current'], 0), source_latest_date=latest)
+            db.session.add(row); source.append(row)
+        db.session.commit()
+    plans = PJPWeeklyPlan.query.filter_by(month=month, salesman=salesman).all()
+    unresolved = {i.bp_code for p in plans for i in PJPPlanItem.query.filter_by(weekly_plan_id=p.id).all()}
+    result = []
+    for row in source:
+        days_ago = (current_end - row.last_order_date).days if row.last_order_date else 999
+        inactivity = row.active_months >= 3 and row.current_revenue == 0
+        score = min(days_ago, 90) * .45 + row.active_months * 8 + min(row.average_monthly_revenue / QVO_THRESHOLD * 20, 20) + (20 if inactivity else 0)
+        reason = []
+        weekday_names = ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday')
+        if row.preferred_weekday is not None:
+            reason.append(f'Usually orders {weekday_names[row.preferred_weekday]} • {row.preferred_strength:.0%} of order days')
+        if row.last_order_date: reason.append(f'Last order {(current_end - row.last_order_date).days} days ago')
+        if row.active_months: reason.append(f'Active {row.active_months}/6 months')
+        if inactivity: reason.append('No order this month')
+        if row.qvo_gap and row.current_revenue: reason.append(f'Rp{row.qvo_gap:,.0f} to QVO')
+        result.append({'row': row, 'score': score, 'reason': ' • '.join(reason) or 'No recent order history',
+                       'suggested_day': row.preferred_weekday, 'suggested_activity': 'Call' if inactivity else 'Visit', 'unresolved': row.bp_code in unresolved})
+    return sorted(result, key=lambda x: (-x['score'], x['row'].dealer_name))[:10]
+
+
+def pjp_week_dates(month, week):
+    first = dt.date.fromisoformat(f'{month}-01')
+    start = first + dt.timedelta(days=(week - 1) * 7)
+    end = min(start + dt.timedelta(days=6), (first.replace(day=28) + dt.timedelta(days=4)).replace(day=1) - dt.timedelta(days=1))
+    return start, end
+
+
+def pjp_actuals_for(salesman, start, end):
+    rows = AppSheetActivity.query.filter(
+        AppSheetActivity.salesman == canonical_salesman(salesman),
+        AppSheetActivity.activity_date >= start,
+        AppSheetActivity.activity_date <= end,
+    ).order_by(AppSheetActivity.activity_date, AppSheetActivity.id).all()
+    unique = {}
+    for row in rows:
+        unique.setdefault((row.activity_date, normalize_bp(row.bp_code), row.activity_type), row)
+    return list(unique.values())
+
+
+def pjp_rows(plan):
+    items = PJPPlanItem.query.filter_by(weekly_plan_id=plan.id).order_by(PJPPlanItem.plan_date, PJPPlanItem.id).all()
+    actuals = pjp_actuals_for(plan.salesman, *pjp_week_dates(plan.month, plan.week))
+    actual_by_key = {(a.activity_date, normalize_bp(a.bp_code), a.activity_type): a for a in actuals}
+    billing_keys = {(b.billing_date, normalize_bp(b.sold_to_code)) for b in Billing.query.filter(
+        Billing.billing_date >= pjp_week_dates(plan.month, plan.week)[0],
+        Billing.billing_date <= pjp_week_dates(plan.month, plan.week)[1],
+        Billing.salesman == plan.salesman,
+    ).all()}
+    output = []
+    planned_keys = set()
+    for item in items:
+        key = (item.plan_date, normalize_bp(item.bp_code), item.activity_type)
+        actual = actual_by_key.get(key)
+        planned_keys.add(key)
+        output.append({'item': item, 'actual': actual, 'status': 'COMPLETED' if actual else 'PENDING',
+                       'effective': bool(actual and (actual.activity_date, normalize_bp(actual.bp_code)) in billing_keys)})
+    for actual in actuals:
+        key = (actual.activity_date, normalize_bp(actual.bp_code), actual.activity_type)
+        if key not in planned_keys:
+            output.append({'item': None, 'actual': actual, 'status': 'AD HOC',
+                           'effective': (actual.activity_date, normalize_bp(actual.bp_code)) in billing_keys})
+    return output
+
+
+def pjp_import_appsheet(file):
+    frame = pd.read_excel(file) if str(getattr(file, 'filename', '')).lower().endswith(('.xlsx', '.xls')) else pd.read_csv(file)
+    cols = {normalize_col(c): c for c in frame.columns}
+    required = ['tgl kunjungan', 'uniq sc', 'nama sales', 'aktivitas', 'nama dealer']
+    missing = [c for c in required if c not in cols]
+    if missing:
+        raise ValueError('Kolom AppSheet kurang: ' + ', '.join(missing))
+    added = 0
+    for _, raw in frame.iterrows():
+        date_value = pd.to_datetime(raw[cols['tgl kunjungan']], errors='coerce')
+        activity = normalize_text(raw[cols['aktivitas']]).title()
+        if pd.isna(date_value) or activity not in ('Visit', 'Call'):
+            continue
+        dealer = normalize_text(raw[cols['nama dealer']])
+        match = re.match(r'^([^\s]+)\s+(.*)$', dealer)
+        bp = normalize_bp(match.group(1) if match else '')
+        if not bp:
+            continue
+        payload = '|'.join([str(raw.get(cols.get(k), '')) for k in required] + [str(date_value.date()), activity, bp])
+        row_hash = hashlib.sha256(payload.encode('utf-8', 'ignore')).hexdigest()
+        if AppSheetActivity.query.filter_by(row_hash=row_hash).first():
+            continue
+        db.session.add(AppSheetActivity(
+            source_uid=normalize_text(raw[cols['uniq sc']]), row_hash=row_hash,
+            activity_date=date_value.date(), salesman=canonical_salesman(raw[cols['nama sales']]),
+            bp_code=bp, dealer_name=normalize_text(match.group(2) if match else dealer),
+            activity_type=activity, result=normalize_text(raw.get(cols.get('hasil visit'), '')),
+            result_note=normalize_text(raw.get(cols.get('keterangan hasil visit'), '')),
+            duration=normalize_text(raw.get(cols.get('durasi kunjungan'), '')),
+            location=normalize_text(raw.get(cols.get('lokasi'), '')),
+        ))
+        added += 1
+    db.session.commit()
+    return len(frame), added
+
+
+@app.route('/pjp', methods=['GET', 'POST'])
+@login_required
+def pjp():
+    month = request.values.get('month') or datetime.now().strftime('%Y-%m')
+    week = max(1, min(4, int(request.values.get('week', 1))))
+    user = db.session.get(User, session.get('user_id'))
+    salesman = request.values.get('salesman') or (session.get('username') if user and user.role != 'admin' else LOCKED_SALESMEN[0])
+    salesman = canonical_salesman(salesman)
+    if user and user.role != 'admin':
+        salesman = canonical_salesman(user.username)
+    plan = PJPWeeklyPlan.query.filter_by(month=month, week=week, salesman=salesman).first()
+    if not plan:
+        plan = PJPWeeklyPlan(month=month, week=week, salesman=salesman, depot='Unmapped')
+        db.session.add(plan); db.session.commit()
+    if request.method == 'POST':
+        action = request.form.get('action')
+        if action == 'submit' and plan.status == 'DRAFT':
+            plan.status = 'LOCKED'; plan.submitted_at = datetime.utcnow(); db.session.commit()
+            flash('PJP berhasil disubmit dan dikunci.', 'success')
+        elif action == 'add' and plan.status == 'DRAFT':
+            day = dt.date.fromisoformat(request.form['plan_date'])
+            if not (pjp_week_dates(month, week)[0] <= day <= pjp_week_dates(month, week)[1]):
+                flash('Tanggal berada di luar minggu yang dipilih.', 'danger')
+            else:
+                db.session.add(PJPPlanItem(weekly_plan_id=plan.id, plan_date=day, bp_code=normalize_bp(request.form['bp_code']),
+                    dealer_name=normalize_text(request.form['dealer_name']), activity_type=request.form['activity_type'], note=normalize_text(request.form.get('note'))))
+                db.session.commit()
+        elif action == 'import':
+            try:
+                read, added = pjp_import_appsheet(request.files['appsheet_file'])
+                flash(f'AppSheet diproses: {added} aktivitas baru dari {read} baris.', 'success')
+            except Exception as exc:
+                db.session.rollback(); flash(f'Import AppSheet gagal: {exc}', 'danger')
+    plans = PJPWeeklyPlan.query.filter_by(month=month, salesman=salesman).order_by(PJPWeeklyPlan.week).all()
+    rows = pjp_rows(plan)
+    recommendations = pjp_recommendations(month, salesman)
+    carry_over = []
+    if week > 1:
+        previous = PJPWeeklyPlan.query.filter_by(month=month, week=week - 1, salesman=salesman).first()
+        if previous:
+            for item_row in pjp_rows(previous):
+                if item_row['effective']:
+                    continue
+                if item_row['item'] and not item_row['actual']:
+                    carry_over.append({'bp_code': item_row['item'].bp_code, 'dealer_name': item_row['item'].dealer_name,
+                                       'previous_result': 'Not Visited', 'suggested_activity': 'Visit'})
+                elif item_row['actual']:
+                    carry_over.append({'bp_code': item_row['actual'].bp_code, 'dealer_name': item_row['actual'].dealer_name,
+                                       'previous_result': 'Visited, No Order', 'suggested_activity': 'Call'})
+    planned = sum(1 for r in rows if r['item'])
+    completed = sum(1 for r in rows if r['item'] and r['actual'])
+    effective = sum(1 for r in rows if r['effective'])
+    return render_template('pjp.html', plan=plan, plans=plans, rows=rows, month=month, week=week, salesman=salesman,
+                           salesmen=LOCKED_SALESMEN, start=pjp_week_dates(month, week)[0], end=pjp_week_dates(month, week)[1],
+                           planned=planned, completed=completed, compliance=(completed / planned * 100 if planned else 0), effective=effective,
+                           recommendations=recommendations, carry_over=carry_over)
 
 
 @app.route('/')
