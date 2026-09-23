@@ -204,26 +204,21 @@
     }
     return value.replace(/\s+/g,' ').trim();
   }
+  const MONTHS={jan:'Jan',feb:'Feb',fcb:'Feb',mar:'Mar',apr:'Apr',may:'May',mei:'May',jun:'Jun',jul:'Jul',jui:'Jul',aug:'Aug',agu:'Aug',sep:'Sep',sept:'Sep',scp:'Sep',oct:'Oct','0ct':'Oct',okt:'Oct',nov:'Nov','n0v':'Nov',dec:'Dec',dcc:'Dec',des:'Dec'};
+  const MONTH_TOKEN='Jan|Feb|Fcb|Mar|Apr|May|Mei|Jun|Jul|Jui|Aug|Agu|Sep|Sept|Scp|Oct|0ct|Okt|Nov|N0v|Dec|Dcc|Des';
   function normalizePeriod(value){
-    return String(value||'')
-      .replace(/Scp/ig,'Sep')
-      .replace(/Sept/ig,'Sep')
-      .replace(/Agu/ig,'Aug')
-      .replace(/\s*[-–—]\s*/g,'-')
-      .replace(/\s+/g,' ')
-      .trim();
+    return String(value||'').replace(/\b(Jan|Feb|Fcb|Mar|Apr|May|Mei|Jun|Jul|Jui|Aug|Agu|Sep|Sept|Scp|Oct|0ct|Okt|Nov|N0v|Dec|Dcc|Des)\b/gi,m=>MONTHS[m.toLowerCase()]||m)
+      .replace(/\s*[-–—]\s*/g,'-').replace(/\s+/g,' ').trim();
   }
   function extractPeriod(line){
-    const text=String(line||'');
+    const text=normalizePeriod(line);
+    const month='(?:'+MONTH_TOKEN+')';
     const patterns=[
-      /\b\d{1,2}\s*[-–—]\s*\d{1,2}\s*(?:Sep|Sept|Scp|Aug|Agu)\b/i,
-      /\b\d{1,2}\s*(?:Sep|Sept|Scp|Aug|Agu)\s*[-–—]\s*\d{1,2}\s*(?:Sep|Sept|Scp|Aug|Agu)?\b/i,
-      /\b(?:\d{1,2}\s*)?(?:Aug|Agu)\D{0,5}\d{1,2}\s*(?:Sep|Sept|Scp)\b/i
+      new RegExp('\\b\\d{1,2}\\s*[-–—]\\s*\\d{1,2}\\s*'+month+'\\b','i'),
+      new RegExp('\\b\\d{1,2}\\s*'+month+'\\s*[-–—]\\s*\\d{1,2}\\s*(?:'+month+')?\\b','i'),
+      new RegExp('\\b'+month+'\\s*\\d{1,2}\\s*[-–—]\\s*\\d{1,2}\\s*(?:'+month+')?\\b','i')
     ];
-    for(const pattern of patterns){
-      const match=text.match(pattern);
-      if(match)return normalizePeriod(match[0]);
-    }
+    for(const pattern of patterns){const match=text.match(pattern);if(match)return normalizePeriod(match[0]);}
     return '';
   }
 
@@ -233,7 +228,6 @@
   const ROW_LINE_RATIO=0.5;      // garis horizontal: gelap di >=50% lebar gambar
   const COL_LINE_RATIO=0.4;      // garis vertikal: gelap di >=40% tinggi gambar
   const PREVIOUS_CHANGE_THRESHOLD=0.30; // tandai jika harga berubah >30% dari periode sebelumnya
-  const HEADER_ROWS_TO_SKIP=2;   // band ke-0 = area di atas tabel (judul), band ke-1 = header kolom
 
   async function loadCanvas(file){
     const bitmap=await createImageBitmap(file);
@@ -355,7 +349,7 @@
     const textA=await ocrCanvas(worker,variantContrast(cloneCanvas(cropCanvas)),'0123456789.',psm);
     const textB=await ocrCanvas(worker,variantBinarize(cloneCanvas(cropCanvas)),'0123456789.',psm);
     const numA=numeric(textA),numB=numeric(textB);
-    return {value:numA!=null?numA:numB,match:numA!=null&&numB!=null&&numA===numB,a:numA,b:numB};
+    return {value:numA!=null&&numA===numB?numA:null,match:numA!=null&&numA===numB,a:numA,b:numB};
   }
   async function readTextCell(worker,cropCanvas){
     const psm=Tesseract.PSM?Tesseract.PSM.SINGLE_LINE:7;
@@ -363,116 +357,164 @@
   }
 
   // ---------- Ekstraksi satu gambar penuh menjadi baris-baris data ----------
+  async function locateTable(worker,canvas,grid){
+    const bands=grid.rowBands.filter(b=>!bandIsBlank(grid.dark,grid.w,grid.h,b,'row'));
+    let headerIndex=-1,headerWords=[];
+    for(let i=0;i<Math.min(bands.length,8);i++){
+      const [y0,y1]=bands[i];
+      const crop=cropRegion(canvas,0,y0,grid.w,y1,0,2);
+      await worker.setParameters({tessedit_char_whitelist:'',tessedit_pageseg_mode:Tesseract.PSM?Tesseract.PSM.SINGLE_LINE:7});
+      const {data:result}=await worker.recognize(crop);
+      const header=String(result.text||'').toLowerCase();
+      if(/model/.test(header)&&/srp/.test(header)&&/period|support/.test(header)){
+        headerIndex=i;
+        headerWords=result.words||[];
+        break;
+      }
+    }
+    if(headerIndex<0)throw new Error('Header Model/SRP/Period tidak dikenali; gambar perlu diperiksa.');
+    let colBands=grid.colBands.filter(b=>!bandIsBlank(grid.dark,grid.w,grid.h,b,'col'));
+    if(colBands.length!==COLUMN_KEYS.length){
+      const words=headerWords.filter(w=>w&&w.bbox&&String(w.text||'').trim());
+      const centers=[];
+      for(const label of ['model','srp','srp','stp','support','period']){
+        const candidates=words.filter(w=>String(w.text||'').toLowerCase().includes(label));
+        const last=centers.length?centers[centers.length-1]:-1;
+        const found=candidates.find(w=>(w.bbox.x0+w.bbox.x1)/4>last);
+        if(!found)break;
+        centers.push((found.bbox.x0+found.bbox.x1)/4);
+      }
+      if(centers.length!==6||centers.some((x,i)=>i&&x<=centers[i-1])){
+        throw new Error('Batas enam kolom tidak pasti; gambar perlu diperiksa.');
+      }
+      const edges=[0];
+      for(let i=1;i<centers.length;i++)edges.push(Math.round((centers[i-1]+centers[i])/2));
+      edges.push(grid.w);
+      colBands=COLUMN_KEYS.map((_,i)=>[edges[i],edges[i+1]]);
+    }
+    return {colBands,dataBands:bands.slice(headerIndex+1)};
+  }
   async function extractRowsFromImage(worker,file,category){
     const canvas=await loadCanvas(file);
     const grid=detectGrid(canvas);
-    let colBands=grid.colBands;
-    if(colBands.length!==COLUMN_KEYS.length){
-      // Fallback proporsional kalau garis kolom tidak terdeteksi sesuai ekspektasi (misal resolusi beda).
-      colBands=COLUMN_KEYS.map((_,i)=>[Math.round(grid.w*(i/COLUMN_KEYS.length)),Math.round(grid.w*((i+1)/COLUMN_KEYS.length))]);
-    }
-    if(grid.rowBands.length<=HEADER_ROWS_TO_SKIP)throw new Error('struktur tabel tidak terbaca (garis grid tidak ditemukan)');
-    const dataRowBands=grid.rowBands.slice(HEADER_ROWS_TO_SKIP).filter(band=>!bandIsBlank(grid.dark,grid.w,grid.h,band,'row'));
+    const {colBands,dataBands}=await locateTable(worker,canvas,grid);
+    if(!dataBands.length)throw new Error('Baris data tidak ditemukan setelah header.');
     const rows=[];
-    for(const rowBand of dataRowBands){
+    for(const rowBand of dataBands){
       const [ry0,ry1]=rowBand;
-      const row={_meta:{}};
+      const row={_meta:{},_source:file.name};
       for(let c=0;c<COLUMN_KEYS.length;c++){
         const key=COLUMN_KEYS[c];
         const [cx0,cx1]=colBands[c];
-        const crop=cropRegion(canvas,cx0,ry0,cx1,ry1,0.08,3);
-        if(key==='model'){
-          row.model=normalizeModel(await readTextCell(worker,crop),category);
-        }else if(key==='period'){
+        const crop=cropRegion(canvas,cx0,ry0,cx1,ry1,0.06,3);
+        if(key==='model')row.model=normalizeModel(await readTextCell(worker,crop),category);
+        else if(key==='period'){
           const raw=await readTextCell(worker,crop);
           row.period=extractPeriod(raw)||normalizePeriod(raw);
         }else{
           const result=await readPriceCell(worker,crop);
           row[key]=result.value;
           row._meta[key+'_match']=result.match;
+          row._meta[key+'_candidates']=[result.a,result.b];
         }
       }
-      if(row.model&&!/^(model|promo sell out)/i.test(row.model))rows.push(row);
+      if(!/^(model|promo sell out)/i.test(row.model||''))rows.push(row);
     }
     return rows;
   }
 
-  // ---------- Validasi bisnis + banding periode sebelumnya ----------
-  function flagRow(row,previousRows){
+  // ---------- Validasi selalu dihitung ulang dari preview terakhir ----------
+  function rowKey(row){return String(row.model||'').trim().replace(/\s+/g,' ').toLocaleLowerCase();}
+  function rowFlags(row,previousRows){
     const flags=[];
-    const hasCorePrices=row.srp!=null&&row.srp_promo!=null&&row.stp_promo!=null;
-    if(!hasCorePrices){
-      flags.push('Harga (SRP/SRP Promo/STP Promo) belum terbaca lengkap');
-    }else if(!(row.srp>=row.srp_promo&&row.srp_promo>=row.stp_promo)){
-      flags.push('Urutan SRP ≥ SRP Promo ≥ STP Promo tidak terpenuhi');
-    }
-    ['srp','srp_promo','stp_promo','support'].forEach(key=>{
-      if(row._meta&&row._meta[key+'_match']===false)flags.push('OCR ganda beda baca kolom '+key.toUpperCase());
+    if(!row.model)flags.push('Model belum terbaca');
+    if(row.srp_promo==null||row.srp_promo<=0||row.stp_promo==null||row.stp_promo<=0)flags.push('SRP Promo/STP Promo belum valid');
+    if(row.srp_promo!=null&&row.stp_promo!=null&&row.stp_promo>row.srp_promo)flags.push('STP Promo melebihi SRP Promo');
+    if(row.srp!=null&&row.srp_promo!=null&&row.srp<row.srp_promo)flags.push('SRP lebih kecil dari SRP Promo');
+    if(!row.period||!extractPeriod(row.period))flags.push('Period perlu diperiksa');
+    ['srp_promo','stp_promo'].forEach(key=>{
+      if(row._meta&&row._meta[key+'_match']===false&&!row._meta[key+'_edited']){
+        const candidates=row._meta[key+'_candidates']||[];
+        flags.push('OCR '+key.toUpperCase()+' berbeda: '+candidates.map(v=>v==null?'?':v).join(' / '));
+      }
     });
-    if(!row.period)flags.push('Period tidak terbaca');
-    const prev=(previousRows||[]).find(p=>String(p.model||'').toLowerCase().trim()===String(row.model||'').toLowerCase().trim());
+    const prev=(previousRows||[]).find(p=>rowKey(p)===rowKey(row));
     if(prev&&row.stp_promo!=null&&prev.stp_promo){
       const change=Math.abs(row.stp_promo-prev.stp_promo)/prev.stp_promo;
-      if(change>PREVIOUS_CHANGE_THRESHOLD)flags.push('Beda '+Math.round(change*100)+'% dari periode sebelumnya (Rp'+Number(prev.stp_promo).toLocaleString('id-ID')+')');
+      if(change>PREVIOUS_CHANGE_THRESHOLD&&!row._confirmedChange)flags.push('Harga berubah '+Math.round(change*100)+'% dari data lama; konfirmasi');
     }
     return flags;
   }
-
-  // ---------- State hasil analisis, menunggu direview lalu disimpan ----------
-  let pending={}; // { category: { filename, rows:[{model,srp,srp_promo,stp_promo,support,period,flags,_meta}] } }
-
+  let pending={};
+  function validatePending(){
+    Object.keys(pending).forEach(cat=>{
+      const rows=pending[cat].rows;
+      const seen=new Map();
+      rows.forEach(row=>{row._identicalDuplicate=false;row.model=normalizeModel(row.model,cat);row.period=normalizePeriod(row.period);row.flags=rowFlags(row,data[cat]||[]);});
+      rows.forEach((row,index)=>{
+        const key=rowKey(row);
+        if(!key)return;
+        if(seen.has(key)){
+          const other=rows[seen.get(key)];
+          const equal=other.srp_promo===row.srp_promo&&other.stp_promo===row.stp_promo&&other.period===row.period;
+          if(!equal){row.flags.push('Duplikat model dengan harga/period berbeda');other.flags.push('Duplikat model dengan harga/period berbeda');}
+          else row._identicalDuplicate=true;
+        }else seen.set(key,index);
+      });
+    });
+  }
   function renderReview(){
     const categories=Object.keys(pending);
     if(!categories.length){reviewBox.style.display='none';return;}
+    validatePending();
     reviewBox.style.display='block';
-    let totalRows=0,totalFlagged=0;
-    categories.forEach(cat=>totalRows+=pending[cat].rows.length);
-    categories.forEach(cat=>totalFlagged+=pending[cat].rows.filter(r=>r.flags.length).length);
-    const totalOk=totalRows-totalFlagged;
-    reviewSummary.innerHTML=
-      '<span class="price-badge ok">✅ '+totalOk+' harga cocok / aman</span>'+
-      (totalFlagged?'<span class="price-badge warn">⚠️ '+totalFlagged+' perlu dicek</span>':'');
-    reviewToggle.style.display=totalFlagged?'inline-block':'none';
-    reviewToggle.textContent='Review '+totalFlagged+' Data Bermasalah';
+    const rows=categories.flatMap(cat=>pending[cat].rows);
+    const flagged=rows.filter(r=>r.flags.length).length;
+    const duplicates=rows.filter(r=>r._identicalDuplicate).length;
+    reviewSummary.innerHTML='<span class="price-badge ok">'+(rows.length-flagged-duplicates)+' siap disimpan</span>'+
+      (flagged?'<span class="price-badge warn">'+flagged+' perlu diperiksa</span>':'')+
+      (duplicates?'<span class="price-badge warn">'+duplicates+' duplikat identik akan digabung</span>':'');
+    reviewToggle.style.display='inline-block';
+    reviewToggle.textContent='Tinjau semua '+rows.length+' baris';
     saveButton.style.display='inline-block';
-    saveButton.textContent='Simpan ke Database ('+totalRows+' baris)';
+    saveButton.disabled=flagged>0;
+    saveButton.textContent=flagged?'Perbaiki '+flagged+' baris sebelum simpan':'Simpan ke Database ('+(rows.length-duplicates)+' baris)';
     renderReviewTable();
   }
   function renderReviewTable(){
     const rowsHtml=[];
-    Object.keys(pending).forEach(cat=>{
-      pending[cat].rows.forEach((row,idx)=>{
-        if(!row.flags.length)return;
-        rowsHtml.push('<tr data-cat="'+cat+'" data-idx="'+idx+'">'+
-          '<td>'+esc(cat)+'</td>'+
-          '<td><input data-field="model" value="'+esc(row.model||'')+'"></td>'+
-          '<td><input data-field="srp_promo" value="'+(row.srp_promo??'')+'"></td>'+
-          '<td><input data-field="stp_promo" value="'+(row.stp_promo??'')+'"></td>'+
-          '<td><input data-field="period" value="'+esc(row.period||'')+'"></td>'+
-          '<td class="price-flag-cell">'+esc(row.flags.join('; '))+'</td>'+
-          '</tr>');
-      });
-    });
-    reviewTableWrap.innerHTML='<table class="price-review-table"><thead><tr><th>Kategori</th><th>Model</th><th>SRP Promo</th><th>STP Promo</th><th>Period</th><th>Kenapa ditandai</th></tr></thead><tbody>'+rowsHtml.join('')+'</tbody></table>';
-    reviewTableWrap.querySelectorAll('input').forEach(input=>{
-      input.addEventListener('change',function(){
-        const tr=this.closest('tr');
-        const cat=tr.dataset.cat,idx=Number(tr.dataset.idx),field=this.dataset.field;
-        const row=pending[cat].rows[idx];
-        row[field]=(field==='srp_promo'||field==='stp_promo')?numeric(this.value):this.value.trim();
-        tr.classList.add('price-row-fixed');
-      });
-    });
+    Object.keys(pending).forEach(cat=>pending[cat].rows.forEach((row,idx)=>{
+      rowsHtml.push('<tr data-cat="'+cat+'" data-idx="'+idx+'">'+
+        '<td>'+esc(cat)+'</td><td><input data-field="model" value="'+esc(row.model||'')+'"></td>'+
+        '<td><input data-field="srp_promo" value="'+(row.srp_promo??'')+'"></td>'+
+        '<td><input data-field="stp_promo" value="'+(row.stp_promo??'')+'"></td>'+
+        '<td><input data-field="period" value="'+esc(row.period||'')+'"></td>'+
+        '<td class="price-flag-cell">'+esc(row.flags.join('; ')||(row._identicalDuplicate?'Duplikat identik':'Siap disimpan'))+
+        (row.flags.some(f=>f.includes('Harga berubah'))?'<br><button type="button" data-confirm-change="1">Konfirmasi perubahan harga</button>':'')+'</td></tr>');
+    }));
+    reviewTableWrap.innerHTML='<table class="price-review-table"><thead><tr><th>Kategori</th><th>Model</th><th>SRP Promo</th><th>STP Promo</th><th>Period</th><th>Status</th></tr></thead><tbody>'+rowsHtml.join('')+'</tbody></table>';
+    reviewTableWrap.querySelectorAll('input').forEach(input=>input.addEventListener('change',function(){
+      const tr=this.closest('tr'),row=pending[tr.dataset.cat].rows[Number(tr.dataset.idx)],field=this.dataset.field;
+      row[field]=(field==='srp_promo'||field==='stp_promo')?numeric(this.value):this.value.trim();
+      if(row._meta&&row._meta[field+'_match']===false)row._meta[field+'_edited']=true;
+      row._confirmedChange=false;
+      renderReview();
+    }));
+    reviewTableWrap.querySelectorAll('[data-confirm-change]').forEach(button=>button.addEventListener('click',function(){
+      const tr=this.closest('tr');pending[tr.dataset.cat].rows[Number(tr.dataset.idx)]._confirmedChange=true;renderReview();
+    }));
   }
   reviewToggle.addEventListener('click',function(){
     const showing=reviewTableWrap.style.display!=='none';
     reviewTableWrap.style.display=showing?'none':'block';
-    this.textContent=(showing?'Review ':'Sembunyikan ')+Object.values(pending).reduce((n,item)=>n+item.rows.filter(r=>r.flags.length).length,0)+(showing?' Data Bermasalah':'');
+    this.textContent=(showing?'Tinjau semua ':'Sembunyikan ')+Object.values(pending).reduce((n,item)=>n+item.rows.length,0)+' baris';
   });
   saveButton.addEventListener('click',async function(){
+    validatePending();
+    if(Object.values(pending).some(item=>item.rows.some(row=>row.flags.length))){renderReview();return;}
     saveButton.disabled=true;
     const categories=Object.keys(pending);
-    let totalRows=0;const saveFailed=[];
+    let totalLoaded=0,totalSkipped=0,totalDuplicate=0;const saveFailed=[];
     for(let i=0;i<categories.length;i++){
       const cat=categories[i];
       showProgress('Menyimpan '+cat+' ('+(i+1)+'/'+categories.length+')...');
@@ -481,13 +523,16 @@
         const response=await fetch('{{ url_for("upload_pricelist_image") }}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({category:cat,filename:pending[cat].filename,rows:payloadRows})});
         const resultJson=await response.json();
         if(!response.ok||!resultJson.ok){saveFailed.push(cat+': '+(resultJson.message||'gagal disimpan'));continue;}
-        totalRows+=payloadRows.length;
+        totalLoaded+=Number(resultJson.rows_loaded)||0;
+        totalSkipped+=Number(resultJson.rows_skipped)||0;
+        totalDuplicate+=Number(resultJson.duplicate)||0;
+        delete pending[cat];
       }catch(err){saveFailed.push(cat+': '+(err.message||'gagal disimpan'));}
     }
-    if(saveFailed.length)showProgress('Sebagian gagal disimpan: '+saveFailed.join(' | '),'error');
-    else showProgress('Berhasil menyimpan '+totalRows+' baris pricelist.','success');
-    saveButton.disabled=false;
-    if(!saveFailed.length)setTimeout(()=>window.location.reload(),1200);
+    const summary=totalLoaded+' produk berhasil disimpan, '+totalSkipped+' dilewati, '+totalDuplicate+' duplikat digabung.';
+    showProgress(saveFailed.length?summary+' Gagal: '+saveFailed.join(' | '):summary,saveFailed.length?'error':'success');
+    if(saveFailed.length)renderReview();
+    else setTimeout(()=>window.location.reload(),1200);
   });
 
   uploadButton.addEventListener('click',async function(){
@@ -516,8 +561,7 @@
           showProgress('Membaca sel-sel tabel '+file.name+' ('+(index+1)+'/'+files.length+')... ini bisa makan waktu 1-3 menit per gambar.');
           const rows=await extractRowsFromImage(worker,file,category);
           if(!rows.length)throw new Error('baris data tidak terbaca dari struktur tabel');
-          const previousRows=data[category]||[];
-          rows.forEach(row=>{row.flags=flagRow(row,previousRows);});
+          rows.forEach(row=>{row.flags=[];});
           if(!pending[category])pending[category]={filename:'',rows:[]};
           pending[category].filename=(pending[category].filename?pending[category].filename+' + ':'')+file.name;
           pending[category].rows.push(...rows);
