@@ -2785,11 +2785,15 @@ def pricelist():
 def upload_pricelist_image():
     payload = request.get_json(silent=True) or {}
     category = normalize_text(payload.get('category')).lower()
-    filename = secure_filename(normalize_text(payload.get('filename')) or 'pricelist.jpg')
+    source = normalize_text(payload.get('source') or 'image').lower()
+    filename = secure_filename(normalize_text(payload.get('filename')) or
+                               ('paste-table' if source == 'paste' else 'pricelist.jpg'))
     rows = payload.get('rows') or []
     if category not in PRICELIST_CATEGORIES:
         return jsonify({'ok': False, 'message': 'Kategori pricelist tidak valid.'}), 400
-    if not filename.lower().endswith(('.jpg', '.jpeg')):
+    if source not in ('image', 'paste'):
+        return jsonify({'ok': False, 'message': 'Sumber pricelist tidak valid.'}), 400
+    if source == 'image' and not filename.lower().endswith(('.jpg', '.jpeg')):
         return jsonify({'ok': False, 'message': 'Format gambar harus JPG/JPEG.'}), 400
     if not isinstance(rows, list) or not rows:
         return jsonify({'ok': False, 'message': 'Tidak ada baris pricelist yang berhasil dibaca.'}), 400
@@ -2817,7 +2821,7 @@ def upload_pricelist_image():
         srp_promo = price(raw.get('srp_promo'))
         stp_promo = price(raw.get('stp_promo'))
         if (not model or not period or len(model) > 500 or len(period) > 100
-                or srp_promo is None or stp_promo is None or stp_promo > srp_promo):
+                or srp_promo is None or stp_promo is None):
             invalid.append(index)
             continue
         key = model.casefold()
