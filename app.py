@@ -2812,6 +2812,12 @@ def upload_pricelist_image():
     invalid = []
     conflicts = []
     duplicate = 0
+    month_pattern = r'(?:Jan|Feb|Mar|Apr|May|Mei|Jun|Jul|Aug|Agu|Sep|Sept|Oct|Okt|Nov|Dec|Des)'
+    period_patterns = (
+        rf'\d{{1,2}}\s*[-–—]\s*\d{{1,2}}\s*{month_pattern}',
+        rf'\d{{1,2}}\s*{month_pattern}\s*[-–—]\s*\d{{1,2}}(?:\s*{month_pattern})?',
+        rf'{month_pattern}\s*\d{{1,2}}\s*[-–—]\s*\d{{1,2}}(?:\s*{month_pattern})?',
+    )
     for index, raw in enumerate(rows, 1):
         if not isinstance(raw, dict):
             invalid.append(index)
@@ -2820,7 +2826,15 @@ def upload_pricelist_image():
         period = normalize_text(raw.get('period'))
         srp_promo = price(raw.get('srp_promo'))
         stp_promo = price(raw.get('stp_promo'))
+        period_valid = any(re.fullmatch(pattern, period, re.IGNORECASE) for pattern in period_patterns)
+        period_days = [int(day) for day in re.findall(r'\d{1,2}', period)]
+        model_has_price = any(
+            re.fullmatch(r'\d[\d.,]*', token) and len(re.sub(r'\D', '', token)) >= 7
+            for token in model.split()
+        )
         if (not model or not period or len(model) > 500 or len(period) > 100
+                or model_has_price or not period_valid or len(period_days) != 2
+                or any(day < 1 or day > 31 for day in period_days)
                 or srp_promo is None or stp_promo is None):
             invalid.append(index)
             continue
@@ -2844,25 +2858,21 @@ def upload_pricelist_image():
 
     try:
         now = datetime.utcnow()
-        existing = {item.model.casefold(): item for item in
-                    PricelistItem.query.filter_by(category=category).all()}
-        next_order = max((item.sort_order or 0 for item in existing.values()), default=-1) + 1
-        for row in cleaned.values():
-            item = existing.get(row['model'].casefold())
-            if item is None:
-                item = PricelistItem(category=category, sort_order=next_order)
-                next_order += 1
-                db.session.add(item)
-            item.model = row['model']
-            item.period = row['period']
-            item.srp_promo = row['srp_promo']
-            item.stp_promo = row['stp_promo']
-            item.updated_at = now
-            item.updated_by = session.get('username')
+        rows_replaced = PricelistItem.query.filter_by(category=category).count()
+        PricelistItem.query.filter_by(category=category).delete(synchronize_session=False)
+        for sort_order, row in enumerate(cleaned.values()):
+            db.session.add(PricelistItem(
+                category=category, sort_order=sort_order,
+                updated_at=now, updated_by=session.get('username'), **row,
+            ))
         db.session.add(PricelistUploadLog(
             category=category, filename=filename, rows_loaded=len(cleaned),
             uploaded_by=session.get('username'), uploaded_at=now,
         ))
+        db.session.flush()
+        rows_loaded = PricelistItem.query.filter_by(category=category).count()
+        if rows_loaded != len(cleaned):
+            raise RuntimeError('Jumlah baris pricelist setelah insert tidak sesuai.')
         db.session.commit()
     except Exception:
         db.session.rollback()
@@ -2870,8 +2880,8 @@ def upload_pricelist_image():
         return jsonify({'ok': False, 'message': 'Pricelist gagal disimpan; data lama tetap aman.'}), 500
     return jsonify({
         'ok': True,
-        'message': f'{len(cleaned)} baris {PRICELIST_CATEGORIES[category]} berhasil diperbarui.',
-        'rows_loaded': len(cleaned), 'rows_skipped': 0,
+        'message': f'{rows_loaded} produk {PRICELIST_CATEGORIES[category]} berhasil menggantikan pricelist sebelumnya.',
+        'rows_loaded': rows_loaded, 'rows_replaced': rows_replaced, 'rows_skipped': 0,
         'duplicate': duplicate, 'invalid': [], 'redirect': url_for('pricelist'),
     })
 
