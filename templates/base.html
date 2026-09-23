@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M34.5%2014.5A19.5%2019.5%200%201%200%2042%2027%22%20stroke%3D%22%23111827%22%20stroke-width%3D%228%22%20stroke-linecap%3D%22round%22%2F%3E%3Ccircle%20cx%3D%2223%22%20cy%3D%2232%22%20r%3D%226.5%22%20fill%3D%22%23F97316%22%2F%3E%3Cpath%20d%3D%22M30.5%2025%2048%208m-8%200h8v8%22%20stroke%3D%22%23F97316%22%20stroke-width%3D%225%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Crect%20x%3D%2232%22%20y%3D%2251%22%20width%3D%227%22%20height%3D%227%22%20rx%3D%222%22%20fill%3D%22%23111827%22%2F%3E%3Crect%20x%3D%2242%22%20y%3D%2242%22%20width%3D%227%22%20height%3D%2216%22%20rx%3D%222%22%20fill%3D%22%23111827%22%2F%3E%3Crect%20x%3D%2252%22%20y%3D%2230%22%20width%3D%227%22%20height%3D%2228%22%20rx%3D%222%22%20fill%3D%22%23111827%22%2F%3E%3C%2Fsvg%3E">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/dashboard-logo.svg') }}">
 
   <title>{% block title %}Daily Sales Report{% endblock %}</title>
 
@@ -63,12 +63,13 @@
       width: 52px;
       height: 52px;
       flex: 0 0 52px;
+      overflow: visible;
       color: #111827;
       display: flex;
       align-items: center;
       justify-content: center;
     }
-    .brand-logo svg { width: 100%; height: 100%; display: block; }
+    .brand-logo img { width: 100%; height: 100%; display: block; overflow: visible; }
 
     .brand-title {
       font-weight: 800;
@@ -284,7 +285,7 @@
   <header class="topbar">
 
     <a class="brand" href="{{ url_for('dashboard') }}">
-      <div class="brand-logo" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M34.5 14.5A19.5 19.5 0 1 0 42 27" stroke="#111827" stroke-width="8" stroke-linecap="round"/><circle cx="23" cy="32" r="6.5" fill="#F97316"/><path d="M30.5 25 48 8m-8 0h8v8" stroke="#F97316" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><rect x="32" y="51" width="7" height="7" rx="2" fill="#111827"/><rect x="42" y="42" width="7" height="16" rx="2" fill="#111827"/><rect x="52" y="30" width="7" height="28" rx="2" fill="#111827"/></svg></div>
+      <div class="brand-logo" aria-hidden="true"><img src="{{ url_for('static', filename='img/dashboard-logo.svg') }}" alt=""></div>
 
       <div>
         <div class="brand-title">Daily Monitoring Dashboard</div>
