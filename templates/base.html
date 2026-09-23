@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2216%22%20fill%3D%22%23111827%22%2F%3E%3Cpath%20d%3D%22M35%2010a21%2021%200%201%200%2013%2016%22%20fill%3D%22none%22%20stroke%3D%22white%22%20stroke-width%3D%228%22%20stroke-linecap%3D%22round%22%2F%3E%3Ccircle%20cx%3D%2227%22%20cy%3D%2231%22%20r%3D%227%22%20fill%3D%22%23F97316%22%2F%3E%3Cpath%20d%3D%22M33%2026%2050%209m-7%200h7v7%22%20fill%3D%22none%22%20stroke%3D%22%23F97316%22%20stroke-width%3D%225%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Crect%20x%3D%2236%22%20y%3D%2243%22%20width%3D%226%22%20height%3D%2212%22%20rx%3D%222%22%20fill%3D%22white%22%2F%3E%3Crect%20x%3D%2246%22%20y%3D%2235%22%20width%3D%226%22%20height%3D%2220%22%20rx%3D%222%22%20fill%3D%22white%22%2F%3E%3Crect%20x%3D%2256%22%20y%3D%2226%22%20width%3D%226%22%20height%3D%2229%22%20rx%3D%222%22%20fill%3D%22white%22%2F%3E%3C%2Fsvg%3E">
 
   <title>{% block title %}Daily Sales Report{% endblock %}</title>
 
@@ -62,18 +63,14 @@
       width: 56px;
       height: 56px;
       border-radius: 16px;
-      background: linear-gradient(145deg,#2580ff,#0758d8);
+      background: #111827;
       color: white;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 4px;
-      box-shadow: 0 10px 24px rgba(37,99,235,.22);
+      box-shadow: 0 10px 24px rgba(17,24,39,.16);
     }
-    .brand-logo span { width: 5px; border-radius: 4px; background: #fff; display: block; }
-    .brand-logo span:nth-child(1) { height: 13px; margin-top: 12px; }
-    .brand-logo span:nth-child(2) { height: 21px; margin-top: 4px; }
-    .brand-logo span:nth-child(3) { height: 29px; margin-top: -4px; }
+    .brand-logo svg { width: 80%; height: 80%; display: block; }
 
     .brand-title {
       font-weight: 800;
@@ -86,10 +83,10 @@
       margin-top: 2px;
     }
 
-    .navlinks {
+    .navigation-bar {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 12px;
       flex: 1 0 100%;
       order: 3;
       padding: 9px;
@@ -98,26 +95,27 @@
       border-radius: 16px;
       box-shadow: 0 4px 18px rgba(15,23,42,.05);
     }
+    .navlinks { display:flex;align-items:center;gap:4px;flex:1 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none; }
+    .navlinks::-webkit-scrollbar { display:none; }
 
     .header-tools {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-      flex: 1 0 100%;
-      order: 2;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 0 0 auto;
     }
 
     .header-tool {
-      min-height: 48px;
+      min-height: 42px;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 10px;
       border: 1px solid #dbe4f0;
-      border-radius: 14px;
+      border-radius: 10px;
       background: #fff;
       color: var(--navy);
-      box-shadow: 0 4px 18px rgba(15,23,42,.05);
+      box-shadow: none;
       font-size: 14px;
       font-weight: 800;
     }
@@ -131,6 +129,8 @@
       border-radius: 9px;
       font-size: 14px;
       font-weight: 800;
+      white-space: nowrap;
+      flex: 0 0 auto;
     }
 
     .navlinks a:hover {
@@ -244,13 +244,16 @@
         min-width: 0;
       }
 
+      .navigation-bar { display:flex;flex-wrap:wrap;width:100%;gap:8px; }
       .navlinks {
         width: 100%;
         overflow-x: auto;
         flex-wrap: nowrap;
+        flex: 1 0 100%;
       }
 
-      .header-tools { grid-template-columns: 1fr 1fr; gap: 8px; }
+      .header-tools { width:100%;gap:8px; }
+      .header-tool { flex:1 1 0; }
       .header-tool { min-height: 44px; font-size: 12px; border-radius: 12px; }
 
       .user-area {
@@ -268,7 +271,7 @@
       .brand-logo { width: 46px; height: 46px; border-radius: 13px; }
       .brand-title { font-size: 19px; }
       .brand-subtitle { font-size: 11px; }
-      .user-info { display: none; }
+      .user-info { display: block; font-size: 10px; line-height: 1.2; }
       .logout { padding: 7px 9px; font-size: 11px; }
       .navlinks { padding: 6px; border-radius: 13px; }
       .navlinks a { padding: 8px 11px; font-size: 12px; white-space: nowrap; }
@@ -283,7 +286,7 @@
   <header class="topbar">
 
     <a class="brand" href="{{ url_for('dashboard') }}">
-      <div class="brand-logo" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div class="brand-logo" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M35 10a21 21 0 1 0 13 16" stroke="#fff" stroke-width="8" stroke-linecap="round"/><circle cx="27" cy="31" r="7" fill="#F97316"/><path d="M33 26 50 9m-7 0h7v7" stroke="#F97316" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><rect x="36" y="43" width="6" height="12" rx="2" fill="#fff"/><rect x="46" y="35" width="6" height="20" rx="2" fill="#fff"/><rect x="56" y="26" width="6" height="29" rx="2" fill="#fff"/></svg></div>
 
       <div>
         <div class="brand-title">Daily Monitoring Dashboard</div>
@@ -293,6 +296,7 @@
 
     <div class="user-area">
 
+      {% if session.get('user_id') and session.get('role') == 'admin' %}
       <div class="user-info">
         <strong>{{ session.get('username', '') }}</strong><br>
         {{ session.get('role', '') }}
@@ -301,11 +305,13 @@
       <a class="logout" href="{{ url_for('logout') }}">
         Logout
       </a>
+      {% else %}
+      <a class="logout" href="{{ url_for('login') }}">Login</a>
+      {% endif %}
 
     </div>
 
-    {% block header_tools %}{% endblock %}
-
+    <div class="navigation-bar">
     <nav class="navlinks">
 
       <a class="{% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}">
@@ -345,6 +351,8 @@
       {% endif %}
 
     </nav>
+    {% block header_tools %}{% endblock %}
+    </div>
 
   </header>
 
@@ -373,6 +381,13 @@
 
 
   {% block scripts %}{% endblock %}
+  <script>
+    const activeNav=document.querySelector('.navlinks a.active');
+    const navLinks=activeNav?.closest('.navlinks');
+    if(navLinks && navLinks.scrollWidth>navLinks.clientWidth){
+      navLinks.scrollLeft=activeNav.offsetLeft-navLinks.offsetLeft-(navLinks.clientWidth-activeNav.offsetWidth)/2;
+    }
+  </script>
 
 </body>
 </html>
