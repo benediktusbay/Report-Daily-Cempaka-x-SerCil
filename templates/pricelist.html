@@ -52,6 +52,7 @@
 
 </details>
 <div class="card price-admin price-review" id="priceReview" style="display:none">
+    <h2 style="margin:0 0 12px;font-size:18px">Preview data baru</h2>
     <div class="price-review-summary" id="priceReviewSummary"></div>
     <div class="price-review-table-wrap" id="priceReviewTableWrap" style="display:none"></div>
     <div class="price-review-actions">
@@ -74,6 +75,7 @@
 </div>
 
 <div class="card price-table-wrap">
+  <h2 style="margin:14px 15px;font-size:18px">Pricelist tersimpan</h2>
   <table class="price-table">
     <thead><tr><th>Model</th><th>SRP Promo</th><th>STP Promo</th><th>Period</th></tr></thead>
     <tbody id="priceTableBody"></tbody>
@@ -133,6 +135,7 @@
   const pasteAnalyze=document.getElementById('pricePasteAnalyze');
   const pasteProgress=document.getElementById('pricePasteProgress');
   let pendingOrigin='image';
+  let analysisGeneration=0;
   function showPasteProgress(message,type){pasteProgress.style.display='block';pasteProgress.className='price-progress'+(type?' '+type:'');pasteProgress.textContent=message;}
   function showWorkflowProgress(message,type){(pendingOrigin==='paste'?showPasteProgress:showProgress)(message,type);}
   function parseRupiah(value,allowZero=false){
@@ -153,39 +156,54 @@
     fields.push(value.trim());
     return fields;
   }
-  function splitPasteLine(line){
-    if(line.includes('\t'))return line.split('\t').map(v=>v.trim());
-    if(line.includes('|'))return line.replace(/^\s*\|/,'').replace(/\|\s*$/,'').split('|').map(v=>v.trim());
-    if(/\s{2,}/.test(line))return line.trim().split(/\s{2,}/).map(v=>v.trim());
-    return parseCsvLine(line);
-  }
+  const PASTE_COLUMNS=['model','srp','srp_promo','stp_promo','support','period'];
   function pasteHeaderKey(value){
     const key=String(value||'').toLowerCase().replace(/[^a-z]/g,'');
     return {model:'model',srp:'srp',srppromo:'srp_promo',stppromo:'stp_promo',support:'support',period:'period'}[key]||'';
   }
+  function pasteFormat(lines){
+    if(lines.some(line=>line.includes('\t')))return 'tsv';
+    const first=lines.find(line=>line.trim());
+    if(!first)return '';
+    if(first.includes('|'))return 'markdown';
+    if(first.includes(',')&&parseCsvLine(first).length===6)return 'csv';
+    if(first.trim().split(/\s{2,}/).length===6)return 'spaces';
+    return '';
+  }
+  function pasteCells(line,format){
+    if(format==='tsv')return line.split('\t').map(value=>value.trim());
+    if(format==='markdown')return line.replace(/^\s*\|/,'').replace(/\|\s*$/,'').split('|').map(value=>value.trim());
+    if(format==='csv')return parseCsvLine(line);
+    if(format==='spaces')return line.trim().split(/\s{2,}/).map(value=>value.trim());
+    return [];
+  }
   function parsePasteTable(text,category){
-    const lines=String(text||'').trim().replace(/\r/g,'').split('\n').map(x=>x.trim()).filter(x=>!/^```/.test(x));
-    const parsed=[];let header=null,blank=0;
-    for(const line of lines){
-      const cells=splitPasteLine(line);
-      if(cells.every(x=>!x||/^:?-{3,}:?$/.test(x))){blank++;continue;}
+    const lines=String(text||'').replace(/\r/g,'').split('\n').filter(line=>!/^\s*```/.test(line));
+    const format=pasteFormat(lines);
+    const rows=[],errors=[];let blank=0,headerSeen=false;
+    if(!format)return {rows,blank,format,errors:['Gunakan TAB untuk enam kolom: Model, SRP, SRP Promo, STP Promo, Support, Period.']};
+    for(let index=0;index<lines.length;index++){
+      const line=lines[index];
+      if(!line.trim()){blank++;continue;}
+      const cells=pasteCells(line,format);
+      if(format==='markdown'&&cells.every(value=>/^:?-{3,}:?$/.test(value))){blank++;continue;}
+      if(cells.length!==6){errors.push('Baris '+(index+1)+' memiliki '+cells.length+' kolom; wajib tepat 6.');continue;}
       const mapped=cells.map(pasteHeaderKey);
-      if(!header&&mapped.includes('model')&&mapped.includes('srp_promo')&&mapped.includes('stp_promo')){
-        header=mapped;continue;
+      if(mapped.some(Boolean)){
+        if(mapped.every((key,i)=>key===PASTE_COLUMNS[i])&&!headerSeen){headerSeen=true;continue;}
+        if(mapped.includes('model')||mapped.includes('srp_promo')){errors.push('Header baris '+(index+1)+' tidak sesuai urutan enam kolom.');continue;}
       }
-      const keys=header||['model','srp','srp_promo','stp_promo','support','period'];
-      const values={};keys.forEach((key,index)=>{if(key)values[key]=cells[index]||'';});
-      if(!String(values.model||'').trim()&&['srp','srp_promo','stp_promo','support','period'].every(key=>!String(values[key]||'').trim())){blank++;continue;}
-      const model=String(values.model||'').replace(/\s+/g,' ').trim();
-      parsed.push({
+      if(cells.every(value=>!value)){blank++;continue;}
+      const [model,srp,srpPromo,stpPromo,support,period]=cells;
+      rows.push({
         _category:category,_sourceType:'paste',_meta:{},
-        model,srp:parseRupiah(values.srp),srp_promo:parseRupiah(values.srp_promo),
-        stp_promo:parseRupiah(values.stp_promo),support:parseRupiah(values.support,true),
-        period:normalizePeriod(values.period),
-        _raw:{srp:values.srp||'',srp_promo:values.srp_promo||'',stp_promo:values.stp_promo||'',support:values.support||''}
+        model,srp:parseRupiah(srp),srp_promo:parseRupiah(srpPromo),
+        stp_promo:parseRupiah(stpPromo),support:parseRupiah(support,true),
+        period:normalizePeriod(period),
+        _raw:{srp,srp_promo:srpPromo,stp_promo:stpPromo,support}
       });
     }
-    return {rows:parsed,blank};
+    return {rows,blank,format,errors};
   }
 
   // ---------- Normalisasi teks (model/period) — sama seperti versi sebelumnya ----------
@@ -715,7 +733,7 @@
     Object.keys(pending).forEach(cat=>{
       const rows=pending[cat].rows;
       const seen=new Map();
-      rows.forEach(row=>{row._identicalDuplicate=false;row._category=cat;row.model=row._sourceType==='paste'?String(row.model||'').replace(/\s+/g,' ').trim():normalizeModel(row.model,cat);row.period=normalizePeriod(row.period);const result=rowValidation(row,data[cat]||[]);row.errors=result.errors;row.warnings=result.warnings;});
+      rows.forEach(row=>{row._identicalDuplicate=false;row._category=cat;row.model=row._sourceType==='paste'?String(row.model||'').trim():normalizeModel(row.model,cat);row.period=normalizePeriod(row.period);const result=rowValidation(row,data[cat]||[]);row.errors=result.errors;row.warnings=result.warnings;});
       rows.forEach((row,index)=>{
         const key=rowKey(row);
         if(!key)return;
@@ -819,11 +837,16 @@
   });
 
   pasteAnalyze.addEventListener('click',function(){
+    analysisGeneration++;
     pendingOrigin='paste';
     const category=pasteCategory.value;
-    const result=parsePasteTable(pasteText.value,category);
     pending={};
     reviewBox.style.display='none';
+    reviewTableWrap.innerHTML='';
+    reviewSummary.innerHTML='';
+    saveButton.style.display='none';
+    const result=parsePasteTable(pasteText.value,category);
+    if(result.errors.length){showPasteProgress('Format tabel perlu diperbaiki: '+result.errors.slice(0,4).join(' '),'error');return;}
     if(!result.rows.length){showPasteProgress('Tidak ada baris produk yang dapat dianalisis. Tempel tabel dengan kolom Model, SRP Promo, STP Promo, dan Period.','error');return;}
     pending[category]={filename:'paste-table',source:'paste',rows:result.rows};
     reviewTableWrap.style.display='block';
@@ -855,12 +878,14 @@
     if(files.some(file=>!/image\/jpeg/.test(file.type)&&!/\.jpe?g$/i.test(file.name))){showProgress('Semua gambar harus berformat JPG/JPEG.','error');return;}
     if(!window.Tesseract){showProgress('Pembaca JPG belum termuat. Muat ulang halaman lalu coba lagi.','error');return;}
     uploadButton.disabled=true;
+    const generation=++analysisGeneration;
     reviewBox.style.display='none';
     pending={};
     let worker=null;
     try{
       worker=await Tesseract.createWorker('eng',1,{});
       await worker.setParameters({preserve_interword_spaces:'1',user_defined_dpi:'300'});
+      if(generation!==analysisGeneration)throw new Error('analysis cancelled');
       const failed=[];
       const needsManual=[];
       for(let index=0;index<files.length;index++){
@@ -868,16 +893,20 @@
         try{
           showProgress('Mendeteksi kategori '+file.name+' ('+(index+1)+'/'+files.length+')...');
           const previewCanvas=await loadCanvas(file);
+          if(generation!==analysisGeneration)throw new Error('analysis cancelled');
           const category=manualChoices.get(index)||await detectImageCategory(worker,previewCanvas,file.name);
+          if(generation!==analysisGeneration)throw new Error('analysis cancelled');
           if(!category){needsManual.push(index);throw new Error('kategori belum dikenali otomatis');}
           showProgress('Membaca sel-sel tabel '+file.name+' ('+(index+1)+'/'+files.length+')... ini bisa makan waktu 1-3 menit per gambar.');
           const rows=await extractRowsFromImage(worker,file,category);
+          if(generation!==analysisGeneration)throw new Error('analysis cancelled');
           if(!rows.length)throw new Error('baris data tidak terbaca dari struktur tabel');
           rows.forEach(row=>{row.flags=[];});
           if(!pending[category])pending[category]={filename:'',source:'image',rows:[]};
           pending[category].filename=(pending[category].filename?pending[category].filename+' + ':'')+file.name;
           pending[category].rows.push(...rows);
         }catch(err){
+          if(generation!==analysisGeneration)throw err;
           failed.push(file.name+': '+(err.message||'gagal dibaca'));
         }
       }
@@ -890,7 +919,7 @@
       renderReview();
       if(needsManual.length){saveButton.disabled=true;saveButton.textContent='Pilih kategori JPG yang belum dikenali';}
     }catch(error){
-      showProgress(error.message||'JPG gagal dibaca.','error');
+      if(generation===analysisGeneration)showProgress(error.message||'JPG gagal dibaca.','error');
     }finally{
       if(worker){try{await worker.terminate();}catch(error){}}
       uploadButton.disabled=false;
