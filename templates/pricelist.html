@@ -9,10 +9,9 @@
 .price-field label{display:block;margin-bottom:6px;color:#64748b;font-size:11px;font-weight:800;text-transform:uppercase}.price-field select,.price-field input{width:100%;min-height:41px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;padding:8px 10px}
 .price-btn{min-height:41px;border:0;border-radius:9px;background:#0b3765;color:#fff;padding:9px 15px;font-weight:800;cursor:pointer}.price-btn.copy{background:#16884b}.price-btn.warn{background:#b45309}.price-btn.save{background:#167044}.price-btn:disabled{opacity:.6;cursor:wait}
 .price-progress{display:none;margin-top:12px;padding:10px 12px;border-radius:9px;background:#eef5fc;color:#0b3765;font-size:13px}.price-progress.error{background:#fff1f2;color:#b42318}.price-progress.success{background:#ecfdf3;color:#167044}
-.price-controls{padding:15px;margin-bottom:14px}.price-search{display:flex;gap:10px;align-items:end}.price-search .price-field{flex:1}
-.price-tabs{display:flex;gap:8px;overflow-x:auto;margin:0 0 12px}.price-tab{flex:0 0 auto;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#334155;padding:9px 14px;font-weight:800;cursor:pointer}.price-tab.active{background:#0b3765;border-color:#0b3765;color:#fff}
-.price-count{margin-left:auto;align-self:center;color:#64748b;font-size:12px;white-space:nowrap}.price-table-wrap{overflow-x:auto;border-radius:14px}.price-table{min-width:760px;background:#fff}.price-table th{background:#eaf2fb;color:#334155}.price-table td:nth-child(n+2){text-align:right;white-space:nowrap}.price-table th:nth-child(n+2){text-align:right}.price-table td:first-child{font-weight:700}.price-table td:last-child,.price-table th:last-child{text-align:center}.price-empty{text-align:center!important;padding:35px!important;color:#64748b;font-weight:400!important}
-@media(max-width:720px){.pricelist-head{display:block}.price-upload{grid-template-columns:1fr}.price-btn{width:100%}.price-search{display:block}.price-search .price-btn{margin-top:10px}.price-count{display:none}.price-table th:first-child,.price-table td:first-child{position:sticky;left:0;z-index:2;min-width:230px;background:#fff}.price-table th:first-child{z-index:3;background:#eaf2fb}}
+.price-tabs-bar{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap}.price-tabs{display:flex;gap:8px;overflow-x:auto;flex:1;min-width:0}.price-tab{flex:0 0 auto;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#334155;padding:9px 14px;font-weight:800;cursor:pointer}.price-tab.active{background:#0b3765;border-color:#0b3765;color:#fff}.price-tab-actions{display:flex;align-items:center;gap:12px;margin-left:auto}
+.price-count{color:#64748b;font-size:12px;white-space:nowrap}.price-table-wrap{overflow-x:auto;border-radius:14px}.price-table{min-width:760px;background:#fff}.price-table th{background:#eaf2fb;color:#334155}.price-table th:nth-child(n+2){text-align:center}.price-table td{text-align:left;white-space:nowrap}.price-table td:first-child,.price-table th:first-child{text-align:left}.price-table td:first-child{font-weight:700}.price-empty{text-align:center!important;padding:35px!important;color:#64748b;font-weight:400!important}
+@media(max-width:720px){.pricelist-head{display:block}.price-upload{grid-template-columns:1fr}.price-btn{width:100%}.price-tabs{flex-basis:100%}.price-tab-actions{margin-left:0;width:100%;justify-content:space-between}.price-tab-actions .price-btn{width:auto}.price-table th:first-child,.price-table td:first-child{position:sticky;left:0;z-index:2;min-width:230px;background:#fff}.price-table th:first-child{z-index:3;background:#eaf2fb}}
 
 .price-review{margin-top:14px}
 .price-review-summary{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
@@ -28,7 +27,8 @@
 .price-review-table td.price-flag-cell{color:#b45309;font-size:11px;max-width:220px}
 .price-review-table tr.price-row-fixed td{background:#f0fdf4}
 .price-paste{padding:16px;margin-bottom:16px}.price-paste h2{margin:0 0 8px;font-size:19px}.price-paste textarea{width:100%;min-height:220px;resize:vertical;border:1px solid #cbd5e1;border-radius:9px;padding:12px;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}.price-paste-actions{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-top:10px}.price-paste-actions .price-field{min-width:180px}.price-review-table select{min-width:105px;border:1px solid #fcd9b6;border-radius:6px;padding:5px 6px}
-.price-paste summary{list-style:none}.price-paste summary::-webkit-details-marker{display:none}.price-paste summary::before{content:'▶ ';display:inline-block;width:18px}.price-paste[open] summary::before{content:'▼ '}.price-paste-body{margin-top:14px}
+.price-admin-tools{display:flex;justify-content:flex-end;align-items:flex-start;gap:8px;flex-wrap:wrap;margin-bottom:16px}.price-admin-toggle{margin:0}.price-admin-toggle:not([open]){flex:0 0 auto;width:max-content;max-width:100%;padding:0;border:0;background:transparent;box-shadow:none}.price-admin-toggle[open]{flex:1 0 100%;width:100%;order:2}.price-admin-toggle>summary{display:inline-flex;align-items:center;min-height:38px;padding:7px 11px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#0b3765;font-size:13px;font-weight:800;white-space:nowrap;cursor:pointer;list-style:none}.price-admin-toggle>summary::-webkit-details-marker{display:none}.price-admin-toggle>summary::before{content:'▶ ';display:inline-block;width:18px}.price-admin-toggle[open]>summary::before{content:'▼ '}.price-paste-body{margin-top:14px}
+@media(max-width:720px){.price-admin-tools{justify-content:stretch}.price-admin-toggle:not([open]){flex:1 1 auto;width:auto}.price-admin-toggle:not([open])>summary{width:100%;justify-content:center}}
 </style>
 {% endblock %}
 
@@ -36,7 +36,8 @@
 <div class="pricelist-head"><h1>Pricelist Apple</h1></div>
 
 {% if session.get('role') == 'admin' %}
-<details class="card price-admin price-paste" id="pricePasteSection" open>
+<div class="price-admin-tools">
+<details class="card price-admin price-paste price-admin-toggle" id="pricePasteSection">
   <summary>Paste Pricelist</summary>
   <div class="price-paste-body">
   <div class="price-field"><textarea id="pricePasteText" aria-label="Tabel pricelist" placeholder="Model&#9;SRP&#9;SRP Promo&#9;STP Promo&#9;Support&#9;Period&#10;iPhone 17 256GB&#9;20,499,000&#9;20,499,000&#9;19,780,000&#9;0&#9;13-26 Sep"></textarea></div>
@@ -44,7 +45,7 @@
   <div class="price-progress" id="pricePasteProgress" role="status"></div>
   </div>
 </details>
-<details class="card price-admin">
+<details class="card price-admin price-admin-toggle">
   <summary>Upload JPG (Experimental)</summary>
   <div class="price-upload">
     <div class="price-field"><label>Gambar pricelist—maksimal 4 JPG</label><input id="priceUploadFile" type="file" accept="image/jpeg,.jpg,.jpeg" multiple></div>
@@ -54,6 +55,7 @@
   <div id="priceManualCategories" style="display:none;margin-top:12px"></div>
 
 </details>
+</div>
 <div class="card price-admin price-review" id="priceReview" style="display:none">
     <h2 style="margin:0 0 12px;font-size:18px">Preview data baru</h2>
     <div class="price-review-summary" id="priceReviewSummary"></div>
@@ -65,20 +67,14 @@
   </div>
 {% endif %}
 
-<div class="card price-controls">
-  <div class="price-search">
-    <div class="price-field"><label>Cari produk</label><input type="search" id="priceSearch" placeholder="Ketik model atau kapasitas"></div>
-    <button type="button" class="price-btn copy" id="priceCopy">Copy untuk WhatsApp</button>
+<div class="price-tabs-bar">
+  <div class="price-tabs" id="priceTabs">
+    {% for key,label in category_labels.items() %}<button type="button" class="price-tab {% if loop.first %}active{% endif %}" data-category="{{ key }}">{{ label }}</button>{% endfor %}
   </div>
-</div>
-
-<div class="price-tabs" id="priceTabs">
-  {% for key,label in category_labels.items() %}<button type="button" class="price-tab {% if loop.first %}active{% endif %}" data-category="{{ key }}">{{ label }}</button>{% endfor %}
-  <span class="price-count" id="priceCount"></span>
+  <div class="price-tab-actions"><span class="price-count" id="priceCount"></span><button type="button" class="price-btn copy" id="priceCopy">Copy untuk WhatsApp</button></div>
 </div>
 
 <div class="card price-table-wrap">
-  <h2 style="margin:14px 15px;font-size:18px">Pricelist tersimpan</h2>
   <table class="price-table">
     <thead><tr><th>Model</th><th>SRP Promo</th><th>STP Promo</th><th>Period</th></tr></thead>
     <tbody id="priceTableBody"></tbody>
@@ -101,18 +97,16 @@
   try{data=JSON.parse(dataNode.textContent||'{}');}catch(error){}
   let active='iphone';
   const body=document.getElementById('priceTableBody');
-  const search=document.getElementById('priceSearch');
   const count=document.getElementById('priceCount');
   const tabs=document.querySelectorAll('.price-tab');
   function money(value){return 'Rp'+Math.round(Number(value)||0).toLocaleString('id-ID');}
-  function visibleRows(){const q=(search.value||'').trim().toLowerCase();return (data[active]||[]).filter(row=>!q||String(row.model).toLowerCase().includes(q));}
+  function visibleRows(){return data[active]||[];}
   function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
   function render(){
     const rows=visibleRows();count.textContent=rows.length+' produk';
     body.innerHTML=rows.length?rows.map(row=>'<tr><td>'+esc(row.model)+'</td><td>'+money(row.srp_promo)+'</td><td>'+money(row.stp_promo)+'</td><td>'+esc(row.period)+'</td></tr>').join(''):'<tr><td colspan="4" class="price-empty">Belum ada pricelist untuk kategori ini.</td></tr>';
   }
-  tabs.forEach(tab=>tab.addEventListener('click',function(){active=tab.dataset.category;tabs.forEach(x=>x.classList.toggle('active',x===tab));search.value='';render();}));
-  search.addEventListener('input',render);
+  tabs.forEach(tab=>tab.addEventListener('click',function(){active=tab.dataset.category;tabs.forEach(x=>x.classList.toggle('active',x===tab));render();}));
   document.getElementById('priceCopy').addEventListener('click',async function(){
     const label={iphone:'IPHONE',mac:'MAC/MACBOOK',ipad:'IPAD',acc:'ACC'}[active];
     const text=['*PRICELIST APPLE - '+label+'*',...visibleRows().map(row=>row.model+' | SRP Promo '+money(row.srp_promo)+' | STP Promo '+money(row.stp_promo)+' | '+row.period)].join('\n');
