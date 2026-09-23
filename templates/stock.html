@@ -44,13 +44,14 @@
     .table-scroll .sticky-description{position:sticky;left:0;z-index:2;background:#fff;border-right:1px solid #dfe6ef;box-shadow:3px 0 7px rgba(20,33,58,.08)}
     .table-scroll thead .sticky-description{top:0;left:0;z-index:5;background:#eaf2fb}
     .table-scroll .total-row .sticky-description{background:#eaf2fb}
-    .stock-admin-upload{margin:0 0 14px;border:0;border-radius:0;background:transparent;overflow:visible}
+    .stock-admin-upload{width:100%;margin:0;border:0;border-radius:0;background:transparent;overflow:visible}
     .stock-admin-upload>summary{display:flex;justify-content:flex-end;align-items:center;padding:2px 0 10px;border:0!important;color:#52647e;font-size:12px;font-weight:900;list-style:none}
     .stock-admin-upload>summary::-webkit-details-marker{display:none}
     .stock-admin-upload>summary::before{content:'▸';margin-right:5px}
     .stock-admin-upload[open]>summary::before{content:'▾'}
-    .stock-admin-upload .input-panel{margin-top:4px;margin-bottom:14px;border:1px solid #dfe6ef;border-radius:14px;background:#fff}
+    .stock-admin-upload .input-panel{grid-template-columns:1fr;margin-top:4px;border:1px solid #dfe6ef;border-radius:14px;background:#fff}
     .page-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+    .stock-header-side{display:flex;flex-direction:column;align-items:flex-end;gap:10px;width:min(420px,100%);min-width:0}
     .stock-date-meta{display:flex;flex-direction:column;align-items:flex-end;gap:4px;color:#64748b;font-size:12px;white-space:nowrap}
     .stock-date-meta strong{color:#0b2545;font-size:13px}
     .toolbar{justify-content:flex-start;align-items:end;gap:16px}
@@ -70,8 +71,9 @@
       #panel-r5 th:nth-child(n+3),#panel-r5 td:nth-child(n+3){width:9.666%}
     }
     @media(max-width:760px){
-      .page-heading{align-items:flex-start;gap:8px}
-      .stock-date-meta{font-size:10px;white-space:normal;text-align:right;max-width:46%}
+      .page-heading{align-items:flex-start;flex-wrap:wrap;gap:8px}
+      .stock-header-side{width:100%;gap:9px}
+      .stock-date-meta{font-size:10px;white-space:normal;text-align:right;max-width:100%}
       .stock-date-meta strong{font-size:11px}
       .toolbar{gap:10px}
       .tools{flex:1 0 100%;width:100%;justify-content:stretch}
@@ -101,13 +103,13 @@
     </nav>
   </header>
 
-  <section class="page-heading"><div><h1>Stock Apple</h1><p>Cempaka &amp; R5 Daily Stock</p></div>{% if selected %}<div class="stock-date-meta"><strong>Data per {{ selected.stock_date.strftime('%d %b %Y') }}</strong>{% if selected.uploaded_at %}<span id="stockUpdatedAt" data-utc="{{ selected.uploaded_at.strftime('%Y-%m-%dT%H:%M:%SZ') }}">Terakhir diperbarui: {{ selected.uploaded_at.strftime('%d %b %Y %H:%M') }} UTC</span>{% endif %}</div>{% endif %}</section>
-
-  {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div class="flash flash-{{ category }}">{{ message }}</div>{% endfor %}{% endwith %}
-
-  {% if stock_is_admin %}
-  <details class="stock-admin-upload">
-    <summary>Perbarui stock harian</summary>
+  <section class="page-heading">
+    <div><h1>Stock Apple</h1><p>Cempaka &amp; R5 Daily Stock</p></div>
+    <div class="stock-header-side">
+      {% if selected %}<div class="stock-date-meta"><strong>Data per {{ selected.stock_date.strftime('%d %b %Y') }}</strong>{% if selected.uploaded_at %}<span id="stockUpdatedAt" data-utc="{{ selected.uploaded_at.strftime('%Y-%m-%dT%H:%M:%SZ') }}">Terakhir diperbarui: {{ selected.uploaded_at.strftime('%d %b %Y %H:%M') }} UTC</span>{% endif %}</div>{% endif %}
+      {% if stock_is_admin %}
+      <details class="stock-admin-upload">
+    <summary>Update Stock</summary>
     <div class="input-panel">
       <section class="input-box">
         <h3>Upload Excel raw</h3>
@@ -128,8 +130,12 @@
         </form>
       </section>
     </div>
-  </details>
-  {% endif %}
+      </details>
+      {% endif %}
+    </div>
+  </section>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div class="flash flash-{{ category }}">{{ message }}</div>{% endfor %}{% endwith %}
 
   <div class="toolbar">
     <div class="tabs">
