@@ -2793,65 +2793,82 @@ def upload_pricelist_image():
         return jsonify({'ok': False, 'message': 'Format gambar harus JPG/JPEG.'}), 400
     if not isinstance(rows, list) or not rows:
         return jsonify({'ok': False, 'message': 'Tidak ada baris pricelist yang berhasil dibaca.'}), 400
-    cleaned = []
-    skipped_rows = []
-    for index, raw in enumerate(rows):
-        # Be tolerant of OCR/parser noise: one unreadable row must not cancel
-        # every other valid row extracted from the image batch.
+    def price(value):
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, (int, float)):
+            number = float(value)
+        elif isinstance(value, str) and re.fullmatch(r'[0-9][0-9.,\s]*', value.strip()):
+            number = float(re.sub(r'[^0-9]', '', value))
+        else:
+            return None
+        return int(number) if math.isfinite(number) and number > 0 and number.is_integer() else None
+
+    cleaned = {}
+    invalid = []
+    conflicts = []
+    duplicate = 0
+    for index, raw in enumerate(rows, 1):
         if not isinstance(raw, dict):
-            skipped_rows.append(index + 1)
+            invalid.append(index)
             continue
         model = normalize_text(raw.get('model'))
         period = normalize_text(raw.get('period'))
-        srp_promo = to_num(raw.get('srp_promo'), default=-1)
-        stp_promo = to_num(raw.get('stp_promo'), default=-1)
-        if not model or not period or srp_promo < 0 or stp_promo < 0:
-            skipped_rows.append(index + 1)
+        srp_promo = price(raw.get('srp_promo'))
+        stp_promo = price(raw.get('stp_promo'))
+        if (not model or not period or len(model) > 500 or len(period) > 100
+                or srp_promo is None or stp_promo is None or stp_promo > srp_promo):
+            invalid.append(index)
             continue
-        cleaned.append({
-            'model': model, 'period': period,
-            'srp_promo': srp_promo, 'stp_promo': stp_promo,
-            'sort_order': len(cleaned),
-        })
+        key = model.casefold()
+        item = {'model': model, 'period': period,
+                'srp_promo': srp_promo, 'stp_promo': stp_promo}
+        if key in cleaned:
+            duplicate += 1
+            old = cleaned[key]
+            if any(old[field] != item[field] for field in ('period', 'srp_promo', 'stp_promo')):
+                conflicts.append(index)
+            continue
+        cleaned[key] = item
 
-    if not cleaned:
+    if invalid or conflicts or not cleaned:
         return jsonify({
-            'ok': False,
-            'message': (
-                'Tidak ada baris pricelist lengkap yang dapat disimpan. '
-                'Pastikan Model, SRP Promo, STP Promo, dan Period terbaca.'
-            ),
-            'skipped_rows': skipped_rows,
-        }), 400
+            'ok': False, 'message': 'Perbaiki baris tidak valid atau duplikat yang berbeda sebelum menyimpan.',
+            'invalid': invalid, 'duplicate_conflicts': conflicts,
+            'duplicate': duplicate, 'rows_loaded': 0, 'rows_skipped': 0,
+        }), 422
 
     try:
-        PricelistItem.query.filter_by(category=category).delete(synchronize_session=False)
         now = datetime.utcnow()
-        for row in cleaned:
-            db.session.add(PricelistItem(
-                category=category, updated_at=now, updated_by=session.get('username'), **row,
-            ))
+        existing = {item.model.casefold(): item for item in
+                    PricelistItem.query.filter_by(category=category).all()}
+        next_order = max((item.sort_order or 0 for item in existing.values()), default=-1) + 1
+        for row in cleaned.values():
+            item = existing.get(row['model'].casefold())
+            if item is None:
+                item = PricelistItem(category=category, sort_order=next_order)
+                next_order += 1
+                db.session.add(item)
+            item.model = row['model']
+            item.period = row['period']
+            item.srp_promo = row['srp_promo']
+            item.stp_promo = row['stp_promo']
+            item.updated_at = now
+            item.updated_by = session.get('username')
         db.session.add(PricelistUploadLog(
             category=category, filename=filename, rows_loaded=len(cleaned),
             uploaded_by=session.get('username'), uploaded_at=now,
         ))
         db.session.commit()
-    except Exception as exc:
+    except Exception:
         db.session.rollback()
-        return jsonify({'ok': False, 'message': f'Pricelist gagal disimpan: {exc}'}), 500
-    warning = ''
-    if skipped_rows:
-        warning = f' {len(skipped_rows)} baris tidak lengkap dilewati: {", ".join(map(str, skipped_rows))}.'
+        app.logger.exception('Pricelist gagal disimpan')
+        return jsonify({'ok': False, 'message': 'Pricelist gagal disimpan; data lama tetap aman.'}), 500
     return jsonify({
         'ok': True,
-        'message': (
-            f'{len(cleaned)} baris {PRICELIST_CATEGORIES[category]} berhasil diperbarui.'
-            f'{warning}'
-        ),
-        'rows_loaded': len(cleaned),
-        'rows_skipped': len(skipped_rows),
-        'skipped_rows': skipped_rows,
-        'redirect': url_for('pricelist'),
+        'message': f'{len(cleaned)} baris {PRICELIST_CATEGORIES[category]} berhasil diperbarui.',
+        'rows_loaded': len(cleaned), 'rows_skipped': 0,
+        'duplicate': duplicate, 'invalid': [], 'redirect': url_for('pricelist'),
     })
 
 
