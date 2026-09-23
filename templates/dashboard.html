@@ -4,8 +4,7 @@
 
 {% block header_tools %}
 <div class="header-tools">
-  <button type="button" class="header-tool" id="periodTool" aria-label="Buka filter periode">▣ <span id="periodToolLabel" data-month="{{ month }}">{{ month }}</span></button>
-  <button type="button" class="header-tool" id="filterTool" aria-controls="dashboardFilters" aria-expanded="false">▽ <span>Filter</span></button>
+  <button type="button" class="header-tool" id="periodTool" aria-label="Buka atau tutup filter periode" aria-controls="dashboardFilters" aria-expanded="false"><span id="periodToolLabel" data-month="{{ month }}">{{ month }}</span><span aria-hidden="true">▾</span></button>
 </div>
 {% endblock %}
 
@@ -1822,10 +1821,8 @@ document.addEventListener('click',function(event){
 <script>
 (function(){
   const filters=document.getElementById('dashboardFilters');
-  const filterButton=document.getElementById('filterTool');
   const periodButton=document.getElementById('periodTool');
   const periodLabel=document.getElementById('periodToolLabel');
-  const monthInput=filters?.querySelector('input[name="month"]');
 
   if(periodLabel){
     const value=periodLabel.dataset.month||'';
@@ -1836,25 +1833,12 @@ document.addEventListener('click',function(event){
     }
   }
 
-  function openFilters(focusMonth){
-    if(!filters) return;
-    filters.classList.add('open');
-    filterButton?.setAttribute('aria-expanded','true');
-    if(focusMonth && monthInput){
-      monthInput.focus();
-      if(typeof monthInput.showPicker==='function'){
-        try{ monthInput.showPicker(); }catch(error){}
-      }
-    }
-  }
-
-  filterButton?.addEventListener('click',function(){
+  periodButton?.addEventListener('click',function(){
     if(!filters) return;
     const willOpen=!filters.classList.contains('open');
     filters.classList.toggle('open',willOpen);
-    filterButton.setAttribute('aria-expanded',willOpen?'true':'false');
+    periodButton.setAttribute('aria-expanded',willOpen?'true':'false');
   });
-  periodButton?.addEventListener('click',function(){ openFilters(true); });
 })();
 
 (function(){
