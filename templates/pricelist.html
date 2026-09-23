@@ -27,6 +27,7 @@
 .price-review-table input{width:100%;min-width:90px;border:1px solid #fcd9b6;border-radius:6px;padding:5px 6px;font-size:13px}
 .price-review-table td.price-flag-cell{color:#b45309;font-size:11px;max-width:220px}
 .price-review-table tr.price-row-fixed td{background:#f0fdf4}
+.price-paste{padding:16px;margin-bottom:16px}.price-paste h2{margin:0 0 8px;font-size:19px}.price-paste textarea{width:100%;min-height:220px;resize:vertical;border:1px solid #cbd5e1;border-radius:9px;padding:12px;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}.price-paste-actions{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-top:10px}.price-paste-actions .price-field{min-width:180px}.price-review-table select{min-width:105px;border:1px solid #fcd9b6;border-radius:6px;padding:5px 6px}
 </style>
 {% endblock %}
 
@@ -34,8 +35,14 @@
 <div class="pricelist-head"><h1>Pricelist Apple</h1></div>
 
 {% if session.get('role') == 'admin' %}
+<div class="card price-paste">
+  <h2>Paste Pricelist</h2>
+  <div class="price-field"><label for="pricePasteText">Tempel tabel dari ChatGPT, Claude, Excel, atau Google Sheets</label><textarea id="pricePasteText" placeholder="Model&#9;SRP&#9;SRP Promo&#9;STP Promo&#9;Support&#9;Period&#10;iPhone 17 256GB&#9;20,499,000&#9;20,499,000&#9;19,780,000&#9;0&#9;13-26 Sep"></textarea></div>
+  <div class="price-paste-actions"><div class="price-field"><label for="pricePasteCategory">Kategori</label><select id="pricePasteCategory"><option value="iphone">iPhone</option><option value="mac">Mac/MacBook</option><option value="ipad">iPad</option><option value="acc">ACC</option></select></div><button type="button" class="price-btn" id="pricePasteAnalyze">Analisis Data</button></div>
+  <div class="price-progress" id="pricePasteProgress" role="status"></div>
+</div>
 <details class="card price-admin">
-  <summary>Perbarui pricelist dari JPG</summary>
+  <summary>Upload JPG (Experimental)</summary>
   <div class="price-upload">
     <div class="price-field"><label>Gambar pricelist—maksimal 4 JPG</label><input id="priceUploadFile" type="file" accept="image/jpeg,.jpg,.jpeg" multiple></div>
     <button type="button" class="price-btn" id="priceUploadButton">Baca &amp; Analisis Semua JPG</button>
@@ -43,7 +50,8 @@
   <div class="price-progress" id="priceUploadProgress" role="status"></div>
   <div id="priceManualCategories" style="display:none;margin-top:12px"></div>
 
-  <div class="price-review" id="priceReview" style="display:none">
+</details>
+<div class="card price-admin price-review" id="priceReview" style="display:none">
     <div class="price-review-summary" id="priceReviewSummary"></div>
     <div class="price-review-table-wrap" id="priceReviewTableWrap" style="display:none"></div>
     <div class="price-review-actions">
@@ -51,7 +59,6 @@
       <button type="button" class="price-btn save" id="priceSaveButton" style="display:none">Simpan ke Database</button>
     </div>
   </div>
-</details>
 {% endif %}
 
 <div class="card price-controls">
@@ -120,6 +127,66 @@
   const saveButton=document.getElementById('priceSaveButton');
   function showProgress(message,type){progress.style.display='block';progress.className='price-progress'+(type?' '+type:'');progress.textContent=message;}
   function numeric(value){const digits=String(value||'').replace(/[^0-9]/g,'');return digits?Number(digits):null;}
+
+  const pasteText=document.getElementById('pricePasteText');
+  const pasteCategory=document.getElementById('pricePasteCategory');
+  const pasteAnalyze=document.getElementById('pricePasteAnalyze');
+  const pasteProgress=document.getElementById('pricePasteProgress');
+  let pendingOrigin='image';
+  function showPasteProgress(message,type){pasteProgress.style.display='block';pasteProgress.className='price-progress'+(type?' '+type:'');pasteProgress.textContent=message;}
+  function showWorkflowProgress(message,type){(pendingOrigin==='paste'?showPasteProgress:showProgress)(message,type);}
+  function parseRupiah(value,allowZero=false){
+    const text=String(value??'').trim().replace(/^rp\s*/i,'').replace(/\s+/g,'');
+    if(!/^(?:\d+|\d{1,3}(?:[.,]\d{3})+)$/.test(text))return null;
+    const number=Number(text.replace(/[.,]/g,''));
+    return Number.isSafeInteger(number)&&(allowZero?number>=0:number>0)?number:null;
+  }
+  function parseCsvLine(line){
+    const fields=[];let value='',quoted=false;
+    for(let i=0;i<line.length;i++){
+      const char=line[i];
+      if(char==='"'&&quoted&&line[i+1]==='"'){value+='"';i++;}
+      else if(char==='"')quoted=!quoted;
+      else if(char===','&&!quoted){fields.push(value.trim());value='';}
+      else value+=char;
+    }
+    fields.push(value.trim());
+    return fields;
+  }
+  function splitPasteLine(line){
+    if(line.includes('\t'))return line.split('\t').map(v=>v.trim());
+    if(line.includes('|'))return line.replace(/^\s*\|/,'').replace(/\|\s*$/,'').split('|').map(v=>v.trim());
+    if(/\s{2,}/.test(line))return line.trim().split(/\s{2,}/).map(v=>v.trim());
+    return parseCsvLine(line);
+  }
+  function pasteHeaderKey(value){
+    const key=String(value||'').toLowerCase().replace(/[^a-z]/g,'');
+    return {model:'model',srp:'srp',srppromo:'srp_promo',stppromo:'stp_promo',support:'support',period:'period'}[key]||'';
+  }
+  function parsePasteTable(text,category){
+    const lines=String(text||'').trim().replace(/\r/g,'').split('\n').map(x=>x.trim()).filter(x=>!/^```/.test(x));
+    const parsed=[];let header=null,blank=0;
+    for(const line of lines){
+      const cells=splitPasteLine(line);
+      if(cells.every(x=>!x||/^:?-{3,}:?$/.test(x))){blank++;continue;}
+      const mapped=cells.map(pasteHeaderKey);
+      if(!header&&mapped.includes('model')&&mapped.includes('srp_promo')&&mapped.includes('stp_promo')){
+        header=mapped;continue;
+      }
+      const keys=header||['model','srp','srp_promo','stp_promo','support','period'];
+      const values={};keys.forEach((key,index)=>{if(key)values[key]=cells[index]||'';});
+      if(!String(values.model||'').trim()&&['srp','srp_promo','stp_promo','support','period'].every(key=>!String(values[key]||'').trim())){blank++;continue;}
+      const model=String(values.model||'').replace(/\s+/g,' ').trim();
+      parsed.push({
+        _category:category,_sourceType:'paste',_meta:{},
+        model,srp:parseRupiah(values.srp),srp_promo:parseRupiah(values.srp_promo),
+        stp_promo:parseRupiah(values.stp_promo),support:parseRupiah(values.support,true),
+        period:normalizePeriod(values.period),
+        _raw:{srp:values.srp||'',srp_promo:values.srp_promo||'',stp_promo:values.stp_promo||'',support:values.support||''}
+      });
+    }
+    return {rows:parsed,blank};
+  }
 
   // ---------- Normalisasi teks (model/period) — sama seperti versi sebelumnya ----------
   function detectCategory(text){
@@ -564,7 +631,7 @@
       const [ry0,ry1]=rowBand;
       const ink=[0,2,3].map(i=>cellInk(map.dark,canvas.width,colBands[i],rowBand));
       if(ink.every(count=>count<8))continue; // separator kosong, garis tabel tidak dihitung
-      const row={_meta:{template:apple?'apple':'generic'},_source:file.name,_category:category};
+      const row={_meta:{template:apple?'apple':'generic'},_source:file.name,_sourceType:'image',_category:category};
       const modelBand=colBands[0];
       row.model=normalizeModel(await readTextCell(worker,cropCell(canvas,...modelBand,ry0,ry1)),category);
       const plausibleModel=modelPlausible(row.model,category);
@@ -618,12 +685,20 @@
   function rowKey(row){return String(row.model||'').trim().replace(/\s+/g,' ').toLocaleLowerCase();}
   function rowValidation(row,previousRows){
     const errors=[],warnings=[];
-    if(!modelPlausible(row.model,row._category))errors.push('Model belum valid untuk kategori ini');
+    const paste=row._sourceType==='paste';
+    if(paste? !String(row.model||'').trim():!modelPlausible(row.model,row._category))errors.push('Model belum valid');
     if(row.srp_promo==null||row.srp_promo<=0)errors.push('SRP Promo belum valid');
     if(row.stp_promo==null||row.stp_promo<=0)errors.push('STP Promo belum valid');
-    if(row.srp_promo!=null&&row.stp_promo!=null&&row.stp_promo>row.srp_promo)errors.push('STP Promo melebihi SRP Promo');
-    if(row.srp!=null&&row.srp_promo!=null&&row.srp<row.srp_promo)errors.push('SRP lebih kecil dari SRP Promo');
-    if(!extractPeriod(row.period))errors.push('Period belum terbaca');
+    if(!extractPeriod(row.period))errors.push('Period belum valid');
+    if(row.srp_promo!=null&&row.stp_promo!=null&&row.stp_promo>row.srp_promo)warnings.push('STP Promo lebih tinggi dari SRP Promo; periksa sumber');
+    if(row.srp!=null&&((row.srp_promo!=null&&row.srp<row.srp_promo)||(row.stp_promo!=null&&row.srp<row.stp_promo)))warnings.push('SRP lebih kecil dari harga promo; periksa sumber');
+    const high={iphone:60000000,ipad:90000000,mac:150000000,acc:30000000}[row._category]||100000000;
+    if((row.srp_promo||0)>high||(row.stp_promo||0)>high)warnings.push('Harga di atas kisaran umum kategori');
+    if(paste&&/^iphone\s+\d{1,2}c\b/i.test(row.model))warnings.push('Kemungkinan model e terbaca c; periksa model');
+    if(paste&&row._raw){
+      if(row._raw.srp&&row.srp==null)warnings.push('SRP tidak valid');
+      if(row._raw.support&&row.support==null)warnings.push('Support tidak valid');
+    }
     if(row._meta.priceAmbiguous&&!row._meta.srp_promo_edited&&!row._meta.stp_promo_edited)errors.push('OCR harga ambigu; periksa kedua harga');
     if(row._meta.priceWarning&&!row._meta.srp_promo_edited&&!row._meta.stp_promo_edited)warnings.push('OCR harga berbeda, hasil dipilih dari kandidat yang konsisten');
     if(row._meta.lowConfidence)warnings.push('Confidence OCR harga rendah; periksa di preview');
@@ -640,13 +715,13 @@
     Object.keys(pending).forEach(cat=>{
       const rows=pending[cat].rows;
       const seen=new Map();
-      rows.forEach(row=>{row._identicalDuplicate=false;row.model=normalizeModel(row.model,cat);row.period=normalizePeriod(row.period);const result=rowValidation(row,data[cat]||[]);row.errors=result.errors;row.warnings=result.warnings;});
+      rows.forEach(row=>{row._identicalDuplicate=false;row._category=cat;row.model=row._sourceType==='paste'?String(row.model||'').replace(/\s+/g,' ').trim():normalizeModel(row.model,cat);row.period=normalizePeriod(row.period);const result=rowValidation(row,data[cat]||[]);row.errors=result.errors;row.warnings=result.warnings;});
       rows.forEach((row,index)=>{
         const key=rowKey(row);
         if(!key)return;
         if(seen.has(key)){
           const other=rows[seen.get(key)];
-          const equal=other.srp_promo===row.srp_promo&&other.stp_promo===row.stp_promo&&other.period===row.period;
+          const equal=other.srp===row.srp&&other.srp_promo===row.srp_promo&&other.stp_promo===row.stp_promo&&other.support===row.support&&other.period===row.period;
           if(!equal){row.errors.push('Duplikat model dengan harga/period berbeda');other.errors.push('Duplikat model dengan harga/period berbeda');}
           else row._identicalDuplicate=true;
         }else seen.set(key,index);
@@ -675,22 +750,41 @@
   }
   function renderReviewTable(){
     const rowsHtml=[];
+    const catOptions=[['iphone','iPhone'],['mac','Mac/MacBook'],['ipad','iPad'],['acc','ACC']];
     Object.keys(pending).forEach(cat=>pending[cat].rows.forEach((row,idx)=>{
+      const categorySelect='<select data-field="category">'+catOptions.map(([key,label])=>'<option value="'+key+'"'+(key===cat?' selected':'')+'>'+label+'</option>').join('')+'</select>';
       rowsHtml.push('<tr data-cat="'+cat+'" data-idx="'+idx+'">'+
-        '<td>'+esc(cat)+'</td><td><input data-field="model" value="'+esc(row.model||'')+'"></td>'+
+        '<td>'+categorySelect+'</td><td><input data-field="model" value="'+esc(row.model||'')+'"></td>'+
+        '<td><input data-field="srp" value="'+(row.srp??'')+'"></td>'+
         '<td><input data-field="srp_promo" value="'+(row.srp_promo??'')+'"></td>'+
         '<td><input data-field="stp_promo" value="'+(row.stp_promo??'')+'"></td>'+
+        '<td><input data-field="support" value="'+(row.support??'')+'"></td>'+
         '<td><input data-field="period" value="'+esc(row.period||'')+'"></td>'+
-        '<td class="price-flag-cell">'+esc([...row.errors,...row.warnings].join('; ')||(row._identicalDuplicate?'Duplikat identik':'Siap disimpan'))+'</td></tr>');
+        '<td class="price-flag-cell">'+esc([...row.errors,...row.warnings].join('; ')||(row._identicalDuplicate?'Duplikat identik':'Siap disimpan'))+
+        '<br><button type="button" data-remove-row="1">Hapus baris</button></td></tr>');
     }));
-    reviewTableWrap.innerHTML='<table class="price-review-table"><thead><tr><th>Kategori</th><th>Model</th><th>SRP Promo</th><th>STP Promo</th><th>Period</th><th>Status</th></tr></thead><tbody>'+rowsHtml.join('')+'</tbody></table>';
-    reviewTableWrap.querySelectorAll('input').forEach(input=>input.addEventListener('change',function(){
-      const tr=this.closest('tr'),row=pending[tr.dataset.cat].rows[Number(tr.dataset.idx)],field=this.dataset.field;
-      row[field]=(field==='srp_promo'||field==='stp_promo')?numeric(this.value):this.value.trim();
-      if(row._meta)row._meta[field+'_edited']=true;
+    reviewTableWrap.innerHTML='<table class="price-review-table"><thead><tr><th>Kategori</th><th>Model</th><th>SRP</th><th>SRP Promo</th><th>STP Promo</th><th>Support</th><th>Period</th><th>Status</th></tr></thead><tbody>'+rowsHtml.join('')+'</tbody></table>';
+    reviewTableWrap.querySelectorAll('input,select').forEach(input=>input.addEventListener('change',function(){
+      const tr=this.closest('tr'),cat=tr.dataset.cat,idx=Number(tr.dataset.idx),row=pending[cat].rows[idx],field=this.dataset.field;
+      if(field==='category'){
+        const target=this.value;
+        pending[cat].rows.splice(idx,1);
+        if(!pending[target])pending[target]={filename:row._sourceType==='paste'?'paste-table':pending[cat].filename,source:row._sourceType,rows:[]};
+        row._category=target;pending[target].rows.push(row);
+        if(!pending[cat].rows.length)delete pending[cat];
+      }else{
+        row[field]=['srp','srp_promo','stp_promo','support'].includes(field)?parseRupiah(this.value,field==='support'):this.value.trim();
+        if(row._raw&&Object.prototype.hasOwnProperty.call(row._raw,field))row._raw[field]=this.value.trim();
+        if(row._meta)row._meta[field+'_edited']=true;
+      }
       renderReview();
     }));
-
+    reviewTableWrap.querySelectorAll('[data-remove-row]').forEach(button=>button.addEventListener('click',function(){
+      const tr=this.closest('tr'),cat=tr.dataset.cat;
+      pending[cat].rows.splice(Number(tr.dataset.idx),1);
+      if(!pending[cat].rows.length)delete pending[cat];
+      renderReview();
+    }));
   }
   reviewToggle.addEventListener('click',function(){
     const showing=reviewTableWrap.style.display!=='none';
@@ -702,25 +796,40 @@
     if(Object.values(pending).some(item=>item.rows.some(row=>row.errors.length))){renderReview();return;}
     saveButton.disabled=true;
     const categories=Object.keys(pending);
-    let totalLoaded=0,totalSkipped=0,totalDuplicate=0;const saveFailed=[];
+    let totalLoaded=0,totalSkipped=0,totalDuplicate=0,totalWarnings=0;const saveFailed=[];
     for(let i=0;i<categories.length;i++){
       const cat=categories[i];
-      showProgress('Menyimpan '+cat+' ('+(i+1)+'/'+categories.length+')...');
+      showWorkflowProgress('Menyimpan '+cat+' ('+(i+1)+'/'+categories.length+')...');
       const payloadRows=pending[cat].rows.map(r=>({model:r.model,srp_promo:r.srp_promo,stp_promo:r.stp_promo,period:r.period}));
       try{
-        const response=await fetch('{{ url_for("upload_pricelist_image") }}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({category:cat,filename:pending[cat].filename,rows:payloadRows})});
+        const response=await fetch('{{ url_for("upload_pricelist_image") }}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({category:cat,source:pending[cat].source||'image',filename:pending[cat].filename,rows:payloadRows})});
         const resultJson=await response.json();
         if(!response.ok||!resultJson.ok){saveFailed.push(cat+': '+(resultJson.message||'gagal disimpan'));continue;}
         totalLoaded+=Number(resultJson.rows_loaded)||0;
         totalSkipped+=Number(resultJson.rows_skipped)||0;
         totalDuplicate+=Number(resultJson.duplicate)||0;
+        totalWarnings+=pending[cat].rows.filter(r=>r.warnings.length).length;
         delete pending[cat];
       }catch(err){saveFailed.push(cat+': '+(err.message||'gagal disimpan'));}
     }
-    const summary=totalLoaded+' produk berhasil disimpan, '+totalSkipped+' dilewati, '+totalDuplicate+' duplikat digabung.';
-    showProgress(saveFailed.length?summary+' Gagal: '+saveFailed.join(' | '):summary,saveFailed.length?'error':'success');
+    const summary=totalLoaded+' produk berhasil disimpan, '+totalSkipped+' dilewati, '+totalDuplicate+' duplikat digabung, '+totalWarnings+' warning.';
+    showWorkflowProgress(saveFailed.length?summary+' Gagal: '+saveFailed.join(' | '):summary,saveFailed.length?'error':'success');
     if(saveFailed.length)renderReview();
     else setTimeout(()=>window.location.reload(),1200);
+  });
+
+  pasteAnalyze.addEventListener('click',function(){
+    pendingOrigin='paste';
+    const category=pasteCategory.value;
+    const result=parsePasteTable(pasteText.value,category);
+    pending={};
+    reviewBox.style.display='none';
+    if(!result.rows.length){showPasteProgress('Tidak ada baris produk yang dapat dianalisis. Tempel tabel dengan kolom Model, SRP Promo, STP Promo, dan Period.','error');return;}
+    pending[category]={filename:'paste-table',source:'paste',rows:result.rows};
+    reviewTableWrap.style.display='block';
+    renderReview();
+    const blocked=result.rows.filter(row=>row.errors.length).length;
+    showPasteProgress(result.rows.length+' baris produk dianalisis; '+result.blank+' baris kosong/separator dilewati; '+blocked+' perlu diperbaiki.',blocked?'':'success');
   });
 
   const manualChoices=new Map();
@@ -739,6 +848,7 @@
     });
   }
   uploadButton.addEventListener('click',async function(){
+    pendingOrigin='image';
     const files=Array.from(uploadFile.files||[]);
     if(!files.length){showProgress('Pilih satu sampai empat gambar JPG terlebih dahulu.','error');return;}
     if(files.length>4){showProgress('Maksimal empat gambar JPG dalam sekali upload.','error');return;}
@@ -764,7 +874,7 @@
           const rows=await extractRowsFromImage(worker,file,category);
           if(!rows.length)throw new Error('baris data tidak terbaca dari struktur tabel');
           rows.forEach(row=>{row.flags=[];});
-          if(!pending[category])pending[category]={filename:'',rows:[]};
+          if(!pending[category])pending[category]={filename:'',source:'image',rows:[]};
           pending[category].filename=(pending[category].filename?pending[category].filename+' + ':'')+file.name;
           pending[category].rows.push(...rows);
         }catch(err){
