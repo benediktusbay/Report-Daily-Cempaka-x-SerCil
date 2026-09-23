@@ -2190,13 +2190,6 @@ document.addEventListener('click',function(event){
     });
   }
   syncMobileDealerDetail();
-  if(window.matchMedia('(max-width:768px)').matches){
-    const activeNav=document.querySelector('nav a.active');
-    const nav=activeNav?.closest('nav');
-    if(nav && nav.scrollWidth>nav.clientWidth){
-      nav.scrollLeft=activeNav.offsetLeft-nav.offsetLeft-(nav.clientWidth-activeNav.offsetWidth)/2;
-    }
-  }
 
   let skuDetail=[];
   try{
