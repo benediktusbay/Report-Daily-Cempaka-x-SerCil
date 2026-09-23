@@ -120,15 +120,6 @@
           <button class="btn" type="submit">Upload dan proses</button>
         </form>
       </section>
-      <section class="input-box">
-        <h3>Copy-paste dari Excel</h3>
-        <p>Urutan kolom: Material, Material Description, Name1, Unrestricted. Header boleh ikut di-copy.</p>
-        <form method="post" action="{{ url_for('stock_paste') }}">
-          <div class="field"><label>Tanggal stock</label><input type="date" name="stock_date" value="{{ today }}" required></div>
-          <div class="field"><label>Paste data stock</label><textarea name="stock_paste" placeholder="Material&#9;Material Description&#9;Name1&#9;Unrestricted" required></textarea></div>
-          <button class="btn" type="submit">Simpan hasil paste</button>
-        </form>
-      </section>
     </div>
       </details>
       {% endif %}
@@ -170,7 +161,7 @@
       <div class="mobile-grand"><span>Grand total R5</span><strong>{{ totals.grand_total|number_id }} unit</strong></div>
     </div>
   </section>
-  {% else %}<div class="empty">Belum ada data stock. Buka “Perbarui stock harian” untuk upload Excel atau copy-paste data.</div>{% endif %}
+  {% else %}<div class="empty">Belum ada data stock. Buka “Update Stock” untuk upload Excel.</div>{% endif %}
 </main>
 <script>
   const stockUpdatedAt=document.getElementById('stockUpdatedAt');
