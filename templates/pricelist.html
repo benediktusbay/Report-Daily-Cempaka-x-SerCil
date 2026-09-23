@@ -41,6 +41,7 @@
     <button type="button" class="price-btn" id="priceUploadButton">Baca &amp; Analisis Semua JPG</button>
   </div>
   <div class="price-progress" id="priceUploadProgress" role="status"></div>
+  <div id="priceManualCategories" style="display:none;margin-top:12px"></div>
 
   <div class="price-review" id="priceReview" style="display:none">
     <div class="price-review-summary" id="priceReviewSummary"></div>
@@ -111,6 +112,7 @@
   if(!uploadButton)return;
   const uploadFile=document.getElementById('priceUploadFile');
   const progress=document.getElementById('priceUploadProgress');
+  const manualCategories=document.getElementById('priceManualCategories');
   const reviewBox=document.getElementById('priceReview');
   const reviewSummary=document.getElementById('priceReviewSummary');
   const reviewTableWrap=document.getElementById('priceReviewTableWrap');
@@ -121,12 +123,30 @@
 
   // ---------- Normalisasi teks (model/period) — sama seperti versi sebelumnya ----------
   function detectCategory(text){
-    const value=String(text||'').toLowerCase();
-    if(/mac\s*\/\s*macbook|macbook|\bmb[apn]\b/.test(value))return 'mac';
-    if(/\bipad\b/.test(value))return 'ipad';
-    if(/\biphone\b/.test(value))return 'iphone';
-    if(/airpods|apple\s*pencil|power\s*adapter|watch\s*(?:se|s\d|series)|accessor/.test(value))return 'acc';
+    const value=String(text||'').toLowerCase().replace(/[|!]/g,'l').replace(/0/g,'o').replace(/[^a-z0-9]+/g,' ');
+    const compact=value.replace(/\s+/g,'');
+    if(/macbook|macintosh|mac\/macbook|\bmac\b|\bmb[apn]\b/.test(value)||/macbook/.test(compact))return 'mac';
+    if(/\b(?:ipad|lpad|1pad)\b/.test(value)||/(?:ipad|lpad|1pad)/.test(compact))return 'ipad';
+    if(/\b(?:iphone|lphone|1phone|iphonc|iph0ne)\b/.test(value)||/(?:iphone|lphone|1phone|iphonc)/.test(compact))return 'iphone';
+    if(/\bacc\b|accessor|air\s*pods|apple\s*pencil|power\s*adapter|watch\s*(?:se|s\d|series)/.test(value))return 'acc';
     return '';
+  }
+  async function detectImageCategory(worker,canvas,filename){
+    const w=canvas.width,h=canvas.height;
+    const probes=[
+      {bottom:Math.max(32,Math.round(h*0.05)),psm:Tesseract.PSM?.SINGLE_LINE||7},
+      {bottom:Math.max(72,Math.round(h*0.13)),psm:Tesseract.PSM?.SINGLE_BLOCK||6},
+      {bottom:Math.max(48,Math.round(h*0.08)),psm:Tesseract.PSM?.SPARSE_TEXT||11,contrast:true}
+    ];
+    for(const probe of probes){
+      try{
+        const crop=cropRegion(canvas,0,0,w,Math.min(h,probe.bottom),0,3);
+        const result=await ocrCanvas(worker,probe.contrast?variantContrast(crop):crop,'',probe.psm);
+        const category=detectCategory(result);
+        if(category)return category;
+      }catch(error){ /* Coba area berikutnya sebelum meminta kategori manual. */ }
+    }
+    return detectCategory(filename);
   }
   function editDistance(a,b){
     a=String(a||'');b=String(b||'');
@@ -535,6 +555,21 @@
     else setTimeout(()=>window.location.reload(),1200);
   });
 
+  const manualChoices=new Map();
+  uploadFile.addEventListener('change',()=>{manualChoices.clear();manualCategories.style.display='none';manualCategories.innerHTML='';});
+  function showManualCategoryChoices(files,indices){
+    manualCategories.style.display='block';
+    manualCategories.innerHTML='<div style="font-weight:700;margin-bottom:8px">Kategori otomatis belum terbaca. Pilih kategori untuk setiap JPG berikut, lalu baca ulang:</div>'+
+      indices.map(index=>'<label class="price-field" style="display:block;margin:8px 0">'+esc(files[index].name)+
+        '<select data-file-index="'+index+'"><option value="">Pilih kategori</option><option value="iphone">iPhone</option><option value="mac">Mac/MacBook</option><option value="ipad">iPad</option><option value="acc">ACC</option></select></label>').join('')+
+      '<button type="button" class="price-btn" id="priceRetryManual">Baca ulang JPG</button>';
+    manualCategories.querySelector('#priceRetryManual').addEventListener('click',()=>{
+      const selections=Array.from(manualCategories.querySelectorAll('select'));
+      if(selections.some(select=>!select.value)){showProgress('Pilih kategori untuk setiap JPG yang belum dikenali.','error');return;}
+      selections.forEach(select=>manualChoices.set(Number(select.dataset.fileIndex),select.value));
+      uploadButton.click();
+    });
+  }
   uploadButton.addEventListener('click',async function(){
     const files=Array.from(uploadFile.files||[]);
     if(!files.length){showProgress('Pilih satu sampai empat gambar JPG terlebih dahulu.','error');return;}
@@ -549,15 +584,14 @@
       worker=await Tesseract.createWorker('eng',1,{});
       await worker.setParameters({preserve_interword_spaces:'1',user_defined_dpi:'300'});
       const failed=[];
+      const needsManual=[];
       for(let index=0;index<files.length;index++){
         const file=files[index];
         try{
           showProgress('Mendeteksi kategori '+file.name+' ('+(index+1)+'/'+files.length+')...');
           const previewCanvas=await loadCanvas(file);
-          const previewCrop=cropRegion(previewCanvas,0,0,previewCanvas.width,Math.round(previewCanvas.height*0.08),0,1);
-          const categoryProbe=await readTextCell(worker,previewCrop);
-          const category=detectCategory(categoryProbe)||detectCategory(file.name);
-          if(!category)throw new Error('kategori tidak dikenali dari judul gambar');
+          const category=manualChoices.get(index)||await detectImageCategory(worker,previewCanvas,file.name);
+          if(!category){needsManual.push(index);throw new Error('kategori belum dikenali otomatis');}
           showProgress('Membaca sel-sel tabel '+file.name+' ('+(index+1)+'/'+files.length+')... ini bisa makan waktu 1-3 menit per gambar.');
           const rows=await extractRowsFromImage(worker,file,category);
           if(!rows.length)throw new Error('baris data tidak terbaca dari struktur tabel');
@@ -569,11 +603,14 @@
           failed.push(file.name+': '+(err.message||'gagal dibaca'));
         }
       }
+      if(needsManual.length)showManualCategoryChoices(files,needsManual);
+      else {manualCategories.style.display='none';manualCategories.innerHTML='';}
       if(!Object.keys(pending).length)throw new Error('Tidak ada gambar yang berhasil dibaca. '+(failed.length?failed.join(' | '):''));
       let summary='Selesai dianalisis. '+Object.keys(pending).map(cat=>cat+': '+pending[cat].rows.length+' baris').join(' | ')+'. Cek ringkasan di bawah sebelum menyimpan.';
       if(failed.length)summary+=' Dilewati: '+failed.join(' | ')+'.';
       showProgress(summary,failed.length?'':'success');
       renderReview();
+      if(needsManual.length){saveButton.disabled=true;saveButton.textContent='Pilih kategori JPG yang belum dikenali';}
     }catch(error){
       showProgress(error.message||'JPG gagal dibaca.','error');
     }finally{
