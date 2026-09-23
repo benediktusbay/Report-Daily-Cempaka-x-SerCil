@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2216%22%20fill%3D%22%23111827%22%2F%3E%3Cpath%20d%3D%22M35%2010a21%2021%200%201%200%2013%2016%22%20fill%3D%22none%22%20stroke%3D%22white%22%20stroke-width%3D%228%22%20stroke-linecap%3D%22round%22%2F%3E%3Ccircle%20cx%3D%2227%22%20cy%3D%2231%22%20r%3D%227%22%20fill%3D%22%23F97316%22%2F%3E%3Cpath%20d%3D%22M33%2026%2050%209m-7%200h7v7%22%20fill%3D%22none%22%20stroke%3D%22%23F97316%22%20stroke-width%3D%225%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Crect%20x%3D%2236%22%20y%3D%2243%22%20width%3D%226%22%20height%3D%2212%22%20rx%3D%222%22%20fill%3D%22white%22%2F%3E%3Crect%20x%3D%2246%22%20y%3D%2235%22%20width%3D%226%22%20height%3D%2220%22%20rx%3D%222%22%20fill%3D%22white%22%2F%3E%3Crect%20x%3D%2256%22%20y%3D%2226%22%20width%3D%226%22%20height%3D%2229%22%20rx%3D%222%22%20fill%3D%22white%22%2F%3E%3C%2Fsvg%3E">
   <meta name="format-detection" content="telephone=no,date=no,address=no,email=no,url=no">
   <title>Stock Apple</title>
   <style>
@@ -23,9 +24,8 @@
     .page{width:min(1500px,calc(100% - 36px));max-width:1500px;margin:0 auto 50px;padding:0}
     .topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;background:transparent;border:0;border-radius:0;padding:0;margin:18px 0 20px}
     .brand{display:flex;align-items:center;gap:14px;min-width:330px}
-    .brand-logo{width:56px;height:56px;border-radius:16px;background:linear-gradient(145deg,#2f7df4,#145bd7);box-shadow:0 12px 28px rgba(37,99,235,.22);display:flex;align-items:flex-end;justify-content:center;gap:4px;padding:14px}
-    .brand-logo span{display:block;width:5px;border-radius:4px;background:#fff}
-    .brand-logo span:nth-child(1){height:14px}.brand-logo span:nth-child(2){height:23px}.brand-logo span:nth-child(3){height:32px}
+    .brand-logo{width:56px;height:56px;border-radius:16px;background:#111827;box-shadow:0 12px 28px rgba(17,24,39,.16);display:grid;place-items:center}
+    .brand-logo svg{width:80%;height:80%;display:block}
     .brand-title{font-size:25px;line-height:1.1;font-weight:850;letter-spacing:-.025em;color:var(--navy)}
     .brand-subtitle{font-size:12px;color:var(--muted);margin-top:5px}
     .user-area{display:flex;align-items:center;gap:12px;margin-left:auto}
@@ -34,7 +34,7 @@
     .navlinks{order:3;flex:1 0 100%;display:flex;align-items:center;gap:6px;overflow-x:auto;padding:7px;background:#fff;border:1px solid var(--border);border-radius:16px;box-shadow:0 8px 24px rgba(15,35,65,.05);scrollbar-width:none}
     .navlinks::-webkit-scrollbar{display:none}.navlinks a{flex:0 0 auto;padding:10px 17px;border-radius:11px;color:#53647e;text-decoration:none;font-size:14px;font-weight:800;white-space:nowrap}.navlinks a.active{background:var(--blue);color:#fff;box-shadow:0 7px 16px rgba(37,99,235,.22)}
     .page-heading{margin:22px 0 18px}.page-heading h1{margin:0;color:var(--navy);font-size:28px;line-height:1.1;letter-spacing:-.02em}.page-heading p{margin:6px 0 0;color:var(--muted);font-size:13px}
-    @media(max-width:760px){.page{width:100%;padding:12px}.topbar{margin:4px 0 14px;gap:12px;align-items:center}.brand{min-width:0;flex:1;gap:10px}.brand-logo{width:45px;height:45px;border-radius:13px;padding:11px}.brand-logo span{width:4px}.brand-logo span:nth-child(1){height:11px}.brand-logo span:nth-child(2){height:18px}.brand-logo span:nth-child(3){height:25px}.brand-title{font-size:17px;white-space:nowrap}.brand-subtitle{font-size:10px}.user-info{display:none}.logout{min-height:36px;padding:7px 10px;font-size:12px}.navlinks{padding:6px;border-radius:14px}.navlinks a{padding:9px 12px;font-size:12px}.page-heading{margin:18px 2px 14px}.page-heading h1{font-size:23px}.page-heading p{font-size:12px}}
+    @media(max-width:760px){.page{width:100%;padding:12px}.topbar{margin:4px 0 14px;gap:12px;align-items:center}.brand{min-width:0;flex:1;gap:10px}.brand-logo{width:45px;height:45px;border-radius:13px}.brand-title{font-size:17px;white-space:nowrap}.brand-subtitle{font-size:10px}.user-info{display:block;font-size:10px;line-height:1.2}.logout{min-height:36px;padding:7px 10px;font-size:12px}.navlinks{padding:6px;border-radius:14px}.navlinks a{padding:9px 12px;font-size:12px}.page-heading{margin:18px 2px 14px}.page-heading h1{font-size:23px}.page-heading p{font-size:12px}}
     /* Keep Material Description and location headers visible while the table scrolls. */
     .table-scroll{max-height:70vh;overflow:auto;overscroll-behavior:contain}
     .table-scroll table{border-collapse:separate;border-spacing:0}
@@ -44,6 +44,8 @@
     .table-scroll .sticky-description{position:sticky;left:0;z-index:2;background:#fff;border-right:1px solid #dfe6ef;box-shadow:3px 0 7px rgba(20,33,58,.08)}
     .table-scroll thead .sticky-description{top:0;left:0;z-index:5;background:#eaf2fb}
     .table-scroll .total-row .sticky-description{background:#eaf2fb}
+    .table-scroll thead .sticky-description,.table-scroll thead th.num{text-align:center}
+    .table-scroll tbody td.num{text-align:left}
     .stock-admin-upload{width:100%;margin:0;border:0;border-radius:0;background:transparent;overflow:visible}
     .stock-admin-upload>summary{display:flex;justify-content:flex-end;align-items:center;padding:2px 0 10px;border:0!important;color:#52647e;font-size:12px;font-weight:900;list-style:none}
     .stock-admin-upload>summary::-webkit-details-marker{display:none}
@@ -85,12 +87,11 @@
 <main class="page">
   <header class="topbar">
     <div class="brand">
-      <div class="brand-logo" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div class="brand-logo" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M35 10a21 21 0 1 0 13 16" stroke="#fff" stroke-width="8" stroke-linecap="round"/><circle cx="27" cy="31" r="7" fill="#F97316"/><path d="M33 26 50 9m-7 0h7v7" stroke="#F97316" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><rect x="36" y="43" width="6" height="12" rx="2" fill="#fff"/><rect x="46" y="35" width="6" height="20" rx="2" fill="#fff"/><rect x="56" y="26" width="6" height="29" rx="2" fill="#fff"/></svg></div>
       <div><div class="brand-title">Daily Monitoring Dashboard</div><div class="brand-subtitle">Daily Sales Report Apple</div></div>
     </div>
     <div class="user-area">
-      <div class="user-info">{{ stock_email }}<br>{% if stock_is_admin %}admin{% else %}viewer{% endif %}</div>
-      <a class="logout" href="{{ url_for('stock_logout') }}">Keluar</a>
+      {% if stock_is_admin %}<div class="user-info"><strong>{{ session.get('username', '') }}</strong><br>admin</div><a class="logout" href="{{ url_for('logout') }}">Logout</a>{% else %}<a class="logout" href="{{ url_for('login') }}">Login</a>{% endif %}
     </div>
     <nav class="navlinks" aria-label="Menu utama">
       <a href="{{ url_for('dashboard') }}">Dashboard</a>
