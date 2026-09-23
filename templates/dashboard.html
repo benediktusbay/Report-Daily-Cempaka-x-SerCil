@@ -950,6 +950,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 }
 
 /* Final mobile cleanup for salesman, dealer actions, and the detail dialog. */
+.qvo-potential-item[hidden]{display:none!important}
 @media(max-width:768px){
   .mobile-summary-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
   .mobile-summary-box{min-width:0;min-height:88px;padding:10px 8px}
@@ -986,6 +987,14 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   #no-purchase-list .no-purchase-export-table td:nth-child(6)::before{content:'Macbook Target'}
   #no-purchase-list .no-purchase-export-table td:nth-child(7)::before{content:'ACC Target'}
   #no-purchase-list .no-purchase-export-table td:nth-child(8)::before{content:'Grand Total'}
+  .hero{margin-bottom:11px}
+  .header-tools{gap:6px}
+  .header-tool{min-height:36px}
+  .achievement-layout .kpi-grid{gap:10px;margin-bottom:12px}
+  .achievement-layout .kpi-card{min-height:165px;padding:15px;row-gap:9px}
+  .achievement-layout .kpi-main{margin-top:7px}
+  .achievement-layout .kpi-pct{margin-top:5px}
+  .achievement-layout .kpi-progress{margin-top:0}
 }
 
 </style>
@@ -1375,7 +1384,13 @@ document.addEventListener('click',function(event){
       {% for d in dealer_no_purchase %}<tr data-no-purchase-row data-bp="{{ d.bp|e }}" data-dealer="{{ d.dealer|e }}" data-salesman="{{ d.salesman|e }}" data-depo="{{ d.depo|e }}" data-device-target="{{ d.device_target or 0 }}" data-macbook-target="{{ d.macbook_target or 0 }}" data-acc-target="{{ d.acc_target or 0 }}" data-total-target="{{ d.target or 0 }}"><td>{{ d.bp }}</td><td>{{ d.dealer }}</td><td>{{ d.salesman }}</td><td>{{ d.depo }}</td><td class="number">{{ d.device_target|rupiah }}</td><td class="number">{{ d.macbook_target|rupiah }}</td><td class="number">{{ d.acc_target|rupiah }}</td><td class="number">{{ d.target|rupiah }}</td></tr>{% endfor %}
     </tbody></table></div>
   </dialog>
-  <div class="card dealer-action-card qvo-potential-card"><div class="dealer-action-header"><h3>QVO Potential</h3><div class="dealer-count-badge qvo-potential" aria-label="{{ qvo_potential|length }} dealer QVO potential"><span class="dealer-count-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="4"></circle><path d="M12 12l7-7"></path><path d="M16 5h3v3"></path></svg></span><span class="dealer-count-copy"><strong>{{ qvo_potential|length }}</strong><span>Dealer</span></span></div></div><div class="qvo-compact-row qvo-potential-head"><span>Dealer</span><span>Sales MTD</span><span>Gap</span><span>Action</span></div>{% for d in qvo_potential[:3] %}<div class="qvo-compact-row"><span class="dealer-cell"><b>{{ d.dealer }}</b><small>{{ d.bp }} · {{ d.depo }}</small></span><span class="qvo-money">{{ d.sales_mtd|rupiah_short }}</span><span class="qvo-money qvo-gap">{{ d.gap|rupiah_short }}</span><span class="qvo-action {{ d.action|lower|replace(' ','-') }}">{{ d.action }}</span></div>{% else %}<p class="empty">Tidak ada dealer QVO Potential untuk filter ini.</p>{% endfor %}<div class="qvo-card-footer"><span class="dealer-card-count">Menampilkan {{ 3 if qvo_potential|length > 3 else qvo_potential|length }} dari {{ qvo_potential|length }} dealer</span><a class="qvo-analysis-link" href="{{ url_for('qvo_analysis', month=month, depo=depo_filters, salesman=salesman_filters) }}">Lihat Analisis <span>→</span></a></div></div>
+  <div class="card dealer-action-card qvo-potential-card" id="qvoPotentialCard">
+    <div class="dealer-action-header"><h3>QVO Potential</h3><div class="dealer-count-badge qvo-potential" id="qvoPotentialBadge" aria-label="{{ qvo_potential|length }} dealer QVO potential"><span class="dealer-count-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="4"></circle><path d="M12 12l7-7"></path><path d="M16 5h3v3"></path></svg></span><span class="dealer-count-copy"><strong id="qvoPotentialCount">{{ qvo_potential|length }}</strong><span>Dealer</span></span></div></div>
+    <div class="qvo-compact-row qvo-potential-head"><span>Dealer</span><span>Sales MTD</span><span>Gap</span><span>Action</span></div>
+    {% for d in qvo_potential %}<div class="qvo-compact-row qvo-potential-item" data-salesman="{{ d.salesman|e }}" data-depo="{{ d.depo|e }}"{% if loop.index > 3 %} hidden{% endif %}><span class="dealer-cell"><b>{{ d.dealer }}</b><small>{{ d.bp }} · {{ d.depo }}</small></span><span class="qvo-money">{{ d.sales_mtd|rupiah_short }}</span><span class="qvo-money qvo-gap">{{ d.gap|rupiah_short }}</span><span class="qvo-action {{ d.action|lower|replace(' ','-') }}">{{ d.action }}</span></div>{% endfor %}
+    <p class="empty" id="qvoPotentialEmpty"{% if qvo_potential %} hidden{% endif %}>Belum ada data untuk periode ini.</p>
+    <div class="qvo-card-footer"><span class="dealer-card-count" id="qvoPotentialFooter">Menampilkan {{ 3 if qvo_potential|length > 3 else qvo_potential|length }} dari {{ qvo_potential|length }} dealer</span><a class="qvo-analysis-link" id="qvoAnalysisLink" href="{{ url_for('qvo_analysis', month=month, depo=depo_filters, salesman=salesman_filters) }}">Lihat Analisis <span>→</span></a></div>
+  </div>
 </div>
 <script>
 (function(){
@@ -2175,6 +2190,13 @@ document.addEventListener('click',function(event){
     });
   }
   syncMobileDealerDetail();
+  if(window.matchMedia('(max-width:768px)').matches){
+    const activeNav=document.querySelector('nav a.active');
+    const nav=activeNav?.closest('nav');
+    if(nav && nav.scrollWidth>nav.clientWidth){
+      nav.scrollLeft=activeNav.offsetLeft-nav.offsetLeft-(nav.clientWidth-activeNav.offsetWidth)/2;
+    }
+  }
 
   let skuDetail=[];
   try{
@@ -2264,6 +2286,25 @@ document.addEventListener('click',function(event){
         normalize(card.dataset.salesman) === wanted
       );
     });
+    const mobile=window.matchMedia('(max-width:768px)').matches;
+    const qvoRows=Array.from(document.querySelectorAll('.qvo-potential-item'));
+    const matches=qvoRows.filter(row=>!mobile || normalize(row.dataset.salesman)===wanted);
+    qvoRows.forEach(row=>{row.hidden=!matches.includes(row) || matches.indexOf(row)>=3;});
+    const count=document.getElementById('qvoPotentialCount');
+    const badge=document.getElementById('qvoPotentialBadge');
+    const footer=document.getElementById('qvoPotentialFooter');
+    const empty=document.getElementById('qvoPotentialEmpty');
+    if(count)count.textContent=matches.length;
+    if(badge)badge.setAttribute('aria-label',matches.length+' dealer QVO potential');
+    if(footer)footer.textContent='Menampilkan '+Math.min(3,matches.length)+' dari '+matches.length+' dealer';
+    if(empty)empty.hidden=matches.length>0;
+    const link=document.getElementById('qvoAnalysisLink');
+    if(link){
+      if(!link.dataset.baseHref)link.dataset.baseHref=link.href;
+      const url=new URL(link.dataset.baseHref,window.location.href);
+      if(mobile){url.searchParams.delete('salesman');url.searchParams.append('salesman',name);}
+      link.href=url.toString();
+    }
   }
 
   selector.addEventListener('change', function(){
@@ -2273,6 +2314,9 @@ document.addEventListener('click',function(event){
   if(selector.options.length){
     showSalesman(selector.value);
   }
+  window.matchMedia('(max-width:768px)').addEventListener?.('change',function(){
+    if(selector.options.length)showSalesman(selector.value);
+  });
 })();
 </script>
 
