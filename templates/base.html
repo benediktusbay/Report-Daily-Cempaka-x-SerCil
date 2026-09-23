@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2216%22%20fill%3D%22%23111827%22%2F%3E%3Cpath%20d%3D%22M35%2010a21%2021%200%201%200%2013%2016%22%20fill%3D%22none%22%20stroke%3D%22white%22%20stroke-width%3D%228%22%20stroke-linecap%3D%22round%22%2F%3E%3Ccircle%20cx%3D%2227%22%20cy%3D%2231%22%20r%3D%227%22%20fill%3D%22%23F97316%22%2F%3E%3Cpath%20d%3D%22M33%2026%2050%209m-7%200h7v7%22%20fill%3D%22none%22%20stroke%3D%22%23F97316%22%20stroke-width%3D%225%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Crect%20x%3D%2236%22%20y%3D%2243%22%20width%3D%226%22%20height%3D%2212%22%20rx%3D%222%22%20fill%3D%22white%22%2F%3E%3Crect%20x%3D%2246%22%20y%3D%2235%22%20width%3D%226%22%20height%3D%2220%22%20rx%3D%222%22%20fill%3D%22white%22%2F%3E%3Crect%20x%3D%2256%22%20y%3D%2226%22%20width%3D%226%22%20height%3D%2229%22%20rx%3D%222%22%20fill%3D%22white%22%2F%3E%3C%2Fsvg%3E">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%20fill%3D%22none%22%3E%3Cpath%20d%3D%22M34.5%2014.5A19.5%2019.5%200%201%200%2042%2027%22%20stroke%3D%22%23111827%22%20stroke-width%3D%228%22%20stroke-linecap%3D%22round%22%2F%3E%3Ccircle%20cx%3D%2223%22%20cy%3D%2232%22%20r%3D%226.5%22%20fill%3D%22%23F97316%22%2F%3E%3Cpath%20d%3D%22M30.5%2025%2048%208m-8%200h8v8%22%20stroke%3D%22%23F97316%22%20stroke-width%3D%225%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Crect%20x%3D%2232%22%20y%3D%2251%22%20width%3D%227%22%20height%3D%227%22%20rx%3D%222%22%20fill%3D%22%23111827%22%2F%3E%3Crect%20x%3D%2242%22%20y%3D%2242%22%20width%3D%227%22%20height%3D%2216%22%20rx%3D%222%22%20fill%3D%22%23111827%22%2F%3E%3Crect%20x%3D%2252%22%20y%3D%2230%22%20width%3D%227%22%20height%3D%2228%22%20rx%3D%222%22%20fill%3D%22%23111827%22%2F%3E%3C%2Fsvg%3E">
 
   <title>{% block title %}Daily Sales Report{% endblock %}</title>
 
@@ -60,17 +60,15 @@
     }
 
     .brand-logo {
-      width: 56px;
-      height: 56px;
-      border-radius: 16px;
-      background: #111827;
-      color: white;
+      width: 52px;
+      height: 52px;
+      flex: 0 0 52px;
+      color: #111827;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 10px 24px rgba(17,24,39,.16);
     }
-    .brand-logo svg { width: 80%; height: 80%; display: block; }
+    .brand-logo svg { width: 100%; height: 100%; display: block; }
 
     .brand-title {
       font-weight: 800;
@@ -268,7 +266,7 @@
 
     @media (max-width: 620px) {
       .brand { min-width: 0; }
-      .brand-logo { width: 46px; height: 46px; border-radius: 13px; }
+      .brand-logo { width: 42px; height: 42px; flex-basis: 42px; }
       .brand-title { font-size: 19px; }
       .brand-subtitle { font-size: 11px; }
       .user-info { display: block; font-size: 10px; line-height: 1.2; }
@@ -286,7 +284,7 @@
   <header class="topbar">
 
     <a class="brand" href="{{ url_for('dashboard') }}">
-      <div class="brand-logo" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M35 10a21 21 0 1 0 13 16" stroke="#fff" stroke-width="8" stroke-linecap="round"/><circle cx="27" cy="31" r="7" fill="#F97316"/><path d="M33 26 50 9m-7 0h7v7" stroke="#F97316" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><rect x="36" y="43" width="6" height="12" rx="2" fill="#fff"/><rect x="46" y="35" width="6" height="20" rx="2" fill="#fff"/><rect x="56" y="26" width="6" height="29" rx="2" fill="#fff"/></svg></div>
+      <div class="brand-logo" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M34.5 14.5A19.5 19.5 0 1 0 42 27" stroke="#111827" stroke-width="8" stroke-linecap="round"/><circle cx="23" cy="32" r="6.5" fill="#F97316"/><path d="M30.5 25 48 8m-8 0h8v8" stroke="#F97316" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><rect x="32" y="51" width="7" height="7" rx="2" fill="#111827"/><rect x="42" y="42" width="7" height="16" rx="2" fill="#111827"/><rect x="52" y="30" width="7" height="28" rx="2" fill="#111827"/></svg></div>
 
       <div>
         <div class="brand-title">Daily Monitoring Dashboard</div>
