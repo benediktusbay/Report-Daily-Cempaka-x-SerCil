@@ -28,6 +28,7 @@
 .price-review-table td.price-flag-cell{color:#b45309;font-size:11px;max-width:220px}
 .price-review-table tr.price-row-fixed td{background:#f0fdf4}
 .price-paste{padding:16px;margin-bottom:16px}.price-paste h2{margin:0 0 8px;font-size:19px}.price-paste textarea{width:100%;min-height:220px;resize:vertical;border:1px solid #cbd5e1;border-radius:9px;padding:12px;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}.price-paste-actions{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-top:10px}.price-paste-actions .price-field{min-width:180px}.price-review-table select{min-width:105px;border:1px solid #fcd9b6;border-radius:6px;padding:5px 6px}
+.price-paste summary{list-style:none}.price-paste summary::-webkit-details-marker{display:none}.price-paste summary::before{content:'▶ ';display:inline-block;width:18px}.price-paste[open] summary::before{content:'▼ '}.price-paste-body{margin-top:14px}
 </style>
 {% endblock %}
 
@@ -35,12 +36,14 @@
 <div class="pricelist-head"><h1>Pricelist Apple</h1></div>
 
 {% if session.get('role') == 'admin' %}
-<div class="card price-paste">
-  <h2>Paste Pricelist</h2>
-  <div class="price-field"><label for="pricePasteText">Tempel tabel dari ChatGPT, Claude, Excel, atau Google Sheets</label><textarea id="pricePasteText" placeholder="Model&#9;SRP&#9;SRP Promo&#9;STP Promo&#9;Support&#9;Period&#10;iPhone 17 256GB&#9;20,499,000&#9;20,499,000&#9;19,780,000&#9;0&#9;13-26 Sep"></textarea></div>
+<details class="card price-admin price-paste" id="pricePasteSection" open>
+  <summary>Paste Pricelist</summary>
+  <div class="price-paste-body">
+  <div class="price-field"><textarea id="pricePasteText" aria-label="Tabel pricelist" placeholder="Model&#9;SRP&#9;SRP Promo&#9;STP Promo&#9;Support&#9;Period&#10;iPhone 17 256GB&#9;20,499,000&#9;20,499,000&#9;19,780,000&#9;0&#9;13-26 Sep"></textarea></div>
   <div class="price-paste-actions"><div class="price-field"><label for="pricePasteCategory">Kategori</label><select id="pricePasteCategory"><option value="iphone">iPhone</option><option value="mac">Mac/MacBook</option><option value="ipad">iPad</option><option value="acc">ACC</option></select></div><button type="button" class="price-btn" id="pricePasteAnalyze">Analisis Data</button></div>
   <div class="price-progress" id="pricePasteProgress" role="status"></div>
-</div>
+  </div>
+</details>
 <details class="card price-admin">
   <summary>Upload JPG (Experimental)</summary>
   <div class="price-upload">
@@ -131,6 +134,7 @@
   function numeric(value){const digits=String(value||'').replace(/[^0-9]/g,'');return digits?Number(digits):null;}
 
   const pasteText=document.getElementById('pricePasteText');
+  const pasteSection=document.getElementById('pricePasteSection');
   const pasteCategory=document.getElementById('pricePasteCategory');
   const pasteAnalyze=document.getElementById('pricePasteAnalyze');
   const pasteProgress=document.getElementById('pricePasteProgress');
@@ -701,10 +705,11 @@
 
   // ---------- Validasi selalu dihitung ulang dari preview terakhir ----------
   function rowKey(row){return String(row.model||'').trim().replace(/\s+/g,' ').toLocaleLowerCase();}
+  function modelHasPrice(model){return String(model||'').split(/\s+/).some(token=>/^\d[\d.,]*$/.test(token)&&token.replace(/\D/g,'').length>=7);}
   function rowValidation(row,previousRows){
     const errors=[],warnings=[];
     const paste=row._sourceType==='paste';
-    if(paste? !String(row.model||'').trim():!modelPlausible(row.model,row._category))errors.push('Model belum valid');
+    if((paste? !String(row.model||'').trim():!modelPlausible(row.model,row._category))||modelHasPrice(row.model))errors.push('Model belum valid');
     if(row.srp_promo==null||row.srp_promo<=0)errors.push('SRP Promo belum valid');
     if(row.stp_promo==null||row.stp_promo<=0)errors.push('STP Promo belum valid');
     if(!extractPeriod(row.period))errors.push('Period belum valid');
@@ -729,6 +734,9 @@
     return {errors,warnings};
   }
   let pending={};
+  pasteSection.addEventListener('toggle',function(){
+    if(pendingOrigin==='paste')reviewBox.style.display=this.open&&Object.keys(pending).length?'block':'none';
+  });
   function validatePending(){
     Object.keys(pending).forEach(cat=>{
       const rows=pending[cat].rows;
@@ -812,9 +820,14 @@
   saveButton.addEventListener('click',async function(){
     validatePending();
     if(Object.values(pending).some(item=>item.rows.some(row=>row.errors.length))){renderReview();return;}
-    saveButton.disabled=true;
     const categories=Object.keys(pending);
-    let totalLoaded=0,totalSkipped=0,totalDuplicate=0,totalWarnings=0;const saveFailed=[];
+    const labels={iphone:'iPhone',mac:'Mac/MacBook',ipad:'iPad',acc:'ACC'};
+    for(const cat of categories){
+      const uniqueModels=new Set(pending[cat].rows.map(row=>rowKey(row))).size;
+      if(!window.confirm('Pricelist '+labels[cat]+' lama akan diganti dengan '+uniqueModels+' produk baru. Lanjutkan?'))return;
+    }
+    saveButton.disabled=true;
+    let totalLoaded=0,totalSkipped=0,totalDuplicate=0,totalWarnings=0;const saveFailed=[],savedMessages=[];
     for(let i=0;i<categories.length;i++){
       const cat=categories[i];
       showWorkflowProgress('Menyimpan '+cat+' ('+(i+1)+'/'+categories.length+')...');
@@ -827,13 +840,14 @@
         totalSkipped+=Number(resultJson.rows_skipped)||0;
         totalDuplicate+=Number(resultJson.duplicate)||0;
         totalWarnings+=pending[cat].rows.filter(r=>r.warnings.length).length;
+        savedMessages.push(resultJson.message||((Number(resultJson.rows_loaded)||0)+' produk '+labels[cat]+' berhasil disimpan.'));
         delete pending[cat];
       }catch(err){saveFailed.push(cat+': '+(err.message||'gagal disimpan'));}
     }
-    const summary=totalLoaded+' produk berhasil disimpan, '+totalSkipped+' dilewati, '+totalDuplicate+' duplikat digabung, '+totalWarnings+' warning.';
+    const summary=savedMessages.join(' ')+' Total: '+totalLoaded+' berhasil, '+totalSkipped+' dilewati, '+totalDuplicate+' duplikat digabung, '+totalWarnings+' warning.';
     showWorkflowProgress(saveFailed.length?summary+' Gagal: '+saveFailed.join(' | '):summary,saveFailed.length?'error':'success');
     if(saveFailed.length)renderReview();
-    else setTimeout(()=>window.location.reload(),1200);
+    else setTimeout(()=>window.location.reload(),4000);
   });
 
   pasteAnalyze.addEventListener('click',function(){
