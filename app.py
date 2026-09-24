@@ -1073,6 +1073,8 @@ _schema_lock = Lock()
 
 @app.before_request
 def ensure_db():
+    if request.endpoint == 'ping':
+        return
     # Run the existing compatibility checks once per worker, not per page.
     # Set ready only after success; failures can retry on the next request.
     global _schema_ready
@@ -1116,6 +1118,11 @@ def initialize_database_schema():
         password = os.environ.get('ADMIN_PASSWORD', 'admin123')
         db.session.add(User(username=username, password_hash=generate_password_hash(password), role='admin'))
         db.session.commit()
+
+
+@app.route('/ping', methods=['GET'])
+def ping():
+    return 'OK', 200
 
 
 @app.route('/login', methods=['GET','POST'])
