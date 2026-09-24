@@ -22,11 +22,23 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 .below{color:#b91c1c!important;font-weight:900;background:#fff1f2}.achieved{color:#15803d;font-weight:900}
 .total td{background:#eaf1f8;border-top:2px solid #94a3b8;font-weight:900}.empty{padding:35px;text-align:center;color:#64748b}
 .reward-note{padding:15px;margin-top:15px}.reward-note h3{margin:0 0 10px;color:#854d0e;font-size:15px}.reward-note table{min-width:650px}.reward-note th{background:#fef3c7}
+.program-table th:nth-child(n+2){text-align:center}.program-table td:nth-child(4),.program-table td:nth-child(8){text-align:center}
+.program-table td:nth-child(6),.program-table td:nth-child(7){text-align:left}.program-table .total td:nth-child(6),.program-table .total td:nth-child(7){text-align:left}
+.program-detail-trigger{border:0;background:none;color:inherit;font:inherit;font-weight:800;text-align:left;cursor:pointer;padding:0;text-decoration:underline dotted;text-underline-offset:3px}
+.program-admin{position:relative;text-align:right}.program-admin summary{list-style:none;cursor:pointer;color:#52647e;font-size:13px;font-weight:900;padding:2px 0}.program-admin summary::-webkit-details-marker{display:none}.program-admin summary:before{content:'▸';margin-right:5px}.program-admin[open] summary:before{content:'▾'}
+.program-admin-panel{position:absolute;right:0;top:calc(100% + 8px);z-index:30;width:min(620px,calc(100vw - 30px));max-height:75vh;overflow:auto;background:#fff;border:1px solid #dce5ef;border-radius:13px;box-shadow:0 16px 36px rgba(15,23,42,.18);padding:15px;text-align:left}
+.program-admin-panel h3{margin:0 0 10px;font-size:15px}.program-admin-panel h4{margin:18px 0 8px;font-size:13px}.program-admin-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-bottom:12px}.program-admin-form label{display:grid;gap:4px;font-size:11px;font-weight:800;color:#475569}.program-admin-form input,.program-admin-form select{width:100%;min-width:0;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:8px;font:inherit}.program-admin-form .wide{grid-column:1/-1}.program-admin-form .btn{justify-self:start}.program-admin-group{padding:9px 0;border-top:1px solid #e5e7eb}.program-admin-group summary{font-size:12px;color:#0b3765}
+.program-search{position:relative}.program-search-results{position:absolute;top:100%;left:0;right:0;z-index:40;background:#fff;border:1px solid #cbd5e1;box-shadow:0 8px 18px rgba(15,23,42,.12);max-height:190px;overflow:auto}.program-search-results:empty{display:none}.program-search-results button{display:block;width:100%;padding:8px;border:0;border-bottom:1px solid #edf2f7;background:#fff;text-align:left;cursor:pointer;font-size:11px}.program-search-results button:hover{background:#edf3fa}
+.program-member-list{display:flex;flex-wrap:wrap;gap:5px;margin:7px 0}.program-member-list form{display:inline-flex;align-items:center;gap:5px;padding:4px 7px;background:#edf3fa;border-radius:7px;font-size:10px}.program-member-list button{border:0;background:transparent;color:#b91c1c;cursor:pointer;font-weight:900}.program-danger{background:#b91c1c}.program-dialog{width:min(780px,calc(100vw - 24px));max-height:85vh;border:1px solid #dce5ef;border-radius:14px;padding:18px;color:#172033}.program-dialog::backdrop{background:rgba(15,23,42,.45)}.program-dialog-head{display:flex;justify-content:space-between;gap:12px}.program-dialog-head h3{margin:0}.program-dialog-close{border:0;background:transparent;font-size:22px;cursor:pointer}.program-detail-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:14px 0}.program-detail-metrics div{padding:9px;background:#f5f8fc;border-radius:9px}.program-detail-metrics small{display:block;color:#64748b}.program-detail-metrics strong{display:block;margin-top:3px}.program-detail-table{min-width:560px}
 @media(max-width:720px){
-  .program-hero{display:block}.summary{grid-template-columns:1fr}.filters{padding:12px}.filter-form,.field,.field input,.field select,.btn{width:100%}.summary-value{font-size:18px}
-  table th:nth-child(3),table td:nth-child(3){position:sticky;left:0;z-index:3;min-width:210px;background:#fff}
-  table th:nth-child(4),table td:nth-child(4){position:sticky;left:210px;z-index:3;min-width:92px;background:#fff;box-shadow:3px 0 5px rgba(15,23,42,.08)}
-  table th:nth-child(3),table th:nth-child(4){z-index:4;background:#f1f5f9}
+  .program-hero{display:block}.summary{grid-template-columns:1fr}.filters{padding:12px}.filter-form,.field,.field input,.field select,.btn{width:100%;max-width:100%;min-width:0;box-sizing:border-box}.summary-value{font-size:18px}
+  .filter-form{display:grid;grid-template-columns:minmax(0,1fr)}.field{min-width:0}.field input,.field select{display:block}
+  .program-table{min-width:625px;table-layout:fixed}.program-table th:nth-child(1),.program-table td:nth-child(1),.program-table th:nth-child(2),.program-table td:nth-child(2),.program-table th:nth-child(5),.program-table td:nth-child(5){display:none}
+  .program-table th:nth-child(3),.program-table td:nth-child(3){position:sticky;left:0;z-index:3;width:185px;min-width:185px;max-width:185px;background:#fff;white-space:normal;box-shadow:3px 0 6px rgba(15,23,42,.09)}
+  .program-table th:nth-child(3){z-index:5;background:#f1f5f9}.program-table .total td:nth-child(3){background:#eaf1f8}
+  .program-table th:nth-child(4),.program-table td:nth-child(4){width:95px;min-width:95px}.program-table th:nth-child(6),.program-table td:nth-child(6){width:115px;min-width:115px}.program-table th:nth-child(7),.program-table td:nth-child(7){width:145px;min-width:145px}.program-table th:nth-child(8),.program-table td:nth-child(8){width:80px;min-width:80px}
+  .program-table .program-detail-trigger{line-height:1.3;white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .program-admin{margin-top:8px}.program-admin-panel{width:calc(100vw - 28px)}.program-admin-form{grid-template-columns:1fr}.program-detail-metrics{grid-template-columns:1fr 1fr}.program-dialog{padding:12px}
 }
 </style>
 {% endblock %}
@@ -34,7 +46,43 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 {% block body %}
 <div class="program-hero">
   <div><h1>Program</h1></div>
-  {% if latest %}<div><strong>Billing through {{ latest.strftime('%d %b %Y') }}</strong></div>{% endif %}
+  <div>{% if latest %}<strong>Billing through {{ latest.strftime('%d %b %Y') }}</strong>{% endif %}
+  {% if session.get('role') == 'admin' %}
+  <details class="program-admin"><summary>Kelola Dealer Program</summary>
+    <div class="program-admin-panel">
+      <h3>Tambah dealer Program</h3>
+      <form method="post" action="{{ url_for('manage_program') }}" class="program-admin-form">
+        <input type="hidden" name="action" value="create"><input type="hidden" name="month" value="{{ month }}">
+        <label class="wide">Cari BP atau dealer<div class="program-search"><input class="program-search-input" autocomplete="off" placeholder="Ketik BP atau nama dealer" required><input type="hidden" name="bp" required><div class="program-search-results"></div></div></label>
+        <label class="wide">Nama dealer/group<input name="display_name" data-program-field="display_name" required></label>
+        <label>Depo<input name="depo" data-program-field="depo" placeholder="Terisi dari database"></label>
+        <label>PIC Program<input name="pic_salesman" data-program-field="pic_salesman" required></label>
+        <label>Category<select name="category">{% for category in loyalty_categories %}<option value="{{ category }}">{{ category }}</option>{% endfor %}</select></label>
+        <button class="btn" type="submit">Tambah</button>
+      </form>
+      <h4>Edit, link, atau hapus</h4>
+      {% for group in admin_groups %}
+      <details class="program-admin-group"><summary>{{ group.display_name }} · {{ group.category }}</summary>
+        <form method="post" action="{{ url_for('manage_program') }}" class="program-admin-form">
+          <input type="hidden" name="group_id" value="{{ group.id }}"><input type="hidden" name="month" value="{{ month }}">
+          <label class="wide">Nama dealer/group<input name="display_name" value="{{ group.display_name }}" required></label>
+          <label>PIC Program<input name="pic_salesman" value="{{ group.pic_salesman }}" required></label>
+          <label>Category<select name="category">{% for category in loyalty_categories %}<option value="{{ category }}" {% if group.category == category %}selected{% endif %}>{{ category }}</option>{% endfor %}</select></label>
+          <label class="wide">BP utama<select name="representative_bp">{% for member in group.members %}<option value="{{ member.bp }}" {% if member.bp == group.representative_bp %}selected{% endif %}>{{ member.bp }} · {{ member.dealer_name }} · {{ member.depo }}</option>{% endfor %}</select></label>
+          <button class="btn" name="action" value="update" type="submit">Simpan perubahan</button>
+          <button class="btn program-danger" name="action" value="archive" type="submit" onclick="return confirm('Hapus group Program ini?')">Hapus group</button>
+        </form>
+        <div class="program-member-list">{% for member in group.members %}<form method="post" action="{{ url_for('manage_program') }}"><input type="hidden" name="action" value="unlink"><input type="hidden" name="group_id" value="{{ group.id }}"><input type="hidden" name="bp" value="{{ member.bp }}"><input type="hidden" name="month" value="{{ month }}"><span>{{ member.bp }} · {{ member.dealer_name }} · {{ member.depo }}</span><button type="submit" title="Hapus BP dari group" onclick="return confirm('Hapus BP ini dari group?')">×</button></form>{% endfor %}</div>
+        <form method="post" action="{{ url_for('manage_program') }}" class="program-admin-form">
+          <input type="hidden" name="action" value="link"><input type="hidden" name="group_id" value="{{ group.id }}"><input type="hidden" name="month" value="{{ month }}">
+          <label class="wide">Link BP lain<div class="program-search"><input class="program-search-input" autocomplete="off" placeholder="Cari BP atau nama dealer"><input type="hidden" name="bp" required><div class="program-search-results"></div></div></label>
+          <label>Depo<input name="depo" data-program-field="depo" placeholder="Terisi dari database"></label>
+          <button class="btn" type="submit">Link BP</button>
+        </form>
+      </details>
+      {% endfor %}
+    </div>
+  </details>{% endif %}</div>
 </div>
 
 <div class="filters">
@@ -62,12 +110,12 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 {% macro program_table(rows, totals, loyalty=false) %}
 <div class="card"><div class="table-wrap">
 {% if rows %}
-<table><thead><tr><th>Depo</th><th>BP</th><th>Dealer</th><th>Category</th><th>Salesman</th><th class="number">Target</th><th class="number">Achievement</th><th class="center">%</th></tr></thead>
+<table class="program-table"><thead><tr><th>Depo</th><th>BP</th><th>Dealer</th><th>Category</th><th>Salesman</th><th>Target</th><th>Achievement</th><th>%</th></tr></thead>
 <tbody>{% for p in rows %}<tr>
-  <td>{{ p.depo }}</td><td>{{ p.bp }}</td><td><strong>{{ p.dealer }}</strong></td><td><span class="category">{{ p.category }}</span></td><td>{{ p.salesman }}</td>
-  <td class="number">{{ p.target|rupiah }}</td><td class="number {% if p.below_target %}below{% else %}achieved{% endif %}">{{ p.achievement|rupiah }}</td>
+  <td>{{ p.depo }}</td><td>{{ p.bp }}</td><td>{% if loyalty %}<button type="button" class="program-detail-trigger" data-program-group="{{ p.id }}">{{ p.dealer }}</button>{% else %}<strong>{{ p.dealer }}</strong>{% endif %}</td><td><span class="category">{{ p.category }}</span></td><td>{{ p.salesman }}</td>
+  <td>{{ p.target|rupiah }}</td><td class="{% if p.below_target %}below{% else %}achieved{% endif %}">{{ p.achievement|rupiah }}</td>
   <td class="center {% if p.below_target %}below{% else %}achieved{% endif %}">{{ '%.1f'|format(p.pct) }}%</td>
-</tr>{% endfor %}<tr class="total"><td colspan="5">GRAND TOTAL</td><td class="number">{{ totals.target|rupiah }}</td><td class="number">{{ totals.achievement|rupiah }}</td><td class="center">{{ '%.1f'|format(totals.pct) }}%</td></tr></tbody></table>
+</tr>{% endfor %}<tr class="total"><td></td><td></td><td>GRAND TOTAL</td><td></td><td></td><td>{{ totals.target|rupiah }}</td><td>{{ totals.achievement|rupiah }}</td><td class="center">{{ '%.1f'|format(totals.pct) }}%</td></tr></tbody></table>
 {% else %}<div class="empty">Belum ada data program untuk filter ini.</div>{% endif %}
 </div></div>
 {% endmacro %}
@@ -75,11 +123,13 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 <div class="panel active" data-program-panel="loyalty">
   {{ program_table(program_loyalty, loyalty_totals, true) }}
   <div class="reward-note"><h3>Note Reward Program Loyalty</h3><div class="table-wrap"><table>
-    <thead><tr><th>Category</th><th class="number">Target Loyalty</th><th class="center">Reward Monthly</th><th class="center">Reward Loyalty</th></tr></thead>
-    <tbody>{% for reward in loyalty_reward_notes %}<tr><td><strong>{{ reward.category }}</strong></td><td class="number">{{ reward.target|rupiah }}</td><td class="center">{{ '%.2f'|format(reward.reward_monthly * 100) }}%</td><td class="center">{% if reward.reward_loyalty is not none %}{{ '%.2f'|format(reward.reward_loyalty * 100) }}%{% else %}—{% endif %}</td></tr>{% endfor %}</tbody>
+    <thead><tr><th>Category</th><th class="number">Target Monthly</th><th class="number">Target Quarterly</th><th class="center">Reward Monthly</th><th class="center">Reward Loyalty</th></tr></thead>
+    <tbody>{% for reward in loyalty_reward_notes %}<tr><td><strong>{{ reward.category }}</strong></td><td class="number">{{ reward.target|rupiah }}</td><td class="number">{{ reward.quarterly_target|rupiah }}</td><td class="center">{{ '%.2f'|format(reward.reward_monthly * 100) }}%</td><td class="center">{% if reward.reward_loyalty is not none %}{{ '%.2f'|format(reward.reward_loyalty * 100) }}%{% else %}—{% endif %}</td></tr>{% endfor %}</tbody>
   </table></div></div>
 </div>
 <div class="panel" data-program-panel="ppg-paa">{{ program_table(program_ppg_paa, ppg_paa_totals) }}</div>
+<dialog class="program-dialog" id="programGroupDialog"><div class="program-dialog-head"><h3 id="programDetailName"></h3><button type="button" class="program-dialog-close" aria-label="Tutup detail">×</button></div><div id="programDetailMeta"></div><div class="program-detail-metrics" id="programDetailMetrics"></div><div class="table-wrap"><table class="program-detail-table"><thead><tr><th>BP</th><th>Dealer sumber</th><th>Depo</th><th class="number">Achievement</th></tr></thead><tbody id="programDetailRows"></tbody></table></div></dialog>
+<script type="application/json" id="programDetailData">{{ program_loyalty|tojson }}</script>
 {% endblock %}
 
 {% block scripts %}
@@ -91,6 +141,37 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
     tabs.forEach(function(item){item.classList.toggle('active',item===tab);});
     panels.forEach(function(panel){panel.classList.toggle('active',panel.dataset.programPanel===tab.dataset.programTab);});
   });});
+  const detailData=JSON.parse(document.getElementById('programDetailData').textContent);
+  const detailDialog=document.getElementById('programGroupDialog');
+  const money=function(value){return 'Rp'+Number(value||0).toLocaleString('id-ID',{maximumFractionDigits:0});};
+  const percent=function(value){return Number(value||0).toLocaleString('id-ID',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';};
+  function metric(label,value){const item=document.createElement('div');const small=document.createElement('small');const strong=document.createElement('strong');small.textContent=label;strong.textContent=value;item.append(small,strong);return item;}
+  document.querySelectorAll('[data-program-group]').forEach(function(button){button.addEventListener('click',function(){
+    const group=detailData.find(function(row){return String(row.id)===button.dataset.programGroup;});if(!group)return;
+    document.getElementById('programDetailName').textContent=group.dealer;
+    document.getElementById('programDetailMeta').textContent=group.category+' · PIC '+group.salesman+' · BP utama '+group.bp;
+    const metrics=document.getElementById('programDetailMetrics');metrics.replaceChildren(
+      metric('Target Monthly',money(group.target)),metric('Achievement Monthly',money(group.achievement)),
+      metric('Achievement Monthly %',percent(group.pct)),metric('Estimasi Reward Monthly',money(group.reward_monthly_estimate)),
+      metric('Target Quarterly',money(group.quarterly_target)),metric('Achievement Quarterly',money(group.quarterly_achievement)),
+      metric('Achievement Quarterly %',percent(group.quarterly_pct)),metric('Estimasi Reward Loyalty',group.reward_loyalty_estimate==null?'—':money(group.reward_loyalty_estimate))
+    );
+    const body=document.getElementById('programDetailRows');body.replaceChildren();
+    group.members.forEach(function(member){const tr=document.createElement('tr');[member.bp,member.dealer,member.depo,money(member.achievement)].forEach(function(value,index){const td=document.createElement('td');td.textContent=value;if(index===3)td.className='number';tr.append(td);});body.append(tr);});
+    const total=document.createElement('tr');total.className='total';const label=document.createElement('td');label.colSpan=3;label.textContent='TOTAL';const value=document.createElement('td');value.className='number';value.textContent=money(group.achievement);total.append(label,value);body.append(total);
+    detailDialog.showModal();
+  });});
+  detailDialog.querySelector('.program-dialog-close').addEventListener('click',function(){detailDialog.close();});
+  detailDialog.addEventListener('click',function(event){if(event.target===detailDialog)detailDialog.close();});
+  const searchUrl={{ url_for('program_dealer_search')|tojson }};
+  document.querySelectorAll('.program-search').forEach(function(search){
+    const input=search.querySelector('.program-search-input'),hidden=search.querySelector('[name="bp"]'),results=search.querySelector('.program-search-results');let timer;
+    input.addEventListener('input',function(){hidden.value='';results.replaceChildren();clearTimeout(timer);const query=input.value.trim();if(query.length<2)return;
+      timer=setTimeout(async function(){try{const response=await fetch(searchUrl+'?q='+encodeURIComponent(query));if(!response.ok)return;const dealers=await response.json();if(input.value.trim()!==query)return;
+        dealers.forEach(function(dealer){const option=document.createElement('button');option.type='button';option.textContent=dealer.bp+' · '+dealer.dealer+(dealer.depo?' · '+dealer.depo:'');option.addEventListener('click',function(){hidden.value=dealer.bp;input.value=option.textContent;results.replaceChildren();const form=search.closest('form');[['display_name',dealer.dealer],['depo',dealer.depo],['pic_salesman',dealer.salesman]].forEach(function(pair){const field=form.querySelector('[data-program-field="'+pair[0]+'"]');if(field)field.value=pair[1]||'';});});results.append(option);});
+      }catch(error){results.replaceChildren();}},220);
+    });
+  });
 })();
 </script>
 {% endblock %}
