@@ -9,7 +9,7 @@ import secrets
 from threading import Lock
 import urllib.error
 import urllib.request
-from sqlalchemy import inspect, text
+from sqlalchemy import inspect, text, or_
 from datetime import datetime, timedelta
 import datetime as dt
 from functools import wraps
@@ -90,10 +90,35 @@ LOCKED_SALESMEN = [
 LOYALTY_TARGETS = {
     'CROWN': 5_000_000_000,
     'DIAMOND': 2_000_000_000,
+    'PLATINUM': 1_000_000_000,
     'GOLD': 500_000_000,
     'SILVER': 350_000_000,
     'BRONZE': 50_000_000,
 }
+
+LOYALTY_REWARDS = {
+    'CROWN': (.01, .009),
+    'DIAMOND': (.01, .006),
+    'PLATINUM': (.01, .004),
+    'GOLD': (.0075, .0035),
+    'SILVER': (.005, .0035),
+    'BRONZE': (.005, None),
+}
+
+# Requested one-time Program mappings. Each BP is checked against Billing and
+# Monthly Target before it is persisted; an unverified candidate is left out.
+PROGRAM_GROUP_SEEDS = (
+    ('legacy:10002175', 'PT BUMI ASIA JAYA', '10002175', 'Cempaka', 'Rafi', 'CROWN', (
+        ('10002175', 'PT BUMI ASIA JAYA', 'Cempaka'),
+        ('10070968', 'PT BUMI ASIA JAYA', 'Roxy'),
+        ('10070986', 'PT BUMI ASIA JAYA', 'Tangerang'),
+    )),
+    ('requested:satutempat', 'PT SATUTEMPAT IDEAL GEMILANG', '10045828', 'Cempaka', 'Rafi', 'CROWN', (
+        ('10045828', 'PT SATUTEMPAT IDEAL GEMILANG', 'Cempaka'),
+        ('10004507', 'PT DISTRIBUTOR GADGET INDONESIA', 'Roxy'),
+        ('10071615', 'PT DISTRIBUTOR GADGET INDONESIA', 'Tangerang'),
+    )),
+)
 
 # Program Loyalty master supplied by the business team for Cempaka.
 # Dealer/depo/salesman labels are resolved from Monthly Target by BP so an
@@ -352,6 +377,28 @@ class DealerAssignment(db.Model):
         db.UniqueConstraint('month', 'bp', 'valid_from', name='uq_assignment_start'),
         db.CheckConstraint('valid_from <= valid_to', name='ck_assignment_dates'),
     )
+
+
+class ProgramGroup(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    seed_key = db.Column(db.String(100), unique=True)
+    display_name = db.Column(db.String(255), nullable=False)
+    representative_bp = db.Column(db.String(80), nullable=False)
+    display_depo = db.Column(db.String(80), nullable=False)
+    pic_salesman = db.Column(db.String(160), nullable=False)
+    category = db.Column(db.String(20), nullable=False)
+    active = db.Column(db.Boolean, nullable=False, default=True)
+    seed_attempted = db.Column(db.Boolean, nullable=False, default=True)
+    members = db.relationship('ProgramGroupMember', backref='group', cascade='all, delete-orphan', lazy='selectin')
+
+
+class ProgramGroupMember(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('program_group.id'), nullable=False, index=True)
+    bp = db.Column(db.String(80), nullable=False, unique=True, index=True)
+    dealer_name = db.Column(db.String(255), nullable=False)
+    depo = db.Column(db.String(80), nullable=False)
+    salesman = db.Column(db.String(160), nullable=False, default='')
 
 
 class UploadLog(db.Model):
@@ -1134,6 +1181,7 @@ def initialize_database_schema():
         password = os.environ.get('ADMIN_PASSWORD', 'admin123')
         db.session.add(User(username=username, password_hash=generate_password_hash(password), role='admin'))
         db.session.commit()
+    seed_program_groups()
 
 
 @app.route('/ping', methods=['GET'])
@@ -2681,108 +2729,164 @@ def sales_projection(achievement, target, elapsed, total_days, has_target=True):
     }
 
 
+def program_name_key(value):
+    return re.sub(r'[^a-z0-9]+', ' ', normalize_text(value).lower()).strip()
+
+
+def program_bp_metadata(bps):
+    """Read the latest known dealer/depo and billing name in two batch queries."""
+    bps = {normalize_bp(bp) for bp in bps if normalize_bp(bp)}
+    if not bps:
+        return {}
+    metadata = {bp: {} for bp in bps}
+    targets = MonthlyTarget.query.filter(MonthlyTarget.bp.in_(bps)).order_by(
+        MonthlyTarget.month.desc(), MonthlyTarget.id.desc()
+    ).all()
+    for row in targets:
+        bp = normalize_bp(row.bp)
+        if bp in metadata and 'depo' not in metadata[bp]:
+            metadata[bp].update(dealer=normalize_text(row.dealer), depo=normalize_text(row.depo),
+                                salesman=canonical_salesman(row.salesman))
+    latest_billing_ids = db.session.query(db.func.max(Billing.id)).filter(
+        Billing.sold_to_code.in_(bps)
+    ).group_by(Billing.sold_to_code)
+    billing = db.session.query(Billing.sold_to_code, Billing.sold_to_name, Billing.salesman).filter(
+        Billing.id.in_(latest_billing_ids)
+    ).all()
+    for row in billing:
+        bp = normalize_bp(row.sold_to_code)
+        if bp in metadata and 'billing_dealer' not in metadata[bp]:
+            metadata[bp]['billing_dealer'] = normalize_text(row.sold_to_name)
+            metadata[bp].setdefault('salesman', canonical_salesman(row.salesman))
+    return metadata
+
+
+def seed_program_groups():
+    """Create persistent Program master rows without overwriting admin changes."""
+    legacy_bps = set(LOYALTY_CEMPAKA_BP)
+    requested_bps = {bp for seed in PROGRAM_GROUP_SEEDS for bp, _, _ in seed[6]}
+    metadata = program_bp_metadata(legacy_bps | requested_bps)
+    groups = {g.seed_key: g for g in ProgramGroup.query.filter(ProgramGroup.seed_key.isnot(None)).all()}
+    linked_bps = {m.bp for m in ProgramGroupMember.query.all()}
+    for bp, category in LOYALTY_CEMPAKA_BP.items():
+        seed_key = 'legacy:' + bp
+        if seed_key in groups or bp in linked_bps:
+            continue
+        meta = metadata.get(bp, {})
+        special = bp == '10002175'
+        group = ProgramGroup(
+            seed_key=seed_key,
+            display_name='PT BUMI ASIA JAYA' if special else (meta.get('dealer') or meta.get('billing_dealer') or bp),
+            representative_bp=bp, display_depo='Cempaka' if special else (meta.get('depo') or 'Cempaka'),
+            pic_salesman='Rafi' if special else (meta.get('salesman') or ''),
+            category=category, seed_attempted=not special,
+        )
+        group.members.append(ProgramGroupMember(bp=bp,
+            dealer_name=meta.get('billing_dealer') or meta.get('dealer') or group.display_name,
+            depo=meta.get('depo') or 'Cempaka', salesman=meta.get('salesman') or ''))
+        db.session.add(group)
+        groups[seed_key] = group
+        linked_bps.add(bp)
+
+    for seed_key, name, representative_bp, display_depo, pic, category, candidates in PROGRAM_GROUP_SEEDS:
+        group = groups.get(seed_key)
+        if group is None:
+            representative = metadata.get(representative_bp, {})
+            if not ((not representative.get('depo') or representative['depo'].lower() == display_depo.lower())
+                    and program_name_key(name) in {
+                        program_name_key(representative.get('dealer')),
+                        program_name_key(representative.get('billing_dealer')),
+                    }):
+                continue
+            group = ProgramGroup(seed_key=seed_key, display_name=name,
+                representative_bp=representative_bp, display_depo=display_depo,
+                pic_salesman=pic, category=category, seed_attempted=False)
+            db.session.add(group)
+            groups[seed_key] = group
+        if group.seed_attempted or not group.active:
+            continue
+        for bp, expected_name, expected_depo in candidates:
+            if bp in linked_bps:
+                continue
+            meta = metadata.get(bp, {})
+            name_matches = program_name_key(expected_name) in {
+                program_name_key(meta.get('dealer')),
+                program_name_key(meta.get('billing_dealer')),
+            }
+            if (meta.get('depo') and meta['depo'].lower() != expected_depo.lower()) or not name_matches:
+                continue
+            group.members.append(ProgramGroupMember(bp=bp,
+                dealer_name=meta.get('billing_dealer') or meta.get('dealer') or expected_name,
+                depo=expected_depo, salesman=meta.get('salesman') or ''))
+            linked_bps.add(bp)
+        group.seed_attempted = True
+    db.session.commit()
+
+
 @app.route('/program')
 def program():
-    """Program achievement based on Billing Detail Total Net Amount With Tax."""
+    """Program Loyalty is one target per persistent group, summed across its BPs."""
     month = request.args.get('month', datetime.now().strftime('%Y-%m'))
     depo_filter = normalize_text(request.args.get('depo'))
     salesman_filter = normalize_text(request.args.get('salesman'))
     latest = db.session.query(db.func.max(Billing.billing_date)).scalar()
-    targets = MonthlyTarget.query.filter_by(month=month).all()
-    program_bps = set(LOYALTY_CEMPAKA_BP)
-
-    # Program tetap harus memiliki nama dealer dan salesman walaupun target bulan
-    # yang dipilih baru berisi BP saja. Ambil metadata terbaru yang lengkap dari
-    # Target Master, lalu gunakan Billing sebagai fallback terakhir.
-    target_history = MonthlyTarget.query.order_by(
-        MonthlyTarget.month.desc(), MonthlyTarget.id.desc()
-    ).all()
-    history_by_bp = {}
-    for row in target_history:
-        bp = normalize_bp(row.bp)
-        if bp in program_bps:
-            history_by_bp.setdefault(bp, []).append(row)
-
-    billing_meta = {}
-    # Do not filter the database using the raw BP value. Excel sometimes stores
-    # the same BP as text, decimal-looking text, or a number. Normalise first in
-    # Python so dealer and salesman metadata is found in every case.
-    recent_billing = db.session.query(
-        Billing.sold_to_code,
-        Billing.sold_to_name,
-        Billing.salesman,
-        Billing.billing_date,
-        Billing.id,
-    ).order_by(Billing.billing_date.desc(), Billing.id.desc()).yield_per(1000)
-    for row in recent_billing:
-        bp = normalize_bp(row.sold_to_code)
-        if bp in program_bps and bp not in billing_meta:
-            billing_meta[bp] = row
-
-    def program_metadata(bp):
-        candidates = history_by_bp.get(bp, [])
-        dealer = ''
-        salesman = ''
-        depo = ''
-        for candidate in candidates:
-            candidate_dealer = normalize_text(candidate.dealer)
-            if not dealer and candidate_dealer and normalize_bp(candidate_dealer) != bp:
-                dealer = candidate_dealer
-            candidate_salesman = canonical_salesman(candidate.salesman)
-            if not salesman and candidate_salesman:
-                salesman = candidate_salesman
-                depo = normalize_text(candidate.depo)
-            if dealer and salesman:
-                break
-        billing_row = billing_meta.get(bp)
-        if billing_row:
-            if not dealer:
-                dealer = normalize_text(billing_row.sold_to_name)
-            if not salesman:
-                salesman = canonical_salesman(billing_row.salesman)
-        return {
-            'dealer': dealer or bp,
-            'salesman': salesman,
-            'depo': depo or 'Cempaka',
-        }
-
-    metadata_by_bp = {bp: program_metadata(bp) for bp in program_bps}
-    depos = sorted({meta['depo'] for meta in metadata_by_bp.values() if meta['depo']})
-    available_salesmen = {meta['salesman'] for meta in metadata_by_bp.values() if meta['salesman']}
-    salesmen = [name for name in LOCKED_SALESMEN if name in available_salesmen]
+    groups = ProgramGroup.query.filter_by(active=True).order_by(ProgramGroup.display_name).all()
+    all_bps = {member.bp for group in groups for member in group.members}
+    depos = sorted({member.depo for group in groups for member in group.members if member.depo})
+    salesmen = sorted({group.pic_salesman for group in groups if group.pic_salesman})
     start, end = month_range(month)
-    achievement_by_bp = {}
-    for raw_bp, total in db.session.query(
-            Billing.sold_to_code,
-            db.func.sum(Billing.nett_amount_with_tax),
-        ).filter(
-            Billing.billing_date >= start,
-            Billing.billing_date <= end,
-        ).group_by(Billing.sold_to_code).all():
-        bp = normalize_bp(raw_bp)
-        achievement_by_bp[bp] = achievement_by_bp.get(bp, 0.0) + float(total or 0)
+    quarter_start = start.replace(month=((start.month - 1) // 3) * 3 + 1)
 
+    def achievement_by_bp(period_start, period_end):
+        if not all_bps:
+            return {}
+        rows = db.session.query(
+            Billing.sold_to_code, db.func.sum(Billing.nett_amount_with_tax)
+        ).filter(
+            Billing.sold_to_code.in_(all_bps),
+            Billing.billing_date >= period_start,
+            Billing.billing_date <= period_end,
+        ).group_by(Billing.sold_to_code).all()
+        return {normalize_bp(bp): float(total or 0) for bp, total in rows}
+
+    monthly_by_bp = achievement_by_bp(start, end)
+    quarterly_by_bp = achievement_by_bp(quarter_start, end)
     program_loyalty = []
-    for bp, category in LOYALTY_CEMPAKA_BP.items():
-        meta = metadata_by_bp[bp]
-        depo = meta['depo']
-        salesman = meta['salesman']
-        if depo_filter and depo != depo_filter:
+    for group in groups:
+        members = sorted(group.members, key=lambda member: (
+            member.bp != group.representative_bp, member.depo, member.bp
+        ))
+        if depo_filter and not any(member.depo == depo_filter for member in members):
             continue
-        if salesman_filter and salesman != salesman_filter:
+        if salesman_filter and group.pic_salesman != salesman_filter:
             continue
-        target_value = LOYALTY_TARGETS[category]
-        achievement = achievement_by_bp.get(bp, 0.0)
+        target_value = LOYALTY_TARGETS.get(group.category)
+        if target_value is None:
+            continue
+        monthly_achievement = sum(monthly_by_bp.get(member.bp, 0) for member in members)
+        quarterly_achievement = sum(quarterly_by_bp.get(member.bp, 0) for member in members)
+        monthly_rate, loyalty_rate = LOYALTY_REWARDS[group.category]
         program_loyalty.append({
-            'depo': depo,
-            'bp': bp,
-            'dealer': meta['dealer'],
-            'category': category,
-            'salesman': salesman,
+            'id': group.id,
+            'depo': group.display_depo,
+            'bp': group.representative_bp,
+            'dealer': group.display_name,
+            'category': group.category,
+            'salesman': group.pic_salesman,
             'target': target_value,
-            'achievement': achievement,
-            'pct': achievement / target_value * 100 if target_value else 0,
-            'below_target': achievement < target_value,
+            'quarterly_target': target_value * 3,
+            'achievement': monthly_achievement,
+            'quarterly_achievement': quarterly_achievement,
+            'pct': monthly_achievement / target_value * 100 if target_value else 0,
+            'quarterly_pct': quarterly_achievement / (target_value * 3) * 100 if target_value else 0,
+            'reward_monthly_estimate': monthly_achievement * monthly_rate,
+            'reward_loyalty_estimate': quarterly_achievement * loyalty_rate if loyalty_rate is not None else None,
+            'below_target': monthly_achievement < target_value,
+            'members': [dict(bp=member.bp, dealer=member.dealer_name, depo=member.depo,
+                             salesman=member.salesman,
+                             achievement=monthly_by_bp.get(member.bp, 0),
+                             quarterly_achievement=quarterly_by_bp.get(member.bp, 0))
+                        for member in members],
         })
     program_loyalty.sort(key=lambda row: (-row['target'], row['dealer']))
     loyalty_target = sum(row['target'] for row in program_loyalty)
@@ -2792,20 +2896,134 @@ def program():
         'achievement': loyalty_achievement,
         'pct': loyalty_achievement / loyalty_target * 100 if loyalty_target else 0,
     }
+    reward_notes = [dict(category=category, target=target,
+                         quarterly_target=target * 3,
+                         reward_monthly=LOYALTY_REWARDS[category][0],
+                         reward_loyalty=LOYALTY_REWARDS[category][1])
+                    for category, target in LOYALTY_TARGETS.items()]
     zero_totals = {'target': 0, 'achievement': 0, 'pct': 0}
-    reward_notes = [
-        {'category': 'CROWN', 'target': 5_000_000_000, 'reward_monthly': .01, 'reward_loyalty': .009},
-        {'category': 'DIAMOND', 'target': 2_000_000_000, 'reward_monthly': .01, 'reward_loyalty': .006},
-        {'category': 'GOLD', 'target': 500_000_000, 'reward_monthly': .0075, 'reward_loyalty': .0035},
-        {'category': 'SILVER', 'target': 350_000_000, 'reward_monthly': .005, 'reward_loyalty': .0035},
-        {'category': 'BRONZE', 'target': 50_000_000, 'reward_monthly': .005, 'reward_loyalty': None},
-    ]
+    admin_groups = ProgramGroup.query.filter_by(active=True).order_by(ProgramGroup.display_name).all() if session.get('role') == 'admin' else []
     return render_template(
         'program.html', month=month, latest=latest, depos=depos, salesmen=salesmen,
         depo_filter=depo_filter, salesman_filter=salesman_filter,
         program_loyalty=program_loyalty, program_ppg_paa=[], loyalty_totals=loyalty_totals,
         ppg_paa_totals=zero_totals, loyalty_reward_notes=reward_notes,
+        loyalty_categories=list(LOYALTY_TARGETS), admin_groups=admin_groups,
     )
+
+
+@app.route('/program/dealers/search')
+@admin_required
+def program_dealer_search():
+    query = normalize_text(request.args.get('q'))
+    if len(query) < 2:
+        return jsonify([])
+    pattern = '%' + query.replace('%', r'\%').replace('_', r'\_') + '%'
+    target_rows = MonthlyTarget.query.filter(or_(
+        MonthlyTarget.bp.ilike(pattern), MonthlyTarget.dealer.ilike(pattern)
+    )).order_by(MonthlyTarget.month.desc(), MonthlyTarget.id.desc()).limit(40).all()
+    billing_rows = db.session.query(Billing.sold_to_code, Billing.sold_to_name, Billing.salesman).filter(or_(
+        Billing.sold_to_code.ilike(pattern), Billing.sold_to_name.ilike(pattern)
+    )).order_by(Billing.billing_date.desc(), Billing.id.desc()).limit(40).all()
+    result = {}
+    for row in target_rows:
+        bp = normalize_bp(row.bp)
+        result.setdefault(bp, dict(bp=bp, dealer=normalize_text(row.dealer),
+                                   depo=normalize_text(row.depo), salesman=canonical_salesman(row.salesman)))
+    for row in billing_rows:
+        bp = normalize_bp(row.sold_to_code)
+        result.setdefault(bp, dict(bp=bp, dealer=normalize_text(row.sold_to_name),
+                                   depo='', salesman=canonical_salesman(row.salesman)))
+    return jsonify(list(result.values())[:20])
+
+
+@app.route('/program/manage', methods=['POST'])
+@admin_required
+def manage_program():
+    action = normalize_text(request.form.get('action')).lower()
+    month = request.form.get('month') or datetime.now().strftime('%Y-%m')
+    return_to_program = lambda: redirect(url_for('program', month=month))
+    group_id = request.form.get('group_id', type=int)
+    group = db.session.get(ProgramGroup, group_id) if group_id else None
+    category = normalize_text(request.form.get('category')).upper()
+    bp = normalize_bp(request.form.get('bp'))
+    if action in ('update', 'link', 'unlink', 'archive') and not group:
+        flash('Group Program tidak ditemukan.', 'danger')
+        return return_to_program()
+    if action in ('create', 'update') and category not in LOYALTY_TARGETS:
+        flash('Category Program tidak valid.', 'danger')
+        return return_to_program()
+    if action in ('create', 'update'):
+        name = normalize_text(request.form.get('display_name'))
+        pic = normalize_text(request.form.get('pic_salesman'))
+        if not name or not pic:
+            flash('Nama group dan PIC wajib diisi.', 'danger')
+            return return_to_program()
+        normalized_name = program_name_key(name)
+        if any(program_name_key(other.display_name) == normalized_name
+               for other in ProgramGroup.query.filter_by(active=True).all()
+               if other.id != (group.id if group else None)):
+            flash('Nama dealer/group Program sudah ada.', 'danger')
+            return return_to_program()
+    if action == 'create':
+        meta = program_bp_metadata({bp}).get(bp, {})
+        if not bp or not (meta.get('dealer') or meta.get('billing_dealer')):
+            flash('Pilih BP yang ditemukan di database.', 'danger')
+            return return_to_program()
+        if ProgramGroupMember.query.filter_by(bp=bp).first():
+            flash('BP sudah terhubung ke group Program lain.', 'danger')
+            return return_to_program()
+        depo = meta.get('depo') or normalize_text(request.form.get('depo'))
+        if not depo:
+            flash('Depo BP belum tersedia; lengkapi Depo sebelum menyimpan.', 'danger')
+            return return_to_program()
+        group = ProgramGroup(display_name=name, representative_bp=bp, display_depo=depo,
+                             pic_salesman=pic, category=category)
+        group.members.append(ProgramGroupMember(bp=bp, dealer_name=meta.get('billing_dealer') or meta.get('dealer'),
+                                                depo=depo, salesman=meta.get('salesman') or ''))
+        db.session.add(group)
+    elif action == 'update':
+        group.display_name = name
+        group.pic_salesman = pic
+        group.category = category
+        representative_bp = normalize_bp(request.form.get('representative_bp'))
+        member = next((member for member in group.members if member.bp == representative_bp), None)
+        if member:
+            group.representative_bp = member.bp
+            group.display_depo = member.depo
+    elif action == 'link':
+        meta = program_bp_metadata({bp}).get(bp, {})
+        if not bp or not (meta.get('dealer') or meta.get('billing_dealer')):
+            flash('BP tidak ditemukan di database.', 'danger')
+            return return_to_program()
+        if ProgramGroupMember.query.filter_by(bp=bp).first():
+            flash('BP sudah terhubung ke group Program.', 'danger')
+            return return_to_program()
+        depo = meta.get('depo') or normalize_text(request.form.get('depo'))
+        if not depo:
+            flash('Depo BP belum tersedia; lengkapi Depo sebelum menautkan.', 'danger')
+            return return_to_program()
+        group.members.append(ProgramGroupMember(bp=bp, dealer_name=meta.get('billing_dealer') or meta.get('dealer'),
+                                                depo=depo, salesman=meta.get('salesman') or ''))
+    elif action == 'unlink':
+        member = next((member for member in group.members if member.bp == bp), None)
+        if not member:
+            flash('BP bukan anggota group ini.', 'danger')
+            return return_to_program()
+        group.members.remove(member)
+        if group.representative_bp == bp:
+            remaining = next(iter(group.members), None)
+            group.representative_bp = remaining.bp if remaining else ''
+            group.display_depo = remaining.depo if remaining else ''
+    elif action == 'archive':
+        group.active = False
+        group.members.clear()
+    else:
+        flash('Aksi Program tidak valid.', 'danger')
+        return return_to_program()
+    db.session.commit()
+    flash('Dealer Program berhasil diperbarui.', 'success')
+    return return_to_program()
 
 
 PRICELIST_CATEGORIES = {
