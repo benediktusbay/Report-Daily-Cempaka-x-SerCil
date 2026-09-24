@@ -108,12 +108,12 @@ LOYALTY_REWARDS = {
 # Requested one-time Program mappings. Each BP is checked against Billing and
 # Monthly Target before it is persisted; an unverified candidate is left out.
 PROGRAM_GROUP_SEEDS = (
-    ('legacy:10002175', 'PT BUMI ASIA JAYA', '10002175', 'Cempaka', 'Rafi', 'CROWN', (
+    ('legacy:10002175', 'PT BUMI ASIA JAYA', '10002175', 'Cempaka', 'Rafhyski Alhasan', 'CROWN', (
         ('10002175', 'PT BUMI ASIA JAYA', 'Cempaka'),
         ('10070968', 'PT BUMI ASIA JAYA', 'Roxy'),
         ('10070986', 'PT BUMI ASIA JAYA', 'Tangerang'),
     )),
-    ('requested:satutempat', 'PT SATUTEMPAT IDEAL GEMILANG', '10045828', 'Cempaka', 'Rafi', 'CROWN', (
+    ('requested:satutempat', 'PT SATUTEMPAT IDEAL GEMILANG', '10045828', 'Cempaka', 'Rafhyski Alhasan', 'CROWN', (
         ('10045828', 'PT SATUTEMPAT IDEAL GEMILANG', 'Cempaka'),
         ('10004507', 'PT DISTRIBUTOR GADGET INDONESIA', 'Roxy'),
         ('10071615', 'PT DISTRIBUTOR GADGET INDONESIA', 'Tangerang'),
@@ -2767,6 +2767,10 @@ def seed_program_groups():
     requested_bps = {bp for seed in PROGRAM_GROUP_SEEDS for bp, _, _ in seed[6]}
     metadata = program_bp_metadata(legacy_bps | requested_bps)
     groups = {g.seed_key: g for g in ProgramGroup.query.filter(ProgramGroup.seed_key.isnot(None)).all()}
+    for seed_key, *_ in PROGRAM_GROUP_SEEDS:
+        group = groups.get(seed_key)
+        if group and group.pic_salesman == 'Rafi':
+            group.pic_salesman = 'Rafhyski Alhasan'
     linked_bps = {m.bp for m in ProgramGroupMember.query.all()}
     for bp, category in LOYALTY_CEMPAKA_BP.items():
         seed_key = 'legacy:' + bp
@@ -2778,7 +2782,7 @@ def seed_program_groups():
             seed_key=seed_key,
             display_name='PT BUMI ASIA JAYA' if special else (meta.get('dealer') or meta.get('billing_dealer') or bp),
             representative_bp=bp, display_depo='Cempaka' if special else (meta.get('depo') or 'Cempaka'),
-            pic_salesman='Rafi' if special else (meta.get('salesman') or ''),
+            pic_salesman='Rafhyski Alhasan' if special else (meta.get('salesman') or ''),
             category=category, seed_attempted=not special,
         )
         group.members.append(ProgramGroupMember(bp=bp,
