@@ -2227,8 +2227,10 @@ def dashboard():
             amounts['macbook'] += float(r.nett_amount or 0)
 
     bo_actual_by_salesman = {}
-    for (owner, _), amounts in bo_amounts_by_owner_bp.items():
+    bo_dealer_keys = set()
+    for (owner, bp), amounts in bo_amounts_by_owner_bp.items():
         if is_bo_amounts(amounts['device'], amounts['macbook']):
+            bo_dealer_keys.add((owner, bp))
             bo_actual_by_salesman[owner] = bo_actual_by_salesman.get(owner, 0) + 1
 
     # Target rows in the active scope.
@@ -2378,13 +2380,14 @@ def dashboard():
             active_dealers += 1
         s['bo'] += int(is_bo_amounts(d['Device'], d['Macbook']))
         s['qvo'] += int(total >= QVO_THRESHOLD)
-        count = len(d['skus'])
-        bucket = sku_bucket(count)
-        if bucket in s['sku_bins']:
-            s['sku_bins'][bucket] += 1
-        if count:
-            sku_detail.append(dict(salesman=d['salesman'], depo=', '.join(sorted(d['depos'])),
-                bp=d['bp'], dealer=d['dealer'], sku_count=count, bucket=bucket, sku_list=sorted(d['skus'])))
+        if (d['salesman'], d['bp']) in bo_dealer_keys:
+            count = len(d['skus'])
+            bucket = sku_bucket(count)
+            if bucket in s['sku_bins']:
+                s['sku_bins'][bucket] += 1
+            if count:
+                sku_detail.append(dict(salesman=d['salesman'], depo=', '.join(sorted(d['depos'])),
+                    bp=d['bp'], dealer=d['dealer'], sku_count=count, bucket=bucket, sku_list=sorted(d['skus'])))
 
     # Replace the depo-scoped BO subtotal with the salesman-owned BO total.
     # Revenue, QVO, SKU, and dealer detail intentionally remain depo-scoped.
