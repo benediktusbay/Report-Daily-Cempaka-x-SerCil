@@ -47,7 +47,8 @@ db = SQLAlchemy(app)
 DEVICE_GROUPS = {'mobile phones', 'tablet'}
 MAC_GROUPS = {'computer'}
 ACC_GROUPS = {'audio', 'computer accessories', 'mobile accessories', 'tablets accessories', 'wearable'}
-QVO_THRESHOLD = 46_000_000
+# QVO compares pre-tax Billing.nett_amount with this threshold.
+QVO_THRESHOLD = 44_500_000
 WEEK_PCTS = {1: 0.75, 2: 0.90, 3: 1.00, 4: 1.00}
 WEEK_END_DAY = {1: 7, 2: 14, 3: 21, 4: 31}
 WEEK_START_DAY = {1: 1, 2: 8, 3: 15, 4: 22}
@@ -1854,8 +1855,7 @@ def build_qvo_potential(month, current_dealers, history_count=8):
             'action': action,
             'history': history_rows,
         })
-    action_rank = {'Push Now': 0, 'Follow Up': 1, 'Watchlist': 2, 'Low Priority': 3}
-    candidates.sort(key=lambda x: (-x['score'], action_rank.get(x['action'], 9), x['gap'], x['dealer']))
+    candidates.sort(key=lambda x: (x['gap'], -x['sales_mtd'], x['dealer']))
     return candidates, months
 
 
