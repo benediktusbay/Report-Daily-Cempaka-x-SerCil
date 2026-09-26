@@ -12,6 +12,7 @@ import urllib.request
 from sqlalchemy import inspect, text, or_
 from datetime import datetime, timedelta
 import datetime as dt
+from zoneinfo import ZoneInfo
 from functools import wraps
 from types import SimpleNamespace
 
@@ -65,7 +66,7 @@ STOCK_ALLOWED_EMAILS = {
     'ikmah.novtianingrum@erajaya.com',
     'benediktus.kristianto@erajaya.com',
 }
-STOCK_SESSION_MINUTES = 15
+STOCK_TIMEZONE = ZoneInfo('Asia/Jakarta')
 STOCK_DEPOTS = [
     ('Cempaka', 'TAM DC CEMPAKA MAS'),
     ('Cilegon', 'TAM DC CILEGON'),
@@ -586,17 +587,25 @@ def stock_required(fn):
 
 
 def clear_stock_session():
-    for key in ('stock_email', 'stock_session_expires_at'):
+    for key in ('stock_email', 'stock_verified_date', 'stock_session_expires_at', 'stock_user_id'):
         session.pop(key, None)
 
 
 def stock_session_is_valid():
     email = normalize_text(session.get('stock_email')).lower()
+    verified_date = session.get('stock_verified_date')
     expires_raw = session.get('stock_session_expires_at')
-    if email not in STOCK_ALLOWED_EMAILS or not expires_raw:
+    if (email not in STOCK_ALLOWED_EMAILS or not verified_date or not expires_raw
+            or 'stock_user_id' not in session
+            or session['stock_user_id'] != session.get('user_id')):
+        return False
+    now = datetime.now(STOCK_TIMEZONE)
+    if not 9 <= now.hour < 18 or verified_date != now.date().isoformat():
         return False
     try:
-        return datetime.utcnow() < datetime.fromisoformat(expires_raw)
+        expires_at = datetime.fromisoformat(expires_raw)
+        closing_time = now.replace(hour=18, minute=0, second=0, microsecond=0)
+        return expires_at == closing_time and now < expires_at
     except (TypeError, ValueError):
         return False
 
@@ -3727,9 +3736,16 @@ def stock_verify():
             flash('Kode OTP tidak benar.', 'danger')
             return render_template('stock_verify.html', email=email)
 
+        now_jakarta = datetime.now(STOCK_TIMEZONE)
+        if not 9 <= now_jakarta.hour < 18:
+            flash('Akses Stock tersedia pukul 09:00–18:00 WIB.', 'danger')
+            return redirect(url_for('stock_login'))
+
         session.permanent = True
         session['stock_email'] = email
-        session['stock_session_expires_at'] = (datetime.utcnow() + timedelta(minutes=STOCK_SESSION_MINUTES)).isoformat()
+        session['stock_verified_date'] = now_jakarta.date().isoformat()
+        session['stock_session_expires_at'] = now_jakarta.replace(hour=18, minute=0, second=0, microsecond=0).isoformat()
+        session['stock_user_id'] = session.get('user_id')
         for key in ('stock_otp_email', 'stock_otp_hash', 'stock_otp_expires_at', 'stock_otp_sent_at', 'stock_otp_attempts'):
             session.pop(key, None)
         return redirect(url_for('stock'))
@@ -3739,7 +3755,8 @@ def stock_verify():
 
 @app.route('/stock/logout')
 def stock_logout():
-    for key in ('stock_email', 'stock_session_expires_at', 'stock_otp_email', 'stock_otp_hash', 'stock_otp_expires_at', 'stock_otp_sent_at', 'stock_otp_attempts'):
+    clear_stock_session()
+    for key in ('stock_otp_email', 'stock_otp_hash', 'stock_otp_expires_at', 'stock_otp_sent_at', 'stock_otp_attempts'):
         session.pop(key, None)
     return redirect(url_for('stock_login'))
 
