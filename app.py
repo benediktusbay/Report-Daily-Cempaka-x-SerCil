@@ -422,6 +422,21 @@ class ProgramGroupMember(db.Model):
     salesman = db.Column(db.String(160), nullable=False, default='')
 
 
+class ProgramGroupPeriod(db.Model):
+    """Effective monthly Loyalty category and participation for an existing group."""
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('program_group.id'), nullable=False, index=True)
+    category = db.Column(db.String(20), nullable=False)
+    valid_from = db.Column(db.Date, nullable=False)
+    valid_until = db.Column(db.Date)
+    active = db.Column(db.Boolean, nullable=False, default=True)
+    __table_args__ = (
+        db.UniqueConstraint('group_id', 'valid_from', name='uq_program_group_period_start'),
+        db.CheckConstraint('valid_until IS NULL OR valid_from <= valid_until',
+                           name='ck_program_group_period_dates'),
+    )
+
+
 class ProgramPpgPaaParticipant(db.Model):
     __tablename__ = 'program_ppg_paa_participant'
     id = db.Column(db.Integer, primary_key=True)
@@ -1233,6 +1248,7 @@ def initialize_database_schema():
         db.session.add(User(username=username, password_hash=generate_password_hash(password), role='admin'))
         db.session.commit()
     seed_program_groups()
+    seed_program_group_periods()
     seed_program_ppg_paa()
 
 
@@ -2920,6 +2936,20 @@ def seed_program_groups():
     db.session.commit()
 
 
+def seed_program_group_periods():
+    """Backfill legacy groups once; retain their current category as historical baseline."""
+    existing_ids = {group_id for (group_id,) in db.session.query(ProgramGroupPeriod.group_id).distinct()}
+    missing = ProgramGroup.query.filter(ProgramGroup.id.notin_(existing_ids)).all() if existing_ids else ProgramGroup.query.all()
+    if not missing:
+        return
+    for group in missing:
+        db.session.add(ProgramGroupPeriod(
+            group_id=group.id, category=group.category,
+            valid_from=dt.date(1900, 1, 1), active=group.active,
+        ))
+    db.session.commit()
+
+
 def ppg_paa_quarter_months(year, quarter):
     first_month = (quarter - 1) * 3 + 1
     month_names = ('Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -3053,12 +3083,18 @@ def program():
     month = request.args.get('month', datetime.now().strftime('%Y-%m'))
     depo_filter = normalize_text(request.args.get('depo'))
     salesman_filter = normalize_text(request.args.get('salesman'))
-    latest = db.session.query(db.func.max(Billing.billing_date)).scalar()
-    groups = ProgramGroup.query.filter_by(active=True).order_by(ProgramGroup.display_name).all()
+    start, end = month_range(month)
+    active_periods = ProgramGroupPeriod.query.filter(
+        ProgramGroupPeriod.valid_from <= start,
+        or_(ProgramGroupPeriod.valid_until.is_(None), ProgramGroupPeriod.valid_until >= start),
+        ProgramGroupPeriod.active.is_(True),
+    ).all()
+    period_by_group = {period.group_id: period for period in active_periods}
+    groups = (ProgramGroup.query.filter(ProgramGroup.id.in_(period_by_group))
+              .order_by(ProgramGroup.display_name).all() if period_by_group else [])
     all_bps = {member.bp for group in groups for member in group.members}
     depos = sorted({member.depo for group in groups for member in group.members if member.depo})
     salesmen = sorted({group.pic_salesman for group in groups if group.pic_salesman})
-    start, end = month_range(month)
     quarter_start = start.replace(month=((start.month - 1) // 3) * 3 + 1)
 
     def achievement_by_bp(period_start, period_end):
@@ -3077,6 +3113,7 @@ def program():
     quarterly_by_bp = achievement_by_bp(quarter_start, end)
     program_loyalty = []
     for group in groups:
+        category = period_by_group[group.id].category
         members = sorted(group.members, key=lambda member: (
             member.bp != group.representative_bp, member.depo, member.bp
         ))
@@ -3084,18 +3121,18 @@ def program():
             continue
         if salesman_filter and group.pic_salesman != salesman_filter:
             continue
-        target_value = LOYALTY_TARGETS.get(group.category)
+        target_value = LOYALTY_TARGETS.get(category)
         if target_value is None:
             continue
         monthly_achievement = sum(monthly_by_bp.get(member.bp, 0) for member in members)
         quarterly_achievement = sum(quarterly_by_bp.get(member.bp, 0) for member in members)
-        monthly_rate, loyalty_rate = LOYALTY_REWARDS[group.category]
+        monthly_rate, loyalty_rate = LOYALTY_REWARDS[category]
         program_loyalty.append({
             'id': group.id,
             'depo': group.display_depo,
             'bp': group.representative_bp,
             'dealer': group.display_name,
-            'category': group.category,
+            'category': category,
             'salesman': group.pic_salesman,
             'target': target_value,
             'quarterly_target': target_value * 3,
@@ -3126,14 +3163,22 @@ def program():
                          reward_loyalty=LOYALTY_REWARDS[category][1])
                     for category, target in LOYALTY_TARGETS.items()]
     zero_totals = {'target': 0, 'achievement': 0, 'pct': 0}
-    admin_groups = ProgramGroup.query.filter_by(active=True).order_by(ProgramGroup.display_name).all() if session.get('role') == 'admin' else []
+    admin_groups = (ProgramGroup.query.order_by(ProgramGroup.display_name).all()
+                    if session.get('role') == 'admin' else [])
+    admin_group_periods = {}
+    if admin_groups:
+        for period in ProgramGroupPeriod.query.order_by(ProgramGroupPeriod.valid_from.desc()).all():
+            admin_group_periods.setdefault(period.group_id, []).append(period)
     return render_template(
-        'program.html', month=month, latest=latest, loyalty_month_label=start.strftime('%B %Y'),
+        'program.html', month=month, latest=None, loyalty_month_label=start.strftime('%B %Y'),
         depos=depos, salesmen=salesmen,
         depo_filter=depo_filter, salesman_filter=salesman_filter,
         program_loyalty=program_loyalty, program_ppg_paa=[], loyalty_totals=loyalty_totals,
         ppg_paa_totals=zero_totals, loyalty_reward_notes=reward_notes,
-        loyalty_categories=list(LOYALTY_TARGETS), admin_groups=admin_groups,
+        loyalty_categories=list(LOYALTY_TARGETS), loyalty_targets=LOYALTY_TARGETS,
+        loyalty_default_change_date=(end + dt.timedelta(days=1)).isoformat(),
+        loyalty_default_end_date=end.isoformat(),
+        admin_groups=admin_groups, admin_group_periods=admin_group_periods,
         active_tab='loyalty', ppg_year=None, ppg_quarter=None, ppg_months=[],
         ppg_groups=[], ppg_depos=[], ppg_depo='', ppg_participants=[],
         ppg_program_types=PPG_PAA_PROGRAM_TYPES,
@@ -3163,6 +3208,50 @@ def program_dealer_search():
         result.setdefault(bp, dict(bp=bp, dealer=normalize_text(row.sold_to_name),
                                    depo='', salesman=canonical_salesman(row.salesman)))
     return jsonify(list(result.values())[:20])
+
+
+def loyalty_bp_metadata(bp, as_of):
+    """Resolve one BP at the requested effective date from the existing dealer master."""
+    month = as_of.strftime('%Y-%m')
+    assignment = DealerAssignment.query.filter(
+        DealerAssignment.bp == bp, DealerAssignment.month == month,
+        DealerAssignment.valid_from <= as_of, DealerAssignment.valid_to >= as_of,
+    ).first()
+    if assignment:
+        return dict(dealer=normalize_text(assignment.dealer),
+                    depo=normalize_text(assignment.depo),
+                    salesman=canonical_salesman(assignment.salesman), source='Dealer Assignment')
+    # A gap in an existing dated assignment is ambiguous; do not borrow a future owner.
+    if DealerAssignment.query.filter_by(bp=bp, month=month).first():
+        return None
+    target = MonthlyTarget.query.filter_by(bp=bp, month=month).first()
+    if target is None:
+        target = MonthlyTarget.query.filter(
+            MonthlyTarget.bp == bp, MonthlyTarget.month <= month,
+        ).order_by(MonthlyTarget.month.desc()).first()
+    if target:
+        return dict(dealer=normalize_text(target.dealer), depo=normalize_text(target.depo),
+                    salesman=canonical_salesman(target.salesman), source=f'Monthly Target {target.month}')
+    return None
+
+
+@app.route('/program/loyalty/lookup')
+@admin_required
+def program_loyalty_lookup():
+    bp = normalize_bp(request.args.get('bp'))
+    try:
+        as_of = dt.date.fromisoformat(request.args.get('valid_from', ''))
+    except ValueError:
+        return jsonify({'found': False, 'message': 'Isi Valid From terlebih dahulu.'}), 400
+    if not re.fullmatch(r'\d{1,20}', bp):
+        return jsonify({'found': False, 'message': 'BP Code tidak valid.'}), 400
+    meta = loyalty_bp_metadata(bp, as_of)
+    if not meta or not all(meta.get(key) for key in ('dealer', 'depo', 'salesman')):
+        return jsonify({'found': False, 'message':
+                        'BP belum memiliki dealer, depo, dan PIC yang jelas di master pada tanggal tersebut.'})
+    member = ProgramGroupMember.query.filter_by(bp=bp).first()
+    return jsonify({'found': True, **meta,
+                    'existing_group': member.group.display_name if member else ''})
 
 
 @app.route('/program/ppg-paa/lookup')
@@ -3268,92 +3357,117 @@ def manage_program_ppg_paa():
     return redirect(return_url)
 
 
-@app.route('/program/manage', methods=['POST'])
+@app.route('/program/manage', methods=['GET', 'POST'])
 @admin_required
 def manage_program():
+    """Manage Loyalty participation without rewriting earlier monthly categories."""
     action = normalize_text(request.form.get('action')).lower()
-    month = request.form.get('month') or datetime.now().strftime('%Y-%m')
-    return_to_program = lambda: redirect(url_for('program', month=month))
+    month = request.values.get('month') or datetime.now().strftime('%Y-%m')
+    return_url = url_for('program', month=month, depo=request.values.get('depo_filter', ''),
+                         salesman=request.values.get('salesman_filter', ''), manage='1')
+    if request.method == 'GET':
+        return redirect(return_url)
+    return_to_program = lambda: redirect(return_url)
     group_id = request.form.get('group_id', type=int)
     group = db.session.get(ProgramGroup, group_id) if group_id else None
     category = normalize_text(request.form.get('category')).upper()
-    bp = normalize_bp(request.form.get('bp'))
-    if action in ('update', 'link', 'unlink', 'archive') and not group:
-        flash('Group Program tidak ditemukan.', 'danger')
-        return return_to_program()
-    if action in ('create', 'update') and category not in LOYALTY_TARGETS:
-        flash('Category Program tidak valid.', 'danger')
-        return return_to_program()
-    if action in ('create', 'update'):
-        name = normalize_text(request.form.get('display_name'))
-        pic = normalize_text(request.form.get('pic_salesman'))
-        if not name or not pic:
-            flash('Nama group dan PIC wajib diisi.', 'danger')
+    if action == 'deactivate':
+        if not group:
+            flash('Peserta Program Loyalty tidak ditemukan.', 'danger')
             return return_to_program()
-        normalized_name = program_name_key(name)
-        if any(program_name_key(other.display_name) == normalized_name
-               for other in ProgramGroup.query.filter_by(active=True).all()
-               if other.id != (group.id if group else None)):
-            flash('Nama dealer/group Program sudah ada.', 'danger')
+        try:
+            valid_until = dt.date.fromisoformat(request.form.get('valid_until', ''))
+        except ValueError:
+            flash('Isi Valid Until yang benar untuk menonaktifkan peserta.', 'danger')
             return return_to_program()
-    if action == 'create':
-        meta = program_bp_metadata({bp}).get(bp, {})
-        if not bp or not (meta.get('dealer') or meta.get('billing_dealer')):
-            flash('Pilih BP yang ditemukan di database.', 'danger')
+        if valid_until != month_range(valid_until.strftime('%Y-%m'))[1]:
+            flash('Valid Until harus tanggal terakhir bulan agar laporan bulanan tetap jelas.', 'danger')
             return return_to_program()
-        if ProgramGroupMember.query.filter_by(bp=bp).first():
-            flash('BP sudah terhubung ke group Program lain.', 'danger')
+        periods = ProgramGroupPeriod.query.filter_by(group_id=group.id).order_by(
+            ProgramGroupPeriod.valid_from).all()
+        period = next((p for p in periods if p.active and p.valid_from <= valid_until
+                       and (p.valid_until is None or p.valid_until >= valid_until)), None)
+        if not period or any(p.valid_from > valid_until for p in periods):
+            flash('Periode aktif tidak ditemukan atau masih ada perubahan terjadwal setelah tanggal ini.', 'danger')
             return return_to_program()
-        depo = meta.get('depo') or normalize_text(request.form.get('depo'))
-        if not depo:
-            flash('Depo BP belum tersedia; lengkapi Depo sebelum menyimpan.', 'danger')
-            return return_to_program()
-        group = ProgramGroup(display_name=name, representative_bp=bp, display_depo=depo,
-                             pic_salesman=pic, category=category)
-        group.members.append(ProgramGroupMember(bp=bp, dealer_name=meta.get('billing_dealer') or meta.get('dealer'),
-                                                depo=depo, salesman=meta.get('salesman') or ''))
-        db.session.add(group)
-    elif action == 'update':
-        group.display_name = name
-        group.pic_salesman = pic
-        group.category = category
-        representative_bp = normalize_bp(request.form.get('representative_bp'))
-        member = next((member for member in group.members if member.bp == representative_bp), None)
-        if member:
-            group.representative_bp = member.bp
-            group.display_depo = member.depo
-    elif action == 'link':
-        meta = program_bp_metadata({bp}).get(bp, {})
-        if not bp or not (meta.get('dealer') or meta.get('billing_dealer')):
-            flash('BP tidak ditemukan di database.', 'danger')
-            return return_to_program()
-        if ProgramGroupMember.query.filter_by(bp=bp).first():
-            flash('BP sudah terhubung ke group Program.', 'danger')
-            return return_to_program()
-        depo = meta.get('depo') or normalize_text(request.form.get('depo'))
-        if not depo:
-            flash('Depo BP belum tersedia; lengkapi Depo sebelum menautkan.', 'danger')
-            return return_to_program()
-        group.members.append(ProgramGroupMember(bp=bp, dealer_name=meta.get('billing_dealer') or meta.get('dealer'),
-                                                depo=depo, salesman=meta.get('salesman') or ''))
-    elif action == 'unlink':
-        member = next((member for member in group.members if member.bp == bp), None)
-        if not member:
-            flash('BP bukan anggota group ini.', 'danger')
-            return return_to_program()
-        group.members.remove(member)
-        if group.representative_bp == bp:
-            remaining = next(iter(group.members), None)
-            group.representative_bp = remaining.bp if remaining else ''
-            group.display_depo = remaining.depo if remaining else ''
-    elif action == 'archive':
+        period.valid_until = valid_until
         group.active = False
-        group.members.clear()
-    else:
-        flash('Aksi Program tidak valid.', 'danger')
+        db.session.commit()
+        flash('Peserta dinonaktifkan; laporan sebelum Valid Until tetap tersedia.', 'success')
         return return_to_program()
+
+    if action not in ('create', 'update') or (action == 'update' and not group):
+        flash('Aksi Program Loyalty tidak valid.', 'danger')
+        return return_to_program()
+    if category not in LOYALTY_TARGETS:
+        flash('Program/Category Loyalty tidak valid.', 'danger')
+        return return_to_program()
+    try:
+        valid_from = dt.date.fromisoformat(request.form.get('valid_from', ''))
+        until_raw = normalize_text(request.form.get('valid_until'))
+        valid_until = dt.date.fromisoformat(until_raw) if until_raw else None
+    except ValueError:
+        flash('Tanggal Valid From/Until tidak valid.', 'danger')
+        return return_to_program()
+    if (valid_from.day != 1 or (valid_until and
+            (valid_until < valid_from or
+             valid_until != month_range(valid_until.strftime('%Y-%m'))[1]))):
+        flash('Valid From harus tanggal 1 dan Valid Until harus akhir bulan.', 'danger')
+        return return_to_program()
+    active = request.form.get('active') == '1'
+    if action == 'create':
+        bp = normalize_bp(request.form.get('bp_code'))
+        if not re.fullmatch(r'\d{1,20}', bp):
+            flash('BP Code tidak valid.', 'danger')
+            return return_to_program()
+        existing_member = ProgramGroupMember.query.filter_by(bp=bp).first()
+        if existing_member:
+            flash(f'BP sudah menjadi anggota {existing_member.group.display_name}; edit group tersebut agar achievement tidak ganda.', 'danger')
+            return return_to_program()
+        meta = loyalty_bp_metadata(bp, valid_from)
+        if not meta or not all(meta.get(key) for key in ('dealer', 'depo', 'salesman')):
+            flash('BP belum memiliki Dealer, Depo, dan PIC yang jelas di Monthly Target/assignment pada Valid From.', 'danger')
+            return return_to_program()
+        dealer_key = program_name_key(meta['dealer'])
+        related_group = next((other for other in ProgramGroup.query.all()
+                              if dealer_key == program_name_key(other.display_name)
+                              or any(dealer_key == program_name_key(member.dealer_name)
+                                     for member in other.members)), None)
+        if related_group:
+            flash(f'Dealer sudah terkait dengan {related_group.display_name}; periksa group BP sebelum membuat peserta baru.', 'danger')
+            return return_to_program()
+        group = ProgramGroup(display_name=meta['dealer'], representative_bp=bp,
+                             display_depo=meta['depo'], pic_salesman=meta['salesman'],
+                             category=category, active=active, seed_attempted=True)
+        group.members.append(ProgramGroupMember(bp=bp, dealer_name=meta['dealer'],
+                                                depo=meta['depo'], salesman=meta['salesman']))
+        db.session.add(group)
+        db.session.flush()
+    else:
+        periods = ProgramGroupPeriod.query.filter_by(group_id=group.id).order_by(
+            ProgramGroupPeriod.valid_from).all()
+        if any(p.valid_from == valid_from for p in periods):
+            flash('Periode dengan Valid From tersebut sudah ada; histori tidak ditimpa.', 'danger')
+            return return_to_program()
+        previous = next((p for p in reversed(periods) if p.valid_from < valid_from), None)
+        following = next((p for p in periods if p.valid_from > valid_from), None)
+        if following and (valid_until is None or valid_until >= following.valid_from):
+            flash('Periode baru bertumpuk dengan perubahan Program yang sudah terjadwal.', 'danger')
+            return return_to_program()
+        if previous and (previous.valid_until is None or previous.valid_until >= valid_from):
+            if previous.valid_until and valid_until and valid_until < previous.valid_until:
+                flash('Periode baru tidak boleh memotong sebagian periode lama.', 'danger')
+                return return_to_program()
+            previous.valid_until = valid_from - dt.timedelta(days=1)
+        if not following:
+            group.category = category
+            group.active = active
+    db.session.add(ProgramGroupPeriod(
+        group_id=group.id, category=category, valid_from=valid_from,
+        valid_until=valid_until, active=active,
+    ))
     db.session.commit()
-    flash('Dealer Program berhasil diperbarui.', 'success')
+    flash('Peserta dan periode Program Loyalty berhasil disimpan.', 'success')
     return return_to_program()
 
 
