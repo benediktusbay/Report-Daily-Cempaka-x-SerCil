@@ -848,6 +848,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 /* Compact, symmetric cards under Distribution Quality */
 .dealer-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:14px;margin:14px 0 22px!important;align-items:stretch}.dealer-action-card{padding:16px 18px 14px!important;min-height:310px}.dealer-action-header{margin-bottom:12px!important}.dealer-action-card h3{font-size:18px!important}.dealer-count-badge{padding:7px 10px!important;gap:7px!important}.dealer-count-icon{width:32px!important;height:32px!important;flex-basis:32px!important}.dealer-count-icon svg{width:19px!important;height:19px!important}.dealer-count-copy strong{font-size:19px!important}
 .dealer-action-row{padding:9px 6px!important;font-size:11px!important}.dealer-action-card .empty{padding:20px 8px}.dealer-card-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:auto;padding-top:11px}.dealer-card-count{font-size:10px;color:#64748b}.dealer-show-all{margin-top:0!important}.qvo-compact-row{display:grid;grid-template-columns:minmax(0,1.55fr) 90px 82px 88px;gap:8px;align-items:center;padding:10px 6px;border-bottom:1px solid #e8eef6;font-size:11px}.qvo-compact-row.qvo-potential-head{background:#f6f8fb;color:#61738e;border:0;border-radius:9px;font-size:10px;font-weight:800}.qvo-compact-row .dealer-cell b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.qvo-compact-row .dealer-cell small{display:block;color:#64748b;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.qvo-card-footer{margin-top:auto!important;padding-top:11px!important}.qvo-focus{display:none}.qvo-action.watchlist{background:#ffedd5;color:#c2410c}
+.qvo-compact-row > span{text-align:left}
 @media(max-width:1000px){.dealer-actions{grid-template-columns:1fr!important}.dealer-action-card{min-height:auto}.hybrid-sales-table th,.hybrid-sales-table td{padding-left:8px;padding-right:8px}}
 @media(max-width:768px){.hybrid-sales-card{display:none}.mobile-hybrid-grid{grid-template-columns:1fr 1fr}.dealer-action-card{padding:14px!important}.qvo-compact-row{grid-template-columns:minmax(0,1.45fr) 78px 72px 82px;font-size:10px}.dealer-card-footer{align-items:flex-end}.dealer-card-count{max-width:48%}}
 
@@ -967,7 +968,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   .qvo-compact-row .qvo-money::before{display:block;margin-bottom:4px;color:#64748b;font-size:10px;font-weight:700}
   .qvo-compact-row .qvo-money:nth-child(2)::before{content:'Sales MTD'}
   .qvo-compact-row .qvo-money:nth-child(3)::before{content:'Gap'}
-  .qvo-compact-row .qvo-action{grid-column:1/-1;justify-self:end;font-size:10px}
+  .qvo-compact-row .qvo-action{grid-column:1/-1;justify-self:start;font-size:10px}
   #no-purchase-list{width:calc(100vw - 24px);max-width:calc(100vw - 24px);padding:14px}
   #no-purchase-list .no-purchase-table-wrap{overflow-x:visible;border:0}
   #no-purchase-list .no-purchase-export-table,#no-purchase-list .no-purchase-export-table tbody{display:block;width:100%;min-width:0}
