@@ -6,6 +6,7 @@ import hashlib
 import io
 import json
 import secrets
+from decimal import Decimal, InvalidOperation
 from threading import Lock
 import urllib.error
 import urllib.request
@@ -121,6 +122,24 @@ PROGRAM_GROUP_SEEDS = (
         ('10071615', 'PT DISTRIBUTOR GADGET INDONESIA', 'Tangerang'),
     )),
 )
+
+PPG_PAA_INITIAL_PARTICIPANTS = (
+    ('10002175', 'PT BUMI ASIA JAYA', 'Cempaka', 'PPG', 500_000_000),
+    ('10002353', 'PT GUDANG DIGITAL KOMERSIAL', 'Cempaka', 'PPG', 500_000_000),
+    ('10005878', 'PT TUJUH BINTANG SINAR DUNIA', 'Cempaka', 'PPG', 500_000_000),
+    ('10028000', 'PT SINAR ARTHA MAHAMAKMUR', 'Cempaka', 'PPG', 500_000_000),
+    ('10028005', 'PT UNIVERSAL GLOBAL SEJAHTERA', 'Cempaka', 'PAA + PPG', 2_000_000_000),
+    ('10034388', 'PT INDO MITRA SENTOSA', 'Cempaka', 'PPG', 500_000_000),
+    ('10034424', 'PT LESTARI JAYA ELEKTRIK', 'Cempaka', 'PPG', 500_000_000),
+    ('10038759', 'PT. REJEKI PAHALA MANDIRI', 'Cempaka', 'PPG', 500_000_000),
+    ('10045828', 'PT. SATUTEMPAT IDEAL GEMILANG', 'Cempaka', 'PPG', 500_000_000),
+    ('10066523', 'PT. MANSION BINTANG ELEKTRO', 'Cempaka', 'PPG', 500_000_000),
+    ('10071078', 'PT DDD JAYA BERSAMA', 'Cempaka', 'PPG', 500_000_000),
+    ('10072814', 'PT. DIGITAL KOMUNIKASI PINTAR', 'Cempaka', 'PPG', 500_000_000),
+    ('10082481', 'CV AZ ZAHRA CELLULAR', 'Cilegon', 'PPG', 500_000_000),
+)
+PPG_PAA_DEPOT_ORDER = ('Cempaka', 'Cilegon')
+PPG_PAA_PROGRAM_TYPES = ('PPG', 'PAA', 'PAA + PPG')
 
 # Program Loyalty master supplied by the business team for Cempaka.
 # Dealer/depo/salesman labels are resolved from Monthly Target by BP so an
@@ -401,6 +420,21 @@ class ProgramGroupMember(db.Model):
     dealer_name = db.Column(db.String(255), nullable=False)
     depo = db.Column(db.String(80), nullable=False)
     salesman = db.Column(db.String(160), nullable=False, default='')
+
+
+class ProgramPpgPaaParticipant(db.Model):
+    __tablename__ = 'program_ppg_paa_participant'
+    id = db.Column(db.Integer, primary_key=True)
+    bp_code = db.Column(db.String(80), nullable=False, unique=True, index=True)
+    dealer_name = db.Column(db.String(255), nullable=False)
+    depo = db.Column(db.String(80), nullable=False, index=True)
+    program_type = db.Column(db.String(20), nullable=False)
+    monthly_target = db.Column(db.Numeric(18, 2), nullable=False)
+    valid_from = db.Column(db.Date, nullable=False)
+    valid_until = db.Column(db.Date)
+    active = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class UploadLog(db.Model):
@@ -1192,6 +1226,22 @@ def initialize_database_schema():
         db.session.add(User(username=username, password_hash=generate_password_hash(password), role='admin'))
         db.session.commit()
     seed_program_groups()
+    seed_program_ppg_paa()
+
+
+def seed_program_ppg_paa():
+    existing_bps = {bp for (bp,) in db.session.query(ProgramPpgPaaParticipant.bp_code).all()}
+    added = False
+    for bp, dealer, depo, program_type, target in PPG_PAA_INITIAL_PARTICIPANTS:
+        if bp not in existing_bps:
+            db.session.add(ProgramPpgPaaParticipant(
+                bp_code=bp, dealer_name=dealer, depo=depo,
+                program_type=program_type, monthly_target=target,
+                valid_from=dt.date(2026, 1, 1), active=True,
+            ))
+            added = True
+    if added:
+        db.session.commit()
 
 
 @app.route('/ping', methods=['GET'])
@@ -2836,9 +2886,117 @@ def seed_program_groups():
     db.session.commit()
 
 
+def ppg_paa_quarter_months(year, quarter):
+    first_month = (quarter - 1) * 3 + 1
+    month_names = ('Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+                   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember')
+    return [dict(key=f'{year}-{number:02d}', label=f'{month_names[number - 1]} {year}',
+                 start=month_range(f'{year}-{number:02d}')[0],
+                 end=month_range(f'{year}-{number:02d}')[1])
+            for number in range(first_month, first_month + 3)]
+
+
+def ppg_paa_participant_in_month(participant, month):
+    return (participant.valid_from <= month['end'] and
+            (participant.valid_until is None or participant.valid_until >= month['start']))
+
+
+def build_ppg_paa_report(year, quarter, selected_depo=''):
+    months = ppg_paa_quarter_months(year, quarter)
+    eligible = ProgramPpgPaaParticipant.query.filter(
+        ProgramPpgPaaParticipant.valid_from <= months[-1]['end'],
+        or_(ProgramPpgPaaParticipant.valid_until.is_(None),
+            ProgramPpgPaaParticipant.valid_until >= months[0]['start']),
+    ).all()
+    depot_key = lambda name: (PPG_PAA_DEPOT_ORDER.index(name) if name in PPG_PAA_DEPOT_ORDER
+                              else len(PPG_PAA_DEPOT_ORDER), name.casefold())
+    depos = sorted({p.depo for p in eligible}, key=depot_key)
+    if selected_depo not in depos:
+        selected_depo = ''
+    shown = [p for p in eligible if not selected_depo or p.depo == selected_depo]
+    bps = {p.bp_code for p in shown}
+    monthly_sales = {}
+    latest_billing = None
+    if bps:
+        billing_year = db.extract('year', Billing.billing_date)
+        billing_month = db.extract('month', Billing.billing_date)
+        billing_rows = db.session.query(
+            Billing.sold_to_code, billing_year, billing_month,
+            db.func.sum(Billing.nett_amount_with_tax),
+            db.func.max(Billing.billing_date),
+        ).filter(
+            Billing.sold_to_code.in_(bps),
+            Billing.billing_date >= months[0]['start'],
+            Billing.billing_date <= months[-1]['end'],
+        ).group_by(Billing.sold_to_code, billing_year, billing_month).all()
+        for bp, sales_year, sales_month, amount, last_date in billing_rows:
+            monthly_sales[(bp, f'{int(sales_year)}-{int(sales_month):02d}')] = float(amount or 0)
+            latest_billing = max(latest_billing, last_date) if latest_billing else last_date
+
+    groups = []
+    rank = 0
+    for depo in depos:
+        if selected_depo and depo != selected_depo:
+            continue
+        rows = []
+        for p in sorted((p for p in shown if p.depo == depo),
+                        key=lambda p: (p.dealer_name.casefold(), p.bp_code)):
+            rank += 1
+            target = float(p.monthly_target)
+            cells = []
+            for month in months:
+                if not ppg_paa_participant_in_month(p, month):
+                    cells.append(None)
+                    continue
+                amount = monthly_sales.get((p.bp_code, month['key']), 0.0)
+                pct = amount / target * 100 if target else 0.0
+                status = ('green' if pct >= 100 else 'blue' if pct >= 80
+                          else 'orange' if pct >= 50 else 'red')
+                cells.append(dict(achievement=amount, pct=pct,
+                                  bar_width=min(max(pct, 0), 100), status=status))
+            rows.append(dict(number=rank, participant=p, target=target, months=cells))
+        if rows:
+            groups.append(dict(depo=depo, rows=rows))
+    return months, groups, depos, selected_depo, latest_billing
+
+
+def program_ppg_paa_view():
+    reporting_month = request.args.get('month') or datetime.now().strftime('%Y-%m')
+    try:
+        reporting_date = dt.date.fromisoformat(reporting_month + '-01')
+    except ValueError:
+        reporting_date = datetime.now().date()
+        reporting_month = reporting_date.strftime('%Y-%m')
+    year = request.args.get('ppg_year', type=int) or reporting_date.year
+    if not 2000 <= year <= 2100:
+        year = reporting_date.year
+    quarter = request.args.get('ppg_quarter', type=int) or ((reporting_date.month - 1) // 3 + 1)
+    if quarter not in (1, 2, 3, 4):
+        quarter = (reporting_date.month - 1) // 3 + 1
+    months, groups, depos, selected_depo, latest = build_ppg_paa_report(
+        year, quarter, normalize_text(request.args.get('ppg_depo'))
+    )
+    participants = (ProgramPpgPaaParticipant.query.order_by(
+        ProgramPpgPaaParticipant.depo, ProgramPpgPaaParticipant.dealer_name).all()
+        if session.get('role') == 'admin' else [])
+    zero = {'target': 0, 'achievement': 0, 'pct': 0}
+    return render_template(
+        'program.html', month=reporting_month, latest=latest,
+        depos=[], salesmen=[], depo_filter=normalize_text(request.args.get('depo')),
+        salesman_filter=normalize_text(request.args.get('salesman')),
+        program_loyalty=[], program_ppg_paa=[], loyalty_totals=zero,
+        ppg_paa_totals=zero, loyalty_reward_notes=[], loyalty_categories=[], admin_groups=[],
+        active_tab='ppg-paa', ppg_year=year, ppg_quarter=quarter,
+        ppg_months=months, ppg_groups=groups, ppg_depos=depos, ppg_depo=selected_depo,
+        ppg_participants=participants, ppg_program_types=PPG_PAA_PROGRAM_TYPES,
+    )
+
+
 @app.route('/program')
 def program():
     """Program Loyalty is one target per persistent group, summed across its BPs."""
+    if request.args.get('tab') == 'ppg-paa':
+        return program_ppg_paa_view()
     month = request.args.get('month', datetime.now().strftime('%Y-%m'))
     depo_filter = normalize_text(request.args.get('depo'))
     salesman_filter = normalize_text(request.args.get('salesman'))
@@ -2922,6 +3080,9 @@ def program():
         program_loyalty=program_loyalty, program_ppg_paa=[], loyalty_totals=loyalty_totals,
         ppg_paa_totals=zero_totals, loyalty_reward_notes=reward_notes,
         loyalty_categories=list(LOYALTY_TARGETS), admin_groups=admin_groups,
+        active_tab='loyalty', ppg_year=None, ppg_quarter=None, ppg_months=[],
+        ppg_groups=[], ppg_depos=[], ppg_depo='', ppg_participants=[],
+        ppg_program_types=PPG_PAA_PROGRAM_TYPES,
     )
 
 
@@ -2948,6 +3109,100 @@ def program_dealer_search():
         result.setdefault(bp, dict(bp=bp, dealer=normalize_text(row.sold_to_name),
                                    depo='', salesman=canonical_salesman(row.salesman)))
     return jsonify(list(result.values())[:20])
+
+
+@app.route('/program/ppg-paa/lookup')
+@admin_required
+def program_ppg_paa_lookup():
+    bp = normalize_bp(request.args.get('bp'))
+    if not re.fullmatch(r'\d{1,20}', bp):
+        return jsonify({'found': False}), 400
+    latest = MonthlyTarget.query.filter_by(bp=bp).order_by(MonthlyTarget.month.desc()).first()
+    known_depos = (db.session.query(MonthlyTarget.depo).filter_by(bp=bp).distinct().all()
+                   + db.session.query(DealerAssignment.depo).filter_by(bp=bp).distinct().all())
+    depo_options = sorted({normalize_text(depo) for (depo,) in known_depos if normalize_text(depo)})
+    if latest:
+        dealer_name = normalize_text(latest.dealer)
+        source = f'Monthly Target {latest.month}'
+    else:
+        billing = Billing.query.filter_by(sold_to_code=bp).order_by(Billing.billing_date.desc()).first()
+        dealer_name = normalize_text(billing.sold_to_name) if billing else ''
+        source = 'Billing terbaru' if billing else ''
+    return jsonify({'found': bool(dealer_name), 'dealer_name': dealer_name,
+                    'depo': depo_options[0] if len(depo_options) == 1 else '',
+                    'depo_options': depo_options, 'source': source})
+
+
+@app.route('/program/ppg-paa/manage', methods=['POST'])
+@admin_required
+def manage_program_ppg_paa():
+    return_url = url_for('program', tab='ppg-paa',
+                         ppg_year=request.form.get('ppg_year', ''),
+                         ppg_quarter=request.form.get('ppg_quarter', ''),
+                         ppg_depo=request.form.get('ppg_depo', ''),
+                         month=request.form.get('month', ''),
+                         depo=request.form.get('depo_filter', ''),
+                         salesman=request.form.get('salesman_filter', ''))
+    action = request.form.get('action')
+    participant_id = request.form.get('participant_id', type=int)
+    participant = db.session.get(ProgramPpgPaaParticipant, participant_id) if participant_id else None
+    if action == 'deactivate':
+        if not participant:
+            flash('Peserta Program PPG/PAA tidak ditemukan.', 'danger')
+        else:
+            participant.active = False
+            today = datetime.now(STOCK_TIMEZONE).date()
+            end_date = today if today >= participant.valid_from else participant.valid_from - timedelta(days=1)
+            participant.valid_until = min(participant.valid_until, end_date) if participant.valid_until else end_date
+            db.session.commit()
+            flash('Peserta dinonaktifkan; laporan historis tetap tersedia.', 'success')
+        return redirect(return_url)
+    if action not in ('create', 'update') or (action == 'update' and not participant):
+        flash('Aksi Program PPG/PAA tidak valid.', 'danger')
+        return redirect(return_url)
+
+    bp = normalize_bp(request.form.get('bp_code'))
+    dealer_name = normalize_text(request.form.get('dealer_name'))
+    depo = normalize_text(request.form.get('depo'))
+    program_type = normalize_text(request.form.get('program_type')).upper()
+    try:
+        monthly_target = Decimal(normalize_text(request.form.get('monthly_target')))
+        valid_from = dt.date.fromisoformat(request.form.get('valid_from', ''))
+        until_raw = normalize_text(request.form.get('valid_until'))
+        valid_until = dt.date.fromisoformat(until_raw) if until_raw else None
+    except (InvalidOperation, TypeError, ValueError):
+        flash('Target atau tanggal Program PPG/PAA tidak valid.', 'danger')
+        return redirect(return_url)
+    if (not re.fullmatch(r'\d{1,20}', bp) or not dealer_name or not depo
+            or program_type not in PPG_PAA_PROGRAM_TYPES
+            or not monthly_target.is_finite() or monthly_target <= 0
+            or monthly_target > Decimal('9999999999999999')
+            or (valid_until and valid_until < valid_from)):
+        flash('Lengkapi data peserta PPG/PAA dengan nilai yang valid.', 'danger')
+        return redirect(return_url)
+    duplicate = ProgramPpgPaaParticipant.query.filter_by(bp_code=bp).first()
+    if duplicate and duplicate.id != (participant.id if participant else None):
+        flash('BP sudah terdaftar di master Program PPG/PAA.', 'danger')
+        return redirect(return_url)
+    active = request.form.get('active') == '1'
+    if not active:
+        today = datetime.now(STOCK_TIMEZONE).date()
+        end_date = today if today >= valid_from else valid_from - timedelta(days=1)
+        valid_until = min(valid_until, end_date) if valid_until else end_date
+    if action == 'create':
+        participant = ProgramPpgPaaParticipant()
+        db.session.add(participant)
+    participant.bp_code = bp
+    participant.dealer_name = dealer_name
+    participant.depo = depo
+    participant.program_type = program_type
+    participant.monthly_target = monthly_target
+    participant.valid_from = valid_from
+    participant.valid_until = valid_until
+    participant.active = active
+    db.session.commit()
+    flash('Master Program PPG/PAA berhasil disimpan.', 'success')
+    return redirect(return_url)
 
 
 @app.route('/program/manage', methods=['POST'])
