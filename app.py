@@ -3065,6 +3065,7 @@ def program_ppg_paa_view():
     return render_template(
         'program.html', month=reporting_month, latest=latest,
         loyalty_month_label=reporting_date.strftime('%B %Y'),
+        loyalty_year=None, loyalty_quarter=None, loyalty_months=[],
         depos=[], salesmen=[], depo_filter=normalize_text(request.args.get('depo')),
         salesman_filter=normalize_text(request.args.get('salesman')),
         program_loyalty=[], program_ppg_paa=[], loyalty_totals=zero,
@@ -3080,52 +3081,95 @@ def program():
     """Program Loyalty is one target per persistent group, summed across its BPs."""
     if request.args.get('tab') == 'ppg-paa':
         return program_ppg_paa_view()
-    month = request.args.get('month', datetime.now().strftime('%Y-%m'))
+    month = request.args.get('month') or datetime.now(STOCK_TIMEZONE).strftime('%Y-%m')
+    try:
+        reporting_date = dt.date.fromisoformat(month + '-01')
+    except ValueError:
+        reporting_date = datetime.now(STOCK_TIMEZONE).date().replace(day=1)
+        month = reporting_date.strftime('%Y-%m')
+    loyalty_year = request.args.get('loyalty_year', type=int) or reporting_date.year
+    if not 2000 <= loyalty_year <= 2100:
+        loyalty_year = reporting_date.year
+    loyalty_quarter = request.args.get('loyalty_quarter', type=int) or ((reporting_date.month - 1) // 3 + 1)
+    if loyalty_quarter not in (1, 2, 3, 4):
+        loyalty_quarter = (reporting_date.month - 1) // 3 + 1
+    months = ppg_paa_quarter_months(loyalty_year, loyalty_quarter)
+    quarter_start, quarter_end = months[0]['start'], months[-1]['end']
     depo_filter = normalize_text(request.args.get('depo'))
     salesman_filter = normalize_text(request.args.get('salesman'))
-    start, end = month_range(month)
     active_periods = ProgramGroupPeriod.query.filter(
-        ProgramGroupPeriod.valid_from <= start,
-        or_(ProgramGroupPeriod.valid_until.is_(None), ProgramGroupPeriod.valid_until >= start),
+        ProgramGroupPeriod.valid_from <= quarter_end,
+        or_(ProgramGroupPeriod.valid_until.is_(None), ProgramGroupPeriod.valid_until >= quarter_start),
         ProgramGroupPeriod.active.is_(True),
     ).all()
-    period_by_group = {period.group_id: period for period in active_periods}
-    groups = (ProgramGroup.query.filter(ProgramGroup.id.in_(period_by_group))
-              .order_by(ProgramGroup.display_name).all() if period_by_group else [])
-    all_bps = {member.bp for group in groups for member in group.members}
+    periods_by_group = {}
+    for period in active_periods:
+        periods_by_group.setdefault(period.group_id, []).append(period)
+    groups = (ProgramGroup.query.filter(ProgramGroup.id.in_(periods_by_group))
+              .order_by(ProgramGroup.display_name).all() if periods_by_group else [])
     depos = sorted({member.depo for group in groups for member in group.members if member.depo})
     salesmen = sorted({group.pic_salesman for group in groups if group.pic_salesman})
-    quarter_start = start.replace(month=((start.month - 1) // 3) * 3 + 1)
-
-    def achievement_by_bp(period_start, period_end):
-        if not all_bps:
-            return {}
-        rows = db.session.query(
-            Billing.sold_to_code, db.func.sum(Billing.nett_amount_with_tax)
+    shown_groups = [group for group in groups
+                    if (not depo_filter or any(member.depo == depo_filter for member in group.members))
+                    and (not salesman_filter or group.pic_salesman == salesman_filter)]
+    all_bps = {member.bp for group in shown_groups for member in group.members}
+    monthly_by_bp = {}
+    if all_bps:
+        billing_year = db.extract('year', Billing.billing_date)
+        billing_month = db.extract('month', Billing.billing_date)
+        billing_rows = db.session.query(
+            Billing.sold_to_code, billing_year, billing_month,
+            db.func.sum(Billing.nett_amount_with_tax),
         ).filter(
             Billing.sold_to_code.in_(all_bps),
-            Billing.billing_date >= period_start,
-            Billing.billing_date <= period_end,
-        ).group_by(Billing.sold_to_code).all()
-        return {normalize_bp(bp): float(total or 0) for bp, total in rows}
+            Billing.billing_date >= quarter_start,
+            Billing.billing_date <= quarter_end,
+        ).group_by(Billing.sold_to_code, billing_year, billing_month).all()
+        for bp, year, month_number, amount in billing_rows:
+            key = (normalize_bp(bp), f'{int(year)}-{int(month_number):02d}')
+            monthly_by_bp[key] = monthly_by_bp.get(key, 0.0) + float(amount or 0)
 
-    monthly_by_bp = achievement_by_bp(start, end)
-    quarterly_by_bp = achievement_by_bp(quarter_start, end)
     program_loyalty = []
-    for group in groups:
-        category = period_by_group[group.id].category
+    for group in shown_groups:
+        effective = [next((period for period in periods_by_group[group.id]
+                           if period.valid_from <= item['start']
+                           and (period.valid_until is None or period.valid_until >= item['start'])), None)
+                     for item in months]
+        last_period = next((period for period in reversed(effective) if period), None)
+        if last_period is None:
+            continue
+        category = last_period.category
         members = sorted(group.members, key=lambda member: (
             member.bp != group.representative_bp, member.depo, member.bp
         ))
-        if depo_filter and not any(member.depo == depo_filter for member in members):
-            continue
-        if salesman_filter and group.pic_salesman != salesman_filter:
-            continue
         target_value = LOYALTY_TARGETS.get(category)
         if target_value is None:
             continue
-        monthly_achievement = sum(monthly_by_bp.get(member.bp, 0) for member in members)
-        quarterly_achievement = sum(quarterly_by_bp.get(member.bp, 0) for member in members)
+        cells = []
+        for item, period in zip(months, effective):
+            if period is None:
+                cells.append(None)
+                continue
+            cell_target = LOYALTY_TARGETS[period.category]
+            amount = sum(monthly_by_bp.get((member.bp, item['key']), 0) for member in members)
+            pct = amount / cell_target * 100 if cell_target else 0
+            status = ('green' if pct >= 100 else 'blue' if pct >= 80
+                      else 'orange' if pct >= 50 else 'red')
+            cells.append(dict(achievement=amount, pct=pct, target=cell_target,
+                              category=period.category, status=status,
+                              bar_width=min(max(pct, 0), 100)))
+        context_index = next((index for index, item in enumerate(months)
+                              if item['key'] == month), len(months) - 1)
+        monthly_achievement = cells[context_index]['achievement'] if cells[context_index] else 0.0
+        quarterly_achievement = sum(cell['achievement'] for cell in cells if cell)
+        # When a category changes within the quarter, honor each month's
+        # effective target. A single-category quarter keeps the configured
+        # three-month target, including newly added participants.
+        cell_categories = {cell['category'] for cell in cells if cell}
+        quarterly_target = (sum(cell['target'] for cell in cells if cell)
+                            if len(cell_categories) > 1 else target_value * 3)
+        monthly_gap = monthly_achievement - target_value if cells[-1] else None
+        quarterly_gap = quarterly_achievement - quarterly_target
         monthly_rate, loyalty_rate = LOYALTY_REWARDS[category]
         program_loyalty.append({
             'id': group.id,
@@ -3135,21 +3179,25 @@ def program():
             'category': category,
             'salesman': group.pic_salesman,
             'target': target_value,
-            'quarterly_target': target_value * 3,
+            'quarterly_target': quarterly_target,
             'achievement': monthly_achievement,
             'quarterly_achievement': quarterly_achievement,
             'pct': monthly_achievement / target_value * 100 if target_value else 0,
-            'quarterly_pct': quarterly_achievement / (target_value * 3) * 100 if target_value else 0,
+            'quarterly_pct': quarterly_achievement / quarterly_target * 100 if quarterly_target else 0,
             'reward_monthly_estimate': monthly_achievement * monthly_rate,
             'reward_loyalty_estimate': quarterly_achievement * loyalty_rate if loyalty_rate is not None else None,
             'below_target': monthly_achievement < target_value,
+            'months': cells, 'monthly_gap': monthly_gap, 'quarterly_gap': quarterly_gap,
             'members': [dict(bp=member.bp, dealer=member.dealer_name, depo=member.depo,
                              salesman=member.salesman,
-                             achievement=monthly_by_bp.get(member.bp, 0),
-                             quarterly_achievement=quarterly_by_bp.get(member.bp, 0))
+                             achievement=monthly_by_bp.get((member.bp, months[context_index]['key']), 0),
+                             quarterly_achievement=sum(monthly_by_bp.get((member.bp, item['key']), 0)
+                                                       for item, period in zip(months, effective) if period))
                         for member in members],
         })
     program_loyalty.sort(key=lambda row: (-row['target'], row['dealer']))
+    for number, row in enumerate(program_loyalty, 1):
+        row['number'] = number
     loyalty_target = sum(row['target'] for row in program_loyalty)
     loyalty_achievement = sum(row['achievement'] for row in program_loyalty)
     loyalty_totals = {
@@ -3170,14 +3218,16 @@ def program():
         for period in ProgramGroupPeriod.query.order_by(ProgramGroupPeriod.valid_from.desc()).all():
             admin_group_periods.setdefault(period.group_id, []).append(period)
     return render_template(
-        'program.html', month=month, latest=None, loyalty_month_label=start.strftime('%B %Y'),
+        'program.html', month=month, latest=None,
+        loyalty_month_label=reporting_date.strftime('%B %Y'),
+        loyalty_year=loyalty_year, loyalty_quarter=loyalty_quarter, loyalty_months=months,
         depos=depos, salesmen=salesmen,
         depo_filter=depo_filter, salesman_filter=salesman_filter,
         program_loyalty=program_loyalty, program_ppg_paa=[], loyalty_totals=loyalty_totals,
         ppg_paa_totals=zero_totals, loyalty_reward_notes=reward_notes,
         loyalty_categories=list(LOYALTY_TARGETS), loyalty_targets=LOYALTY_TARGETS,
-        loyalty_default_change_date=(end + dt.timedelta(days=1)).isoformat(),
-        loyalty_default_end_date=end.isoformat(),
+        loyalty_default_change_date=(month_range(month)[1] + dt.timedelta(days=1)).isoformat(),
+        loyalty_default_end_date=month_range(month)[1].isoformat(),
         admin_groups=admin_groups, admin_group_periods=admin_group_periods,
         active_tab='loyalty', ppg_year=None, ppg_quarter=None, ppg_months=[],
         ppg_groups=[], ppg_depos=[], ppg_depo='', ppg_participants=[],
@@ -3364,7 +3414,9 @@ def manage_program():
     action = normalize_text(request.form.get('action')).lower()
     month = request.values.get('month') or datetime.now().strftime('%Y-%m')
     return_url = url_for('program', month=month, depo=request.values.get('depo_filter', ''),
-                         salesman=request.values.get('salesman_filter', ''), manage='1')
+                         salesman=request.values.get('salesman_filter', ''),
+                         loyalty_year=request.values.get('loyalty_year', ''),
+                         loyalty_quarter=request.values.get('loyalty_quarter', ''), manage='1')
     if request.method == 'GET':
         return redirect(return_url)
     return_to_program = lambda: redirect(return_url)
