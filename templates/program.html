@@ -13,7 +13,7 @@
 .btn{border:0;border-radius:9px;padding:10px 16px;background:#0b3765;color:#fff;font-weight:900;cursor:pointer}
 .tabs{display:flex;gap:9px;margin:0 0 14px;flex-wrap:wrap}.tab{border:1px solid #cbd5e1;border-radius:9px;padding:9px 14px;background:#fff;color:#334155;font-weight:900;cursor:pointer}
 .tab.active{background:#0b3765;border-color:#0b3765;color:#fff}.panel{display:none}.panel.active{display:block}
-.program-depo-tabs{display:flex;flex-wrap:wrap;gap:7px;margin:-3px 0 12px}.program-depo-tab{display:inline-flex;align-items:center;justify-content:center;min-height:34px;box-sizing:border-box;padding:7px 12px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#52647e;font-size:12px;font-weight:800;text-decoration:none}.program-depo-tab:hover{border-color:#8fbaf2;color:#0b3765}.program-depo-tab.active{border-color:#1769e8;background:#e8f2ff;color:#0b58bf}
+.program-depo-tabs{display:flex;flex-wrap:wrap;gap:7px;margin:0}.program-depo-tab{display:inline-flex;align-items:center;justify-content:center;min-height:34px;box-sizing:border-box;padding:7px 12px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#52647e;font-size:12px;font-weight:800;text-decoration:none}.program-depo-tab:hover{border-color:#8fbaf2;color:#0b3765}.program-depo-tab.active{border-color:#1769e8;background:#e8f2ff;color:#0b58bf}
 .summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:14px}.summary-card{padding:14px 16px}
 .summary-label{font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase}.summary-value{margin-top:6px;font-size:20px;font-weight:900;color:#0b3765}
 .table-wrap{overflow-x:auto}.card{overflow:hidden}table{width:100%;border-collapse:collapse;min-width:1050px}
@@ -41,12 +41,12 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
   .program-table .program-detail-trigger{line-height:1.3;white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
   .program-admin{margin-top:8px}.program-admin-panel{width:calc(100vw - 28px)}.program-admin-form{grid-template-columns:1fr}.program-detail-metrics{grid-template-columns:1fr 1fr}.program-dialog{padding:12px}
 }
-.ppg-toolbar{display:flex;align-items:flex-start;justify-content:flex-end;gap:16px;margin:4px 0 16px}.ppg-tools{display:flex;align-items:flex-start;gap:9px;flex-wrap:wrap;justify-content:flex-end}
+.ppg-toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 12px;margin:0 0 20px}.ppg-tools{display:flex;align-items:center;gap:9px;flex-wrap:wrap;justify-content:flex-end;margin-left:auto}
 .ppg-filter,.ppg-admin{position:relative}.ppg-filter summary,.ppg-admin summary{list-style:none;display:inline-flex;align-items:center;gap:8px;border:1px solid #bfd6f7;border-radius:9px;background:#fff;color:#0b3765;padding:9px 12px;font-size:12px;font-weight:900;cursor:pointer;white-space:nowrap}.ppg-filter summary::-webkit-details-marker,.ppg-admin summary::-webkit-details-marker{display:none}.ppg-filter-panel,.ppg-admin-panel{position:absolute;right:0;top:calc(100% + 6px);z-index:40;width:min(330px,calc(100vw - 32px));box-sizing:border-box;padding:14px;background:#fff;border:1px solid #dbe3ee;border-radius:12px;box-shadow:0 14px 36px rgba(15,23,42,.17)}.ppg-filter-panel label,.ppg-admin-form label{display:grid;gap:5px;color:#334155;font-size:11px;font-weight:800}.ppg-filter-panel input,.ppg-filter-panel select,.ppg-admin-form input,.ppg-admin-form select{width:100%;box-sizing:border-box;min-width:0;padding:9px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#172033;font:inherit}.ppg-filter-form{display:grid;gap:10px}.ppg-filter-actions{display:flex;justify-content:flex-end;gap:8px}.ppg-filter-actions .btn{width:auto}.ppg-reset{display:inline-flex;align-items:center;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;color:#334155;text-decoration:none;font-size:12px;font-weight:900}
 .loyalty-filter summary{max-width:min(420px,calc(100vw - 32px));white-space:normal;text-align:left}
 .ppg-admin-panel{width:min(650px,calc(100vw - 32px));max-height:75vh;overflow:auto}.ppg-admin-panel h3{margin:0 0 12px;font-size:15px}.ppg-admin-panel h4{margin:18px 0 8px;font-size:12px}.ppg-admin-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.ppg-admin-form .wide{grid-column:1/-1}.ppg-admin-form .btn{width:auto;justify-self:start}.ppg-admin-form .check{display:flex;align-items:center;gap:8px}.ppg-admin-form .check input{width:auto}.ppg-lookup-note{font-size:10px;color:#64748b}.ppg-admin-item{border-top:1px solid #e5e7eb;padding:9px 0}.ppg-admin-item summary{cursor:pointer;color:#0b3765;font-size:12px;font-weight:800}.ppg-deactivate{margin:8px 0}.ppg-deactivate .btn{background:#b91c1c}
 .ppg-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 3px 14px rgba(15,23,42,.05);overflow:hidden}.ppg-table-wrap{overflow-x:auto;max-width:100%}.ppg-table{width:100%;min-width:1080px;border-collapse:collapse}.ppg-table th{background:#edf3fa;color:#0f274a;font-size:11px;text-transform:uppercase;padding:13px 11px}.ppg-table td{padding:11px;border-bottom:1px solid #e8eef6;font-size:12px}.ppg-table th,.ppg-table td{text-align:left}.ppg-table th:first-child,.ppg-table td:first-child{text-align:center;width:45px}.ppg-table .ppg-depo-row td{text-align:left;background:#e5f0ff;color:#102c56;font-weight:900;text-transform:uppercase;font-size:12px;padding:9px 14px}.ppg-dealer-name{display:block;font-weight:800;color:#172033}.ppg-bp{display:block;color:#64748b;font-size:11px;margin-top:3px}.ppg-badge{display:inline-flex;padding:5px 9px;border-radius:7px;background:#dcecff;color:#1769e8;font-size:11px;font-weight:900;white-space:nowrap}.ppg-badge.combo{background:#e9ddff;color:#5630bd}.ppg-badge.paa{background:#d9f7ee;color:#047857}.ppg-target{white-space:nowrap;font-weight:800}.ppg-month-cell{min-width:165px}.ppg-month-top{display:flex;justify-content:space-between;gap:8px;white-space:nowrap}.ppg-month-top strong{font-size:11px}.ppg-progress{height:7px;margin-top:7px;background:#e7edf4;border-radius:999px;overflow:hidden}.ppg-progress span{display:block;height:100%;border-radius:inherit}.ppg-month-cell.green strong{color:#16a34a}.ppg-month-cell.green .ppg-progress span{background:#16a34a}.ppg-month-cell.blue strong{color:#1769e8}.ppg-month-cell.blue .ppg-progress span{background:#1769e8}.ppg-month-cell.orange strong{color:#ea580c}.ppg-month-cell.orange .ppg-progress span{background:#f97316}.ppg-month-cell.red strong{color:#dc2626}.ppg-month-cell.red .ppg-progress span{background:#ef4444}.ppg-not-active{color:#94a3b8}
-@media(max-width:720px){.ppg-toolbar{display:block}.ppg-tools{justify-content:flex-start;margin-top:10px}.ppg-admin-panel,.ppg-filter-panel{right:auto;left:0}.ppg-admin-form{grid-template-columns:1fr}.ppg-table{min-width:1030px}.ppg-table td:nth-child(2),.ppg-table th:nth-child(2){min-width:190px}}
+@media(max-width:720px){.ppg-toolbar{gap:8px}.ppg-tools{width:100%;margin-left:0;justify-content:flex-start}.ppg-admin-panel,.ppg-filter-panel{right:auto;left:0}.ppg-admin-form{grid-template-columns:1fr}.ppg-table{min-width:1030px}.ppg-table td:nth-child(2),.ppg-table th:nth-child(2){min-width:190px}}
 </style>
 {% endblock %}
 
@@ -96,15 +96,6 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
   <button type="button" class="tab{% if active_tab == 'loyalty' %} active{% endif %}" data-program-tab="loyalty" data-tab-url="{{ url_for('program', month=month, depo=depo_filter, salesman=salesman_filter) }}">Program Loyalty</button>
   <button type="button" class="tab{% if active_tab == 'ppg-paa' %} active{% endif %}" data-program-tab="ppg-paa" data-tab-url="{{ url_for('program', tab='ppg-paa', month=month, depo=depo_filter, salesman=salesman_filter) }}">Program PPG</button>
 </div>
-{% if active_tab == 'loyalty' %}
-<nav class="program-depo-tabs" aria-label="Filter Depo Program Loyalty">
-  {% for depo in ('Cempaka', 'Serang', 'Cilegon') %}<a class="program-depo-tab{% if depo_filter == depo %} active{% endif %}" href="{{ url_for('program', month=month, depo='' if depo_filter == depo else depo, salesman=salesman_filter) }}"{% if depo_filter == depo %} aria-current="true"{% endif %}>{{ depo }}</a>{% endfor %}
-</nav>
-{% else %}
-<nav class="program-depo-tabs" aria-label="Filter Depo Program PPG">
-  {% for depo in ppg_depos %}<a class="program-depo-tab{% if ppg_depo == depo %} active{% endif %}" href="{{ url_for('program', tab='ppg-paa', ppg_year=ppg_year, ppg_quarter=ppg_quarter, ppg_depo='' if ppg_depo == depo else depo, month=month, depo=depo_filter, salesman=salesman_filter) }}"{% if ppg_depo == depo %} aria-current="true"{% endif %}>{{ depo }}</a>{% endfor %}
-</nav>
-{% endif %}
 
 {% macro summary_cards(totals) %}
 <div class="summary">
@@ -128,7 +119,11 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 {% endmacro %}
 
 <div class="panel{% if active_tab == 'loyalty' %} active{% endif %}" data-program-panel="loyalty">
-  <div class="ppg-toolbar"><div class="ppg-tools">
+  <div class="ppg-toolbar">
+    <nav class="program-depo-tabs" aria-label="Filter Depo Program Loyalty">
+      {% for depo in ('Cempaka', 'Serang', 'Cilegon') %}<a class="program-depo-tab{% if depo_filter == depo %} active{% endif %}" href="{{ url_for('program', month=month, depo='' if depo_filter == depo else depo, salesman=salesman_filter) }}"{% if depo_filter == depo %} aria-current="true"{% endif %}>{{ depo }}</a>{% endfor %}
+    </nav>
+    <div class="ppg-tools">
     <details class="ppg-filter loyalty-filter"><summary>▣ {{ loyalty_month_label }} · {{ salesman_filter or 'Semua Salesman' }} ⌄</summary>
       <div class="ppg-filter-panel"><form method="get" action="{{ url_for('program') }}" class="ppg-filter-form">
         <input type="hidden" name="depo" value="{{ depo_filter }}">
@@ -146,6 +141,9 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 </div>
 <div class="panel{% if active_tab == 'ppg-paa' %} active{% endif %}" data-program-panel="ppg-paa">
   <div class="ppg-toolbar">
+    <nav class="program-depo-tabs" aria-label="Filter Depo Program PPG">
+      {% for depo in ppg_depos %}<a class="program-depo-tab{% if ppg_depo == depo %} active{% endif %}" href="{{ url_for('program', tab='ppg-paa', ppg_year=ppg_year, ppg_quarter=ppg_quarter, ppg_depo='' if ppg_depo == depo else depo, month=month, depo=depo_filter, salesman=salesman_filter) }}"{% if ppg_depo == depo %} aria-current="true"{% endif %}>{{ depo }}</a>{% endfor %}
+    </nav>
     <div class="ppg-tools">
       {% if session.get('role') == 'admin' and active_tab == 'ppg-paa' %}
       <details class="ppg-admin"><summary>Kelola Program</summary><div class="ppg-admin-panel">
