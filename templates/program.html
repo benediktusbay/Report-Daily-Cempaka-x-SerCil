@@ -13,6 +13,7 @@
 .btn{border:0;border-radius:9px;padding:10px 16px;background:#0b3765;color:#fff;font-weight:900;cursor:pointer}
 .tabs{display:flex;gap:9px;margin:0 0 14px;flex-wrap:wrap}.tab{border:1px solid #cbd5e1;border-radius:9px;padding:9px 14px;background:#fff;color:#334155;font-weight:900;cursor:pointer}
 .tab.active{background:#0b3765;border-color:#0b3765;color:#fff}.panel{display:none}.panel.active{display:block}
+.program-depo-tabs{display:flex;flex-wrap:wrap;gap:7px;margin:-3px 0 12px}.program-depo-tab{display:inline-flex;align-items:center;justify-content:center;min-height:34px;box-sizing:border-box;padding:7px 12px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#52647e;font-size:12px;font-weight:800;text-decoration:none}.program-depo-tab:hover{border-color:#8fbaf2;color:#0b3765}.program-depo-tab.active{border-color:#1769e8;background:#e8f2ff;color:#0b58bf}
 .summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:14px}.summary-card{padding:14px 16px}
 .summary-label{font-size:10px;font-weight:900;color:#64748b;text-transform:uppercase}.summary-value{margin-top:6px;font-size:20px;font-weight:900;color:#0b3765}
 .table-wrap{overflow-x:auto}.card{overflow:hidden}table{width:100%;border-collapse:collapse;min-width:1050px}
@@ -80,7 +81,7 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
         </form>
         <div class="program-member-list">{% for member in group.members %}<form method="post" action="{{ url_for('manage_program') }}"><input type="hidden" name="action" value="unlink"><input type="hidden" name="group_id" value="{{ group.id }}"><input type="hidden" name="bp" value="{{ member.bp }}"><input type="hidden" name="month" value="{{ month }}"><span>{{ member.bp }} · {{ member.dealer_name }} · {{ member.depo }}</span><button type="submit" title="Hapus BP dari group" onclick="return confirm('Hapus BP ini dari group?')">×</button></form>{% endfor %}</div>
         <form method="post" action="{{ url_for('manage_program') }}" class="program-admin-form">
-          <input type="hidden" name="action" value="link"><input type="hidden" name="group_id" value="{{ group.id }}"><input type="hidden" name="bp" required><input type="hidden" name="month" value="{{ month }}">
+          <input type="hidden" name="action" value="link"><input type="hidden" name="group_id" value="{{ group.id }}"><input type="hidden" name="month" value="{{ month }}">
           <label class="wide">Link BP lain<div class="program-search"><input class="program-search-input" autocomplete="off" placeholder="Cari BP atau nama dealer"><input type="hidden" name="bp" required><div class="program-search-results"></div></div></label>
           <label>Depo<input name="depo" data-program-field="depo" placeholder="Terisi dari database"></label>
           <button class="btn" type="submit">Link BP</button>
@@ -95,6 +96,15 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
   <button type="button" class="tab{% if active_tab == 'loyalty' %} active{% endif %}" data-program-tab="loyalty" data-tab-url="{{ url_for('program', month=month, depo=depo_filter, salesman=salesman_filter) }}">Program Loyalty</button>
   <button type="button" class="tab{% if active_tab == 'ppg-paa' %} active{% endif %}" data-program-tab="ppg-paa" data-tab-url="{{ url_for('program', tab='ppg-paa', month=month, depo=depo_filter, salesman=salesman_filter) }}">Program PPG</button>
 </div>
+{% if active_tab == 'loyalty' %}
+<nav class="program-depo-tabs" aria-label="Filter Depo Program Loyalty">
+  {% for depo in ('Cempaka', 'Serang', 'Cilegon') %}<a class="program-depo-tab{% if depo_filter == depo %} active{% endif %}" href="{{ url_for('program', month=month, depo='' if depo_filter == depo else depo, salesman=salesman_filter) }}"{% if depo_filter == depo %} aria-current="true"{% endif %}>{{ depo }}</a>{% endfor %}
+</nav>
+{% else %}
+<nav class="program-depo-tabs" aria-label="Filter Depo Program PPG">
+  {% for depo in ppg_depos %}<a class="program-depo-tab{% if ppg_depo == depo %} active{% endif %}" href="{{ url_for('program', tab='ppg-paa', ppg_year=ppg_year, ppg_quarter=ppg_quarter, ppg_depo='' if ppg_depo == depo else depo, month=month, depo=depo_filter, salesman=salesman_filter) }}"{% if ppg_depo == depo %} aria-current="true"{% endif %}>{{ depo }}</a>{% endfor %}
+</nav>
+{% endif %}
 
 {% macro summary_cards(totals) %}
 <div class="summary">
@@ -119,12 +129,12 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 
 <div class="panel{% if active_tab == 'loyalty' %} active{% endif %}" data-program-panel="loyalty">
   <div class="ppg-toolbar"><div class="ppg-tools">
-    <details class="ppg-filter loyalty-filter"><summary>▣ {{ loyalty_month_label }} · {{ depo_filter or 'Semua Depo' }} · {{ salesman_filter or 'Semua Salesman' }} ⌄</summary>
+    <details class="ppg-filter loyalty-filter"><summary>▣ {{ loyalty_month_label }} · {{ salesman_filter or 'Semua Salesman' }} ⌄</summary>
       <div class="ppg-filter-panel"><form method="get" action="{{ url_for('program') }}" class="ppg-filter-form">
+        <input type="hidden" name="depo" value="{{ depo_filter }}">
         <label>Bulan<input type="month" name="month" value="{{ month }}" required></label>
-        <label>Depo<select name="depo"><option value="">Semua Depo</option>{% for depo in depos %}<option value="{{ depo }}" {% if depo_filter == depo %}selected{% endif %}>{{ depo }}</option>{% endfor %}</select></label>
         <label>Salesman<select name="salesman"><option value="">Semua Salesman</option>{% for salesman in salesmen %}<option value="{{ salesman }}" {% if salesman_filter == salesman %}selected{% endif %}>{{ salesman }}</option>{% endfor %}</select></label>
-        <div class="ppg-filter-actions"><a class="ppg-reset" href="{{ url_for('program', month=month) }}">Reset</a><button class="btn" type="submit">Terapkan</button></div>
+        <div class="ppg-filter-actions"><a class="ppg-reset" href="{{ url_for('program', month=month, depo=depo_filter) }}">Reset</a><button class="btn" type="submit">Terapkan</button></div>
       </form></div>
     </details>
   </div></div>
@@ -172,13 +182,12 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
         </details>{% endfor %}
       </div></details>
       {% endif %}
-      <details class="ppg-filter"><summary>▣ Q{{ ppg_quarter }} {{ ppg_year }} · {{ ppg_depo or 'Semua Depo' }} ⌄</summary>
+      <details class="ppg-filter"><summary>▣ Q{{ ppg_quarter }} {{ ppg_year }} ⌄</summary>
         <div class="ppg-filter-panel"><form method="get" action="{{ url_for('program') }}" class="ppg-filter-form">
-          <input type="hidden" name="tab" value="ppg-paa"><input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="depo" value="{{ depo_filter }}"><input type="hidden" name="salesman" value="{{ salesman_filter }}">
+          <input type="hidden" name="tab" value="ppg-paa"><input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="depo" value="{{ depo_filter }}"><input type="hidden" name="salesman" value="{{ salesman_filter }}"><input type="hidden" name="ppg_depo" value="{{ ppg_depo }}">
           <label>Tahun<input name="ppg_year" type="number" min="2000" max="2100" value="{{ ppg_year }}" required></label>
           <label>Quarter<select name="ppg_quarter">{% for q in (1, 2, 3, 4) %}<option value="{{ q }}" {% if q == ppg_quarter %}selected{% endif %}>Q{{ q }}</option>{% endfor %}</select></label>
-          <label>Depo<select name="ppg_depo"><option value="">Semua Depo</option>{% for depo in ppg_depos %}<option value="{{ depo }}" {% if depo == ppg_depo %}selected{% endif %}>{{ depo }}</option>{% endfor %}</select></label>
-          <div class="ppg-filter-actions"><a class="ppg-reset" href="{{ url_for('program', tab='ppg-paa', month=month, depo=depo_filter, salesman=salesman_filter) }}">Reset</a><button class="btn" type="submit">Terapkan</button></div>
+          <div class="ppg-filter-actions"><a class="ppg-reset" href="{{ url_for('program', tab='ppg-paa', ppg_depo=ppg_depo, month=month, depo=depo_filter, salesman=salesman_filter) }}">Reset</a><button class="btn" type="submit">Terapkan</button></div>
         </form></div>
       </details>
     </div>
