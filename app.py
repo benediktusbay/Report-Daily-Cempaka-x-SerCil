@@ -138,7 +138,7 @@ PPG_PAA_INITIAL_PARTICIPANTS = (
     ('10072814', 'PT. DIGITAL KOMUNIKASI PINTAR', 'Cempaka', 'PPG', 500_000_000),
     ('10082481', 'CV AZ ZAHRA CELLULAR', 'Cilegon', 'PPG', 500_000_000),
 )
-PPG_PAA_DEPOT_ORDER = ('Cempaka', 'Cilegon')
+PPG_PAA_DEPOT_ORDER = ('Cempaka', 'Serang', 'Cilegon')
 PPG_PAA_PROGRAM_TYPES = ('PPG', 'PAA', 'PAA + PPG')
 
 # Program Loyalty master supplied by the business team for Cempaka.
