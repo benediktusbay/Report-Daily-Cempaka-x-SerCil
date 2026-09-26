@@ -44,6 +44,7 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 .ppg-toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 12px;margin:0 0 20px}.ppg-tools{display:flex;align-items:center;gap:9px;flex-wrap:wrap;justify-content:flex-end;margin-left:auto}
 .ppg-filter,.ppg-admin{position:relative}.ppg-filter summary,.ppg-admin summary{list-style:none;display:inline-flex;align-items:center;gap:8px;border:1px solid #bfd6f7;border-radius:9px;background:#fff;color:#0b3765;padding:9px 12px;font-size:12px;font-weight:900;cursor:pointer;white-space:nowrap}.ppg-filter summary::-webkit-details-marker,.ppg-admin summary::-webkit-details-marker{display:none}.ppg-filter-panel,.ppg-admin-panel{position:absolute;right:0;top:calc(100% + 6px);z-index:40;width:min(330px,calc(100vw - 32px));box-sizing:border-box;padding:14px;background:#fff;border:1px solid #dbe3ee;border-radius:12px;box-shadow:0 14px 36px rgba(15,23,42,.17)}.ppg-filter-panel label,.ppg-admin-form label{display:grid;gap:5px;color:#334155;font-size:11px;font-weight:800}.ppg-filter-panel input,.ppg-filter-panel select,.ppg-admin-form input,.ppg-admin-form select{width:100%;box-sizing:border-box;min-width:0;padding:9px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#172033;font:inherit}.ppg-filter-form{display:grid;gap:10px}.ppg-filter-actions{display:flex;justify-content:flex-end;gap:8px}.ppg-filter-actions .btn{width:auto}.ppg-reset{display:inline-flex;align-items:center;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;color:#334155;text-decoration:none;font-size:12px;font-weight:900}
 .loyalty-filter summary{max-width:min(420px,calc(100vw - 32px));white-space:normal;text-align:left}
+.loyalty-admin-form input[readonly]{background:#f5f8fc;color:#475569}.loyalty-lookup-note,.loyalty-member-note{font-size:10px;color:#64748b}.loyalty-member-note{margin:8px 0;line-height:1.5}.ppg-deactivate label{display:inline-grid;gap:4px;margin-right:8px;font-size:11px;font-weight:800;color:#475569}.ppg-deactivate input{padding:8px;border:1px solid #cbd5e1;border-radius:8px}
 .ppg-admin-panel{width:min(650px,calc(100vw - 32px));max-height:75vh;overflow:auto}.ppg-admin-panel h3{margin:0 0 12px;font-size:15px}.ppg-admin-panel h4{margin:18px 0 8px;font-size:12px}.ppg-admin-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.ppg-admin-form .wide{grid-column:1/-1}.ppg-admin-form .btn{width:auto;justify-self:start}.ppg-admin-form .check{display:flex;align-items:center;gap:8px}.ppg-admin-form .check input{width:auto}.ppg-lookup-note{font-size:10px;color:#64748b}.ppg-admin-item{border-top:1px solid #e5e7eb;padding:9px 0}.ppg-admin-item summary{cursor:pointer;color:#0b3765;font-size:12px;font-weight:800}.ppg-deactivate{margin:8px 0}.ppg-deactivate .btn{background:#b91c1c}
 .ppg-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 3px 14px rgba(15,23,42,.05);overflow:hidden}.ppg-table-wrap{overflow-x:auto;max-width:100%}.ppg-table{width:100%;min-width:1080px;border-collapse:collapse}.ppg-table th{background:#edf3fa;color:#0f274a;font-size:11px;text-transform:uppercase;padding:13px 11px}.ppg-table td{padding:11px;border-bottom:1px solid #e8eef6;font-size:12px}.ppg-table th,.ppg-table td{text-align:left}.ppg-table th:first-child,.ppg-table td:first-child{text-align:center;width:45px}.ppg-table .ppg-depo-row td{text-align:left;background:#e5f0ff;color:#102c56;font-weight:900;text-transform:uppercase;font-size:12px;padding:9px 14px}.ppg-dealer-name{display:block;font-weight:800;color:#172033}.ppg-bp{display:block;color:#64748b;font-size:11px;margin-top:3px}.ppg-badge{display:inline-flex;padding:5px 9px;border-radius:7px;background:#dcecff;color:#1769e8;font-size:11px;font-weight:900;white-space:nowrap}.ppg-badge.combo{background:#e9ddff;color:#5630bd}.ppg-badge.paa{background:#d9f7ee;color:#047857}.ppg-target{white-space:nowrap;font-weight:800}.ppg-month-cell{min-width:165px}.ppg-month-top{display:flex;justify-content:space-between;gap:8px;white-space:nowrap}.ppg-month-top strong{font-size:11px}.ppg-progress{height:7px;margin-top:7px;background:#e7edf4;border-radius:999px;overflow:hidden}.ppg-progress span{display:block;height:100%;border-radius:inherit}.ppg-month-cell.green strong{color:#16a34a}.ppg-month-cell.green .ppg-progress span{background:#16a34a}.ppg-month-cell.blue strong{color:#1769e8}.ppg-month-cell.blue .ppg-progress span{background:#1769e8}.ppg-month-cell.orange strong{color:#ea580c}.ppg-month-cell.orange .ppg-progress span{background:#f97316}.ppg-month-cell.red strong{color:#dc2626}.ppg-month-cell.red .ppg-progress span{background:#ef4444}.ppg-not-active{color:#94a3b8}
 @media(max-width:720px){.ppg-toolbar{gap:8px}.ppg-tools{width:100%;margin-left:0;justify-content:flex-start}.ppg-admin-panel,.ppg-filter-panel{right:auto;left:0}.ppg-admin-form{grid-template-columns:1fr}.ppg-table{min-width:1030px}.ppg-table td:nth-child(2),.ppg-table th:nth-child(2){min-width:190px}}
@@ -53,43 +54,6 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 {% block body %}
 <div class="program-hero">
   <div><h1>Program</h1></div>
-  <div>{% if active_tab == 'loyalty' and latest %}<strong>Billing through {{ latest.strftime('%d %b %Y') }}</strong>{% endif %}
-  {% if active_tab == 'loyalty' and session.get('role') == 'admin' %}
-  <details class="program-admin"><summary>Kelola Dealer Program</summary>
-    <div class="program-admin-panel">
-      <h3>Tambah dealer Program</h3>
-      <form method="post" action="{{ url_for('manage_program') }}" class="program-admin-form">
-        <input type="hidden" name="action" value="create"><input type="hidden" name="month" value="{{ month }}">
-        <label class="wide">Cari BP atau dealer<div class="program-search"><input class="program-search-input" autocomplete="off" placeholder="Ketik BP atau nama dealer" required><input type="hidden" name="bp" required><div class="program-search-results"></div></div></label>
-        <label class="wide">Nama dealer/group<input name="display_name" data-program-field="display_name" required></label>
-        <label>Depo<input name="depo" data-program-field="depo" placeholder="Terisi dari database"></label>
-        <label>PIC Program<input name="pic_salesman" data-program-field="pic_salesman" required></label>
-        <label>Category<select name="category">{% for category in loyalty_categories %}<option value="{{ category }}">{{ category }}</option>{% endfor %}</select></label>
-        <button class="btn" type="submit">Tambah</button>
-      </form>
-      <h4>Edit, link, atau hapus</h4>
-      {% for group in admin_groups %}
-      <details class="program-admin-group"><summary>{{ group.display_name }} · {{ group.category }}</summary>
-        <form method="post" action="{{ url_for('manage_program') }}" class="program-admin-form">
-          <input type="hidden" name="group_id" value="{{ group.id }}"><input type="hidden" name="month" value="{{ month }}">
-          <label class="wide">Nama dealer/group<input name="display_name" value="{{ group.display_name }}" required></label>
-          <label>PIC Program<input name="pic_salesman" value="{{ group.pic_salesman }}" required></label>
-          <label>Category<select name="category">{% for category in loyalty_categories %}<option value="{{ category }}" {% if group.category == category %}selected{% endif %}>{{ category }}</option>{% endfor %}</select></label>
-          <label class="wide">BP utama<select name="representative_bp">{% for member in group.members %}<option value="{{ member.bp }}" {% if member.bp == group.representative_bp %}selected{% endif %}>{{ member.bp }} · {{ member.dealer_name }} · {{ member.depo }}</option>{% endfor %}</select></label>
-          <button class="btn" name="action" value="update" type="submit">Simpan perubahan</button>
-          <button class="btn program-danger" name="action" value="archive" type="submit" onclick="return confirm('Hapus group Program ini?')">Hapus group</button>
-        </form>
-        <div class="program-member-list">{% for member in group.members %}<form method="post" action="{{ url_for('manage_program') }}"><input type="hidden" name="action" value="unlink"><input type="hidden" name="group_id" value="{{ group.id }}"><input type="hidden" name="bp" value="{{ member.bp }}"><input type="hidden" name="month" value="{{ month }}"><span>{{ member.bp }} · {{ member.dealer_name }} · {{ member.depo }}</span><button type="submit" title="Hapus BP dari group" onclick="return confirm('Hapus BP ini dari group?')">×</button></form>{% endfor %}</div>
-        <form method="post" action="{{ url_for('manage_program') }}" class="program-admin-form">
-          <input type="hidden" name="action" value="link"><input type="hidden" name="group_id" value="{{ group.id }}"><input type="hidden" name="month" value="{{ month }}">
-          <label class="wide">Link BP lain<div class="program-search"><input class="program-search-input" autocomplete="off" placeholder="Cari BP atau nama dealer"><input type="hidden" name="bp" required><div class="program-search-results"></div></div></label>
-          <label>Depo<input name="depo" data-program-field="depo" placeholder="Terisi dari database"></label>
-          <button class="btn" type="submit">Link BP</button>
-        </form>
-      </details>
-      {% endfor %}
-    </div>
-  </details>{% endif %}</div>
 </div>
 
 <div class="tabs">
@@ -124,6 +88,43 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
       {% for depo in ('Cempaka', 'Serang', 'Cilegon') %}<a class="program-depo-tab{% if depo_filter == depo %} active{% endif %}" href="{{ url_for('program', month=month, depo='' if depo_filter == depo else depo, salesman=salesman_filter) }}"{% if depo_filter == depo %} aria-current="true"{% endif %}>{{ depo }}</a>{% endfor %}
     </nav>
     <div class="ppg-tools">
+    {% if session.get('role') == 'admin' and active_tab == 'loyalty' %}
+    <details class="ppg-admin" {% if request.args.get('manage') == '1' %}open{% endif %}><summary>Kelola Program</summary><div class="ppg-admin-panel">
+      <h3>Tambah peserta Program Loyalty</h3>
+      <form method="post" action="{{ url_for('manage_program') }}" class="ppg-admin-form loyalty-admin-form">
+        <input type="hidden" name="action" value="create"><input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="depo_filter" value="{{ depo_filter }}"><input type="hidden" name="salesman_filter" value="{{ salesman_filter }}">
+        <label>BP Code<input name="bp_code" data-loyalty-bp inputmode="numeric" required><small class="loyalty-lookup-note">Masukkan BP dari Monthly Target.</small></label>
+        <label>Program<select name="category" data-loyalty-category>{% for category in loyalty_categories %}<option value="{{ category }}">{{ category }}</option>{% endfor %}</select></label>
+        <label>Dealer<input name="dealer_name" readonly></label>
+        <label>Depo<input name="depo" readonly></label>
+        <label>Target / Bulan<input name="target_display" data-loyalty-target value="{{ loyalty_targets[loyalty_categories[0]]|rupiah }}" readonly></label>
+        <label>Valid From<input name="valid_from" type="date" value="{{ month }}-01" required></label>
+        <label>Valid Until<input name="valid_until" type="date"></label>
+        <label>Salesman / PIC<input name="pic_salesman" readonly></label>
+        <label class="check"><input name="active" value="1" type="checkbox" checked> Active</label>
+        <button class="btn" type="submit">Tambah peserta</button>
+      </form>
+      <h4>Edit / nonaktifkan peserta</h4>
+      {% for group in admin_groups %}<details class="ppg-admin-item"><summary>{{ group.display_name }} · {{ group.representative_bp }} · {{ group.category }}{% if not group.active %} · Nonaktif{% endif %}</summary>
+        <div class="loyalty-member-note">BP anggota: {% for member in group.members %}{{ member.bp }}{% if not loop.last %}, {% endif %}{% endfor %}</div>
+        <form method="post" action="{{ url_for('manage_program') }}" class="ppg-admin-form loyalty-admin-form">
+          <input type="hidden" name="action" value="update"><input type="hidden" name="group_id" value="{{ group.id }}"><input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="depo_filter" value="{{ depo_filter }}"><input type="hidden" name="salesman_filter" value="{{ salesman_filter }}">
+          <label>BP Code<input value="{{ group.representative_bp }}" readonly></label>
+          <label>Program<select name="category" data-loyalty-category>{% if group.category not in loyalty_categories %}<option value="{{ group.category }}" selected>{{ group.category }} (existing)</option>{% endif %}{% for category in loyalty_categories %}<option value="{{ category }}" {% if group.category == category %}selected{% endif %}>{{ category }}</option>{% endfor %}</select></label>
+          <label>Dealer<input value="{{ group.display_name }}" readonly></label>
+          <label>Depo<input value="{{ group.display_depo }}" readonly></label>
+          <label>Target / Bulan<input data-loyalty-target value="{{ loyalty_targets[group.category]|rupiah }}" readonly></label>
+          <label>Valid From<input name="valid_from" type="date" value="{{ loyalty_default_change_date }}" required></label>
+          <label>Valid Until<input name="valid_until" type="date"></label>
+          <label>Salesman / PIC<input value="{{ group.pic_salesman }}" readonly></label>
+          <label class="check"><input name="active" value="1" type="checkbox" {% if group.active %}checked{% endif %}> Active</label>
+          <button class="btn" type="submit">Simpan periode baru</button>
+        </form>
+        <div class="loyalty-member-note">Riwayat: {% for period in admin_group_periods.get(group.id, []) %}{{ period.category }} ({{ period.valid_from.isoformat() }}–{{ period.valid_until.isoformat() if period.valid_until else 'seterusnya' }}){% if not period.active %} · Nonaktif{% endif %}{% if not loop.last %}; {% endif %}{% endfor %}</div>
+        {% if group.active %}<form method="post" action="{{ url_for('manage_program') }}" class="ppg-deactivate" onsubmit="return confirm('Nonaktifkan peserta setelah tanggal ini? Riwayat tetap tersedia.')"><input type="hidden" name="action" value="deactivate"><input type="hidden" name="group_id" value="{{ group.id }}"><input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="depo_filter" value="{{ depo_filter }}"><input type="hidden" name="salesman_filter" value="{{ salesman_filter }}"><label>Valid Until <input name="valid_until" type="date" value="{{ loyalty_default_end_date }}" required></label><button class="btn" type="submit">Nonaktifkan</button></form>{% endif %}
+      </details>{% endfor %}
+    </div></details>
+    {% endif %}
     <details class="ppg-filter loyalty-filter"><summary>▣ {{ loyalty_month_label }} · {{ salesman_filter or 'Semua Salesman' }} ⌄</summary>
       <div class="ppg-filter-panel"><form method="get" action="{{ url_for('program') }}" class="ppg-filter-form">
         <input type="hidden" name="depo" value="{{ depo_filter }}">
@@ -235,15 +236,28 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
   });});
   detailDialog.querySelector('.program-dialog-close').addEventListener('click',function(){detailDialog.close();});
   detailDialog.addEventListener('click',function(event){if(event.target===detailDialog)detailDialog.close();});
-  const searchUrl={{ url_for('program_dealer_search')|tojson }};
-  document.querySelectorAll('.program-search').forEach(function(search){
-    const input=search.querySelector('.program-search-input'),hidden=search.querySelector('[name="bp"]'),results=search.querySelector('.program-search-results');let timer;
-    input.addEventListener('input',function(){hidden.value='';results.replaceChildren();clearTimeout(timer);const query=input.value.trim();if(query.length<2)return;
-      timer=setTimeout(async function(){try{const response=await fetch(searchUrl+'?q='+encodeURIComponent(query));if(!response.ok)return;const dealers=await response.json();if(input.value.trim()!==query)return;
-        dealers.forEach(function(dealer){const option=document.createElement('button');option.type='button';option.textContent=dealer.bp+' · '+dealer.dealer+(dealer.depo?' · '+dealer.depo:'');option.addEventListener('click',function(){hidden.value=dealer.bp;input.value=option.textContent;results.replaceChildren();const form=search.closest('form');[['display_name',dealer.dealer],['depo',dealer.depo],['pic_salesman',dealer.salesman]].forEach(function(pair){const field=form.querySelector('[data-program-field="'+pair[0]+'"]');if(field)field.value=pair[1]||'';});});results.append(option);});
-      }catch(error){results.replaceChildren();}},220);
-    });
+  {% if session.get('role') == 'admin' and active_tab == 'loyalty' %}
+  const loyaltyTargets={{ loyalty_targets|tojson }};
+  document.querySelectorAll('.loyalty-admin-form').forEach(function(form){
+    const category=form.querySelector('[data-loyalty-category]'),target=form.querySelector('[data-loyalty-target]');
+    function refreshTarget(){target.value='Rp '+Number(loyaltyTargets[category.value]||0).toLocaleString('id-ID',{maximumFractionDigits:0});}
+    category.addEventListener('change',refreshTarget);refreshTarget();
   });
+  const loyaltyLookupUrl={{ url_for('program_loyalty_lookup')|tojson }};
+  document.querySelectorAll('[data-loyalty-bp]').forEach(function(input){
+    const form=input.closest('form'),date=form.querySelector('[name="valid_from"]'),note=form.querySelector('.loyalty-lookup-note');let timer;
+    function lookup(){clearTimeout(timer);const bp=input.value.trim(),asOf=date.value;
+      ['dealer_name','depo','pic_salesman'].forEach(function(name){form.querySelector('[name="'+name+'"]').value='';});
+      if(!/^\d{1,20}$/.test(bp)||!asOf){note.textContent='Isi BP Code dan Valid From.';return;}
+      timer=setTimeout(async function(){try{const url=loyaltyLookupUrl+'?bp='+encodeURIComponent(bp)+'&valid_from='+encodeURIComponent(asOf);const response=await fetch(url);const data=await response.json();if(input.value.trim()!==bp||date.value!==asOf)return;
+        if(!data.found){note.textContent=data.message||'BP tidak ditemukan pada tanggal tersebut.';return;}
+        form.querySelector('[name="dealer_name"]').value=data.dealer;form.querySelector('[name="depo"]').value=data.depo;form.querySelector('[name="pic_salesman"]').value=data.salesman;
+        note.textContent=data.existing_group?'BP sudah menjadi anggota '+data.existing_group+'. Edit group tersebut.':'Ditemukan di '+data.source+'.';
+      }catch(error){note.textContent='Lookup belum tersedia; coba lagi.';}},250);
+    }
+    input.addEventListener('input',lookup);date.addEventListener('change',lookup);
+  });
+  {% endif %}
   {% if session.get('role') == 'admin' and active_tab == 'ppg-paa' %}
   const ppgLookupUrl={{ url_for('program_ppg_paa_lookup')|tojson }};
   document.querySelectorAll('[data-ppg-bp]').forEach(function(input){
