@@ -47,7 +47,28 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 .loyalty-admin-form input[readonly]{background:#f5f8fc;color:#475569}.loyalty-lookup-note,.loyalty-member-note{font-size:10px;color:#64748b}.loyalty-member-note{margin:8px 0;line-height:1.5}.ppg-deactivate label{display:inline-grid;gap:4px;margin-right:8px;font-size:11px;font-weight:800;color:#475569}.ppg-deactivate input{padding:8px;border:1px solid #cbd5e1;border-radius:8px}
 .ppg-admin-panel{width:min(650px,calc(100vw - 32px));max-height:75vh;overflow:auto}.ppg-admin-panel h3{margin:0 0 12px;font-size:15px}.ppg-admin-panel h4{margin:18px 0 8px;font-size:12px}.ppg-admin-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.ppg-admin-form .wide{grid-column:1/-1}.ppg-admin-form .btn{width:auto;justify-self:start}.ppg-admin-form .check{display:flex;align-items:center;gap:8px}.ppg-admin-form .check input{width:auto}.ppg-lookup-note{font-size:10px;color:#64748b}.ppg-admin-item{border-top:1px solid #e5e7eb;padding:9px 0}.ppg-admin-item summary{cursor:pointer;color:#0b3765;font-size:12px;font-weight:800}.ppg-deactivate{margin:8px 0}.ppg-deactivate .btn{background:#b91c1c}
 .ppg-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 3px 14px rgba(15,23,42,.05);overflow:hidden}.ppg-table-wrap{overflow-x:auto;max-width:100%}.ppg-table{width:100%;min-width:1080px;border-collapse:collapse}.ppg-table th{background:#edf3fa;color:#0f274a;font-size:11px;text-transform:uppercase;padding:13px 11px}.ppg-table td{padding:11px;border-bottom:1px solid #e8eef6;font-size:12px}.ppg-table th,.ppg-table td{text-align:left}.ppg-table th:first-child,.ppg-table td:first-child{text-align:center;width:45px}.ppg-table .ppg-depo-row td{text-align:left;background:#e5f0ff;color:#102c56;font-weight:900;text-transform:uppercase;font-size:12px;padding:9px 14px}.ppg-dealer-name{display:block;font-weight:800;color:#172033}.ppg-bp{display:block;color:#64748b;font-size:11px;margin-top:3px}.ppg-badge{display:inline-flex;padding:5px 9px;border-radius:7px;background:#dcecff;color:#1769e8;font-size:11px;font-weight:900;white-space:nowrap}.ppg-badge.combo{background:#e9ddff;color:#5630bd}.ppg-badge.paa{background:#d9f7ee;color:#047857}.ppg-target{white-space:nowrap;font-weight:800}.ppg-month-cell{min-width:165px}.ppg-month-top{display:flex;justify-content:space-between;gap:8px;white-space:nowrap}.ppg-month-top strong{font-size:11px}.ppg-progress{height:7px;margin-top:7px;background:#e7edf4;border-radius:999px;overflow:hidden}.ppg-progress span{display:block;height:100%;border-radius:inherit}.ppg-month-cell.green strong{color:#16a34a}.ppg-month-cell.green .ppg-progress span{background:#16a34a}.ppg-month-cell.blue strong{color:#1769e8}.ppg-month-cell.blue .ppg-progress span{background:#1769e8}.ppg-month-cell.orange strong{color:#ea580c}.ppg-month-cell.orange .ppg-progress span{background:#f97316}.ppg-month-cell.red strong{color:#dc2626}.ppg-month-cell.red .ppg-progress span{background:#ef4444}.ppg-not-active{color:#94a3b8}
-.ppg-table.loyalty-quarter-table{min-width:1460px}.loyalty-quarter-table th:nth-child(2),.loyalty-quarter-table td:nth-child(2){min-width:230px}.loyalty-quarter-table .ppg-month-cell{min-width:180px}.loyalty-quarter-table .ppg-month-top strong{font-size:12px}.loyalty-quarter-table .program-detail-trigger{display:block;color:#172033;text-decoration:none}.loyalty-quarter-table .program-detail-trigger:hover{text-decoration:underline}.loyalty-gap{white-space:nowrap;font-weight:900}.loyalty-gap.negative{color:#dc2626}.loyalty-gap.positive{color:#16a34a}.loyalty-gap.zero{color:#475569}
+.ppg-table.loyalty-quarter-table{width:100%}.loyalty-quarter-table .ppg-month-cell{min-width:180px}.loyalty-quarter-table .ppg-month-top strong{font-size:12px}.loyalty-quarter-table .program-detail-trigger{display:block;color:#172033;text-decoration:none}.loyalty-quarter-table .program-detail-trigger:hover{text-decoration:underline}.loyalty-gap{white-space:nowrap;font-weight:900}.loyalty-gap.negative{color:#dc2626}.loyalty-gap.positive{color:#16a34a}.loyalty-gap.zero{color:#475569}
+/* Program Loyalty quarterly table: NO column removed, Dealer is first column.
+   Desktop fits all 8 columns without horizontal scroll; mobile/tablet keep
+   horizontal scroll with Dealer frozen/sticky at left:0. */
+@media(min-width:1025px){
+.ppg-table.loyalty-quarter-table{table-layout:fixed;min-width:0}
+.ppg-table.loyalty-quarter-table .lq-col-dealer{width:18%}
+.ppg-table.loyalty-quarter-table .lq-col-category{width:7%}
+.ppg-table.loyalty-quarter-table .lq-col-target{width:9%}
+.ppg-table.loyalty-quarter-table .lq-col-month{width:12%}
+.ppg-table.loyalty-quarter-table .lq-col-gapm{width:14%}
+.ppg-table.loyalty-quarter-table .lq-col-gapq{width:16%}
+.ppg-table.loyalty-quarter-table th,.ppg-table.loyalty-quarter-table td{padding:9px 8px}
+.ppg-table.loyalty-quarter-table .ppg-month-cell{min-width:0}
+.ppg-table.loyalty-quarter-table th:nth-child(1),.ppg-table.loyalty-quarter-table td:nth-child(1){min-width:0;max-width:none;white-space:normal}
+}
+@media(max-width:1024px){
+.ppg-table.loyalty-quarter-table{min-width:1320px}
+.ppg-table.loyalty-quarter-table th:nth-child(1),.ppg-table.loyalty-quarter-table td:nth-child(1){position:sticky;left:0;z-index:2;background:#fff;min-width:190px;max-width:190px;width:190px;white-space:normal;box-shadow:3px 0 6px rgba(15,23,42,.09)}
+.ppg-table.loyalty-quarter-table thead th:nth-child(1){z-index:5;background:#edf3fa}
+.ppg-table.loyalty-quarter-table .total td:nth-child(1){background:#eaf1f8}
+}
 @media(max-width:720px){.ppg-toolbar{gap:8px}.ppg-tools{width:100%;margin-left:0;justify-content:flex-start}.ppg-admin-panel,.ppg-filter-panel{right:auto;left:0}.ppg-admin-form{grid-template-columns:1fr}.ppg-table{min-width:1030px}.ppg-table td:nth-child(2),.ppg-table th:nth-child(2){min-width:190px}}
 </style>
 {% endblock %}
@@ -71,14 +92,16 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 {% endmacro %}
 
 {% macro loyalty_quarter_table(rows, months) %}
-<div class="ppg-card"><div class="ppg-table-wrap"><table class="ppg-table loyalty-quarter-table"><thead><tr><th>No</th><th>Dealer</th><th>Category</th><th>Target / Bulan</th>{% for item in months %}<th>{{ item.label }}</th>{% endfor %}<th>Gap Monthly</th><th>Gap Quarterly</th></tr></thead><tbody>
+<div class="ppg-card"><div class="ppg-table-wrap"><table class="ppg-table loyalty-quarter-table">
+<colgroup><col class="lq-col-dealer"><col class="lq-col-category"><col class="lq-col-target">{% for item in months %}<col class="lq-col-month">{% endfor %}<col class="lq-col-gapm"><col class="lq-col-gapq"></colgroup>
+<thead><tr><th>Dealer</th><th>Category</th><th>Target / Bulan</th>{% for item in months %}<th>{{ item.label }}</th>{% endfor %}<th>Gap Monthly</th><th>Gap Quarterly</th></tr></thead><tbody>
 {% for p in rows %}<tr>
-  <td>{{ p.number }}</td><td><button type="button" class="program-detail-trigger ppg-dealer-name" data-program-group="{{ p.id }}">{{ p.dealer }}</button><span class="ppg-bp">{{ p.bp }}</span></td>
+  <td><button type="button" class="program-detail-trigger ppg-dealer-name" data-program-group="{{ p.id }}">{{ p.dealer }}</button><span class="ppg-bp">{{ p.bp }}</span></td>
   <td><span class="category">{{ p.category }}</span></td><td class="ppg-target">{{ p.target|rupiah }}</td>
   {% for cell in p.months %}<td class="ppg-month-cell{% if cell %} {{ cell.status }}{% endif %}">{% if cell %}<div class="ppg-month-top" title="{{ cell.category }}"><span>{{ cell.achievement|rupiah }}</span><strong>{{ '%.1f'|format(cell.pct) }}%</strong></div><div class="ppg-progress"><span style="width:{{ cell.bar_width }}%"></span></div>{% else %}<span class="ppg-not-active">—</span>{% endif %}</td>{% endfor %}
   <td class="loyalty-gap {% if p.monthly_gap is none %}zero{% elif p.monthly_gap > 0 %}positive{% elif p.monthly_gap < 0 %}negative{% else %}zero{% endif %}">{% if p.monthly_gap is none %}—{% elif p.monthly_gap > 0 %}+{% endif %}{% if p.monthly_gap is not none %}{{ p.monthly_gap|rupiah }}{% endif %}</td>
   <td class="loyalty-gap {% if p.quarterly_gap > 0 %}positive{% elif p.quarterly_gap < 0 %}negative{% else %}zero{% endif %}">{% if p.quarterly_gap > 0 %}+{% endif %}{{ p.quarterly_gap|rupiah }}</td>
-</tr>{% else %}<tr><td colspan="9" class="empty">Belum ada data Program Loyalty untuk filter ini.</td></tr>{% endfor %}
+</tr>{% else %}<tr><td colspan="8" class="empty">Belum ada data Program Loyalty untuk filter ini.</td></tr>{% endfor %}
 </tbody></table></div></div>
 {% endmacro %}
 
