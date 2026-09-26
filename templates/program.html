@@ -40,6 +40,11 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
   .program-table .program-detail-trigger{line-height:1.3;white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
   .program-admin{margin-top:8px}.program-admin-panel{width:calc(100vw - 28px)}.program-admin-form{grid-template-columns:1fr}.program-detail-metrics{grid-template-columns:1fr 1fr}.program-dialog{padding:12px}
 }
+.ppg-toolbar{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin:4px 0 16px}.ppg-toolbar h2{margin:0 0 4px;color:#172033;font-size:26px}.ppg-toolbar p{margin:0;color:#64748b;font-size:12px}.ppg-tools{display:flex;align-items:flex-start;gap:9px;flex-wrap:wrap;justify-content:flex-end}
+.ppg-filter,.ppg-admin{position:relative}.ppg-filter summary,.ppg-admin summary{list-style:none;display:inline-flex;align-items:center;gap:8px;border:1px solid #bfd6f7;border-radius:9px;background:#fff;color:#0b3765;padding:9px 12px;font-size:12px;font-weight:900;cursor:pointer;white-space:nowrap}.ppg-filter summary::-webkit-details-marker,.ppg-admin summary::-webkit-details-marker{display:none}.ppg-filter-panel,.ppg-admin-panel{position:absolute;right:0;top:calc(100% + 6px);z-index:40;width:min(330px,calc(100vw - 32px));box-sizing:border-box;padding:14px;background:#fff;border:1px solid #dbe3ee;border-radius:12px;box-shadow:0 14px 36px rgba(15,23,42,.17)}.ppg-filter-panel label,.ppg-admin-form label{display:grid;gap:5px;color:#334155;font-size:11px;font-weight:800}.ppg-filter-panel input,.ppg-filter-panel select,.ppg-admin-form input,.ppg-admin-form select{width:100%;box-sizing:border-box;min-width:0;padding:9px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#172033;font:inherit}.ppg-filter-form{display:grid;gap:10px}.ppg-filter-actions{display:flex;justify-content:flex-end;gap:8px}.ppg-filter-actions .btn{width:auto}.ppg-reset{display:inline-flex;align-items:center;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;color:#334155;text-decoration:none;font-size:12px;font-weight:900}
+.ppg-admin-panel{width:min(650px,calc(100vw - 32px));max-height:75vh;overflow:auto}.ppg-admin-panel h3{margin:0 0 12px;font-size:15px}.ppg-admin-panel h4{margin:18px 0 8px;font-size:12px}.ppg-admin-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.ppg-admin-form .wide{grid-column:1/-1}.ppg-admin-form .btn{width:auto;justify-self:start}.ppg-admin-form .check{display:flex;align-items:center;gap:8px}.ppg-admin-form .check input{width:auto}.ppg-lookup-note{font-size:10px;color:#64748b}.ppg-admin-item{border-top:1px solid #e5e7eb;padding:9px 0}.ppg-admin-item summary{cursor:pointer;color:#0b3765;font-size:12px;font-weight:800}.ppg-deactivate{margin:8px 0}.ppg-deactivate .btn{background:#b91c1c}
+.ppg-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 3px 14px rgba(15,23,42,.05);overflow:hidden}.ppg-table-wrap{overflow-x:auto;max-width:100%}.ppg-table{width:100%;min-width:1080px;border-collapse:collapse}.ppg-table th{background:#edf3fa;color:#0f274a;font-size:11px;text-transform:uppercase;padding:13px 11px}.ppg-table td{padding:11px;border-bottom:1px solid #e8eef6;font-size:12px}.ppg-table th,.ppg-table td{text-align:left}.ppg-table th:first-child,.ppg-table td:first-child{text-align:center;width:45px}.ppg-table .ppg-depo-row td{text-align:left;background:#e5f0ff;color:#102c56;font-weight:900;text-transform:uppercase;font-size:12px;padding:9px 14px}.ppg-dealer-name{display:block;font-weight:800;color:#172033}.ppg-bp{display:block;color:#64748b;font-size:11px;margin-top:3px}.ppg-badge{display:inline-flex;padding:5px 9px;border-radius:7px;background:#dcecff;color:#1769e8;font-size:11px;font-weight:900;white-space:nowrap}.ppg-badge.combo{background:#e9ddff;color:#5630bd}.ppg-badge.paa{background:#d9f7ee;color:#047857}.ppg-target{white-space:nowrap;font-weight:800}.ppg-month-cell{min-width:165px}.ppg-month-top{display:flex;justify-content:space-between;gap:8px;white-space:nowrap}.ppg-month-top strong{font-size:11px}.ppg-progress{height:7px;margin-top:7px;background:#e7edf4;border-radius:999px;overflow:hidden}.ppg-progress span{display:block;height:100%;border-radius:inherit}.ppg-month-cell.green strong{color:#16a34a}.ppg-month-cell.green .ppg-progress span{background:#16a34a}.ppg-month-cell.blue strong{color:#1769e8}.ppg-month-cell.blue .ppg-progress span{background:#1769e8}.ppg-month-cell.orange strong{color:#ea580c}.ppg-month-cell.orange .ppg-progress span{background:#f97316}.ppg-month-cell.red strong{color:#dc2626}.ppg-month-cell.red .ppg-progress span{background:#ef4444}.ppg-not-active{color:#94a3b8}
+@media(max-width:720px){.ppg-toolbar{display:block}.ppg-tools{justify-content:flex-start;margin-top:10px}.ppg-admin-panel,.ppg-filter-panel{right:auto;left:0}.ppg-admin-form{grid-template-columns:1fr}.ppg-table{min-width:1030px}.ppg-table td:nth-child(2),.ppg-table th:nth-child(2){min-width:190px}}
 </style>
 {% endblock %}
 
@@ -47,7 +52,7 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 <div class="program-hero">
   <div><h1>Program</h1></div>
   <div>{% if latest %}<strong>Billing through {{ latest.strftime('%d %b %Y') }}</strong>{% endif %}
-  {% if session.get('role') == 'admin' %}
+  {% if active_tab == 'loyalty' and session.get('role') == 'admin' %}
   <details class="program-admin"><summary>Kelola Dealer Program</summary>
     <div class="program-admin-panel">
       <h3>Tambah dealer Program</h3>
@@ -85,6 +90,7 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
   </details>{% endif %}</div>
 </div>
 
+{% if active_tab == 'loyalty' %}
 <div class="filters">
   <form method="get" action="{{ url_for('program') }}" class="filter-form">
     <div class="field"><label>Bulan</label><input type="month" name="month" value="{{ month }}"></div>
@@ -93,10 +99,11 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
     <button class="btn" type="submit">Tampilkan</button>
   </form>
 </div>
+{% endif %}
 
 <div class="tabs">
-  <button type="button" class="tab active" data-program-tab="loyalty">Program Loyalty</button>
-  <button type="button" class="tab" data-program-tab="ppg-paa">Program PPG/PAA</button>
+  <button type="button" class="tab{% if active_tab == 'loyalty' %} active{% endif %}" data-program-tab="loyalty" data-tab-url="{{ url_for('program', month=month, depo=depo_filter, salesman=salesman_filter) }}">Program Loyalty</button>
+  <button type="button" class="tab{% if active_tab == 'ppg-paa' %} active{% endif %}" data-program-tab="ppg-paa" data-tab-url="{{ url_for('program', tab='ppg-paa', month=month, depo=depo_filter, salesman=salesman_filter) }}">Program PPG/PAA</button>
 </div>
 
 {% macro summary_cards(totals) %}
@@ -120,14 +127,73 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 </div></div>
 {% endmacro %}
 
-<div class="panel active" data-program-panel="loyalty">
+<div class="panel{% if active_tab == 'loyalty' %} active{% endif %}" data-program-panel="loyalty">
   {{ program_table(program_loyalty, loyalty_totals, true) }}
   <div class="reward-note"><h3>Note Reward Program Loyalty</h3><div class="table-wrap"><table>
     <thead><tr><th>Category</th><th class="number">Target Monthly</th><th class="number">Target Quarterly</th><th class="center">Reward Monthly</th><th class="center">Reward Loyalty</th></tr></thead>
     <tbody>{% for reward in loyalty_reward_notes %}<tr><td><strong>{{ reward.category }}</strong></td><td class="number">{{ reward.target|rupiah }}</td><td class="number">{{ reward.quarterly_target|rupiah }}</td><td class="center">{{ '%.2f'|format(reward.reward_monthly * 100) }}%</td><td class="center">{% if reward.reward_loyalty is not none %}{{ '%.2f'|format(reward.reward_loyalty * 100) }}%{% else %}—{% endif %}</td></tr>{% endfor %}</tbody>
   </table></div></div>
 </div>
-<div class="panel" data-program-panel="ppg-paa">{{ program_table(program_ppg_paa, ppg_paa_totals) }}</div>
+<div class="panel{% if active_tab == 'ppg-paa' %} active{% endif %}" data-program-panel="ppg-paa">
+  <div class="ppg-toolbar">
+    <div><h2>Program PPG/PAA</h2><p>{% if latest %}Data billing s.d. {{ latest|date_id }}{% else %}Achievement dari Billing untuk quarter terpilih{% endif %}</p></div>
+    <div class="ppg-tools">
+      {% if session.get('role') == 'admin' and active_tab == 'ppg-paa' %}
+      <details class="ppg-admin"><summary>Kelola Program</summary><div class="ppg-admin-panel">
+        <h3>Tambah peserta PPG/PAA</h3>
+        <form method="post" action="{{ url_for('manage_program_ppg_paa') }}" class="ppg-admin-form">
+          <input type="hidden" name="action" value="create"><input type="hidden" name="ppg_year" value="{{ ppg_year }}"><input type="hidden" name="ppg_quarter" value="{{ ppg_quarter }}"><input type="hidden" name="ppg_depo" value="{{ ppg_depo }}"><input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="depo_filter" value="{{ depo_filter }}"><input type="hidden" name="salesman_filter" value="{{ salesman_filter }}">
+          <label>BP Code<input name="bp_code" data-ppg-bp inputmode="numeric" required><small class="ppg-lookup-note">Masukkan BP untuk mengambil dealer dan depo dari master.</small></label>
+          <label>Dealer<input name="dealer_name" required></label>
+          <label>Depo<input name="depo" required></label>
+          <label>Program<select name="program_type">{% for type in ppg_program_types %}<option value="{{ type }}">{{ type }}</option>{% endfor %}</select></label>
+          <label>Target / Bulan<input name="monthly_target" type="number" min="0.01" step="0.01" required></label>
+          <label>Valid From<input name="valid_from" type="date" value="{{ ppg_year }}-01-01" required></label>
+          <label>Valid Until<input name="valid_until" type="date"></label>
+          <label class="check"><input name="active" value="1" type="checkbox" checked> Active</label>
+          <button class="btn" type="submit">Tambah peserta</button>
+        </form>
+        <h4>Edit / nonaktifkan peserta</h4>
+        {% for p in ppg_participants %}<details class="ppg-admin-item"><summary>{{ p.dealer_name }} · {{ p.bp_code }}{% if not p.active %} · Nonaktif{% endif %}</summary>
+          <form method="post" action="{{ url_for('manage_program_ppg_paa') }}" class="ppg-admin-form">
+            <input type="hidden" name="action" value="update"><input type="hidden" name="participant_id" value="{{ p.id }}"><input type="hidden" name="ppg_year" value="{{ ppg_year }}"><input type="hidden" name="ppg_quarter" value="{{ ppg_quarter }}"><input type="hidden" name="ppg_depo" value="{{ ppg_depo }}"><input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="depo_filter" value="{{ depo_filter }}"><input type="hidden" name="salesman_filter" value="{{ salesman_filter }}">
+            <label>BP Code<input name="bp_code" data-ppg-bp data-ppg-initial-bp="{{ p.bp_code }}" inputmode="numeric" value="{{ p.bp_code }}" required><small class="ppg-lookup-note"></small></label>
+            <label>Dealer<input name="dealer_name" value="{{ p.dealer_name }}" required></label>
+            <label>Depo<input name="depo" value="{{ p.depo }}" required></label>
+            <label>Program<select name="program_type">{% for type in ppg_program_types %}<option value="{{ type }}" {% if p.program_type == type %}selected{% endif %}>{{ type }}</option>{% endfor %}</select></label>
+            <label>Target / Bulan<input name="monthly_target" type="number" min="0.01" step="0.01" value="{{ p.monthly_target }}" required></label>
+            <label>Valid From<input name="valid_from" type="date" value="{{ p.valid_from.isoformat() }}" required></label>
+            <label>Valid Until<input name="valid_until" type="date" value="{{ p.valid_until.isoformat() if p.valid_until else '' }}"></label>
+            <label class="check"><input name="active" value="1" type="checkbox" {% if p.active %}checked{% endif %}> Active</label>
+            <button class="btn" type="submit">Simpan perubahan</button>
+          </form>
+          {% if p.active %}<form method="post" action="{{ url_for('manage_program_ppg_paa') }}" class="ppg-deactivate" onsubmit="return confirm('Nonaktifkan peserta ini? Riwayat laporan tetap tersedia.')"><input type="hidden" name="action" value="deactivate"><input type="hidden" name="participant_id" value="{{ p.id }}"><input type="hidden" name="ppg_year" value="{{ ppg_year }}"><input type="hidden" name="ppg_quarter" value="{{ ppg_quarter }}"><input type="hidden" name="ppg_depo" value="{{ ppg_depo }}"><input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="depo_filter" value="{{ depo_filter }}"><input type="hidden" name="salesman_filter" value="{{ salesman_filter }}"><button class="btn" type="submit">Nonaktifkan</button></form>{% endif %}
+        </details>{% endfor %}
+      </div></details>
+      {% endif %}
+      <details class="ppg-filter"><summary>▣ Q{{ ppg_quarter }} {{ ppg_year }} · {{ ppg_depo or 'Semua Depo' }} ⌄</summary>
+        <div class="ppg-filter-panel"><form method="get" action="{{ url_for('program') }}" class="ppg-filter-form">
+          <input type="hidden" name="tab" value="ppg-paa"><input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="depo" value="{{ depo_filter }}"><input type="hidden" name="salesman" value="{{ salesman_filter }}">
+          <label>Tahun<input name="ppg_year" type="number" min="2000" max="2100" value="{{ ppg_year }}" required></label>
+          <label>Quarter<select name="ppg_quarter">{% for q in (1, 2, 3, 4) %}<option value="{{ q }}" {% if q == ppg_quarter %}selected{% endif %}>Q{{ q }}</option>{% endfor %}</select></label>
+          <label>Depo<select name="ppg_depo"><option value="">Semua Depo</option>{% for depo in ppg_depos %}<option value="{{ depo }}" {% if depo == ppg_depo %}selected{% endif %}>{{ depo }}</option>{% endfor %}</select></label>
+          <div class="ppg-filter-actions"><a class="ppg-reset" href="{{ url_for('program', tab='ppg-paa', month=month, depo=depo_filter, salesman=salesman_filter) }}">Reset</a><button class="btn" type="submit">Terapkan</button></div>
+        </form></div>
+      </details>
+    </div>
+  </div>
+  <div class="ppg-card"><div class="ppg-table-wrap"><table class="ppg-table"><thead><tr><th>No</th><th>Dealer</th><th>Program</th><th>Target / Bulan</th>{% for m in ppg_months %}<th>{{ m.label }}</th>{% endfor %}</tr></thead><tbody>
+    {% for group in ppg_groups %}
+      <tr class="ppg-depo-row"><td colspan="7">{{ group.depo }}</td></tr>
+      {% for row in group.rows %}<tr>
+        <td>{{ row.number }}</td><td><span class="ppg-dealer-name">{{ row.participant.dealer_name }}</span><span class="ppg-bp">{{ row.participant.bp_code }}</span></td>
+        <td><span class="ppg-badge{% if row.participant.program_type == 'PAA + PPG' %} combo{% elif row.participant.program_type == 'PAA' %} paa{% endif %}">{{ row.participant.program_type }}</span></td>
+        <td class="ppg-target">{{ row.target|rupiah }}</td>
+        {% for cell in row.months %}<td class="ppg-month-cell{% if cell %} {{ cell.status }}{% endif %}">{% if cell %}<div class="ppg-month-top"><span>{{ cell.achievement|rupiah }}</span><strong>{{ '%.0f'|format(cell.pct) }}%</strong></div><div class="ppg-progress"><span style="width:{{ cell.bar_width }}%"></span></div>{% else %}<span class="ppg-not-active">—</span>{% endif %}</td>{% endfor %}
+      </tr>{% endfor %}
+    {% else %}<tr><td colspan="7" class="empty">Belum ada peserta Program PPG/PAA untuk filter ini.</td></tr>{% endfor %}
+  </tbody></table></div></div>
+</div>
 <dialog class="program-dialog" id="programGroupDialog"><div class="program-dialog-head"><h3 id="programDetailName"></h3><button type="button" class="program-dialog-close" aria-label="Tutup detail">×</button></div><div id="programDetailMeta"></div><div class="program-detail-metrics" id="programDetailMetrics"></div><div class="table-wrap"><table class="program-detail-table"><thead><tr><th>BP</th><th>Dealer sumber</th><th>Depo</th><th class="number">Achievement</th></tr></thead><tbody id="programDetailRows"></tbody></table></div></dialog>
 <script type="application/json" id="programDetailData">{{ program_loyalty|tojson }}</script>
 {% endblock %}
@@ -136,10 +202,8 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 <script>
 (function(){
   const tabs=document.querySelectorAll('[data-program-tab]');
-  const panels=document.querySelectorAll('[data-program-panel]');
   tabs.forEach(function(tab){tab.addEventListener('click',function(){
-    tabs.forEach(function(item){item.classList.toggle('active',item===tab);});
-    panels.forEach(function(panel){panel.classList.toggle('active',panel.dataset.programPanel===tab.dataset.programTab);});
+    if(!tab.classList.contains('active'))window.location.assign(tab.dataset.tabUrl);
   });});
   const detailData=JSON.parse(document.getElementById('programDetailData').textContent);
   const detailDialog=document.getElementById('programGroupDialog');
@@ -172,6 +236,22 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
       }catch(error){results.replaceChildren();}},220);
     });
   });
+  {% if session.get('role') == 'admin' and active_tab == 'ppg-paa' %}
+  const ppgLookupUrl={{ url_for('program_ppg_paa_lookup')|tojson }};
+  document.querySelectorAll('[data-ppg-bp]').forEach(function(input){
+    const form=input.closest('form'),note=form.querySelector('.ppg-lookup-note');let timer;
+    input.addEventListener('input',function(){clearTimeout(timer);const bp=input.value.trim();note.textContent='';
+      if(!/^\d{6,20}$/.test(bp)||bp===input.dataset.ppgInitialBp)return;
+      timer=setTimeout(async function(){try{const response=await fetch(ppgLookupUrl+'?bp='+encodeURIComponent(bp));if(!response.ok)return;
+        const data=await response.json();if(input.value.trim()!==bp)return;
+        if(!data.found){note.textContent='BP belum ditemukan; isi dealer dan depo secara manual.';return;}
+        form.querySelector('[name="dealer_name"]').value=data.dealer_name;
+        form.querySelector('[name="depo"]').value=data.depo;
+        note.textContent=data.depo_options.length>1?'History memiliki beberapa depo: '+data.depo_options.join(', ')+'. Pilih depo yang benar.':'Terisi dari '+data.source+'. Periksa sebelum simpan.';
+      }catch(error){note.textContent='Lookup belum tersedia; isi dan periksa data secara manual.';}},300);
+    });
+  });
+  {% endif %}
 })();
 </script>
 {% endblock %}
