@@ -134,7 +134,7 @@ PPG_PAA_INITIAL_PARTICIPANTS = (
     ('10038759', 'PT. REJEKI PAHALA MANDIRI', 'Cempaka', 'PPG', 500_000_000),
     ('10045828', 'PT. SATUTEMPAT IDEAL GEMILANG', 'Cempaka', 'PPG', 500_000_000),
     ('10066523', 'PT. MANSION BINTANG ELEKTRO', 'Cempaka', 'PPG', 500_000_000),
-    ('10071078', 'PT DDD JAYA BERSAMA', 'Cempaka', 'PPG', 500_000_000),
+    ('10080178', 'PT DDD JAYA BERSAMA', 'Cempaka', 'PPG', 500_000_000),
     ('10072814', 'PT. DIGITAL KOMUNIKASI PINTAR', 'Cempaka', 'PPG', 500_000_000),
     ('10082481', 'CV AZ ZAHRA CELLULAR', 'Cilegon', 'PPG', 500_000_000),
 )
@@ -426,6 +426,7 @@ class ProgramPpgPaaParticipant(db.Model):
     __tablename__ = 'program_ppg_paa_participant'
     id = db.Column(db.Integer, primary_key=True)
     bp_code = db.Column(db.String(80), nullable=False, unique=True, index=True)
+    billing_bp_aliases = db.Column(db.String(255), nullable=False, default='')
     dealer_name = db.Column(db.String(255), nullable=False)
     depo = db.Column(db.String(80), nullable=False, index=True)
     program_type = db.Column(db.String(20), nullable=False)
@@ -1220,6 +1221,12 @@ def initialize_database_schema():
             "ALTER TABLE upload_log ADD COLUMN upload_mode VARCHAR(20) DEFAULT 'routine'"
         ))
         db.session.commit()
+    ppg_columns = {c['name'] for c in inspect(db.engine).get_columns('program_ppg_paa_participant')}
+    if 'billing_bp_aliases' not in ppg_columns:
+        db.session.execute(text(
+            "ALTER TABLE program_ppg_paa_participant ADD COLUMN billing_bp_aliases VARCHAR(255) NOT NULL DEFAULT ''"
+        ))
+        db.session.commit()
     if User.query.count() == 0:
         username = os.environ.get('ADMIN_USERNAME', 'admin')
         password = os.environ.get('ADMIN_PASSWORD', 'admin123')
@@ -1230,17 +1237,44 @@ def initialize_database_schema():
 
 
 def seed_program_ppg_paa():
-    existing_bps = {bp for (bp,) in db.session.query(ProgramPpgPaaParticipant.bp_code).all()}
-    added = False
+    existing = {participant.bp_code: participant for participant in ProgramPpgPaaParticipant.query.all()}
+    changed = False
+    # Correct the original DDD seed only when Admin has not changed that row.
+    # Billing Detail identifies DDD as BP 10080178; the old seed used 10071078.
+    old_ddd = existing.get('10071078')
+    if old_ddd and '10080178' not in existing:
+        if (old_ddd.dealer_name == 'PT DDD JAYA BERSAMA'
+                and old_ddd.depo == 'Cempaka' and old_ddd.program_type == 'PPG'
+                and old_ddd.monthly_target == Decimal(500_000_000)
+                and old_ddd.valid_from == dt.date(2026, 1, 1)
+                and old_ddd.valid_until is None and old_ddd.active):
+            old_ddd.bp_code = '10080178'
+            old_ddd.billing_bp_aliases = '10071078'
+            existing['10080178'] = old_ddd
+            changed = True
+        else:
+            # Leave Admin-managed data untouched and avoid a second DDD row.
+            existing['10080178'] = old_ddd
     for bp, dealer, depo, program_type, target in PPG_PAA_INITIAL_PARTICIPANTS:
-        if bp not in existing_bps:
+        if bp not in existing:
             db.session.add(ProgramPpgPaaParticipant(
                 bp_code=bp, dealer_name=dealer, depo=depo,
                 program_type=program_type, monthly_target=target,
                 valid_from=dt.date(2026, 1, 1), active=True,
+                billing_bp_aliases='10071078' if bp == '10080178' else '',
             ))
-            added = True
-    if added:
+            changed = True
+    current_ddd = existing.get('10080178')
+    if (current_ddd and current_ddd.dealer_name == 'PT DDD JAYA BERSAMA'
+            and '10071078' not in existing
+            and current_ddd.depo == 'Cempaka' and current_ddd.program_type == 'PPG'
+            and current_ddd.monthly_target == Decimal(500_000_000)
+            and current_ddd.valid_from == dt.date(2026, 1, 1)
+            and current_ddd.valid_until is None and current_ddd.active
+            and not current_ddd.billing_bp_aliases):
+        current_ddd.billing_bp_aliases = '10071078'
+        changed = True
+    if changed:
         db.session.commit()
 
 
@@ -2914,10 +2948,16 @@ def build_ppg_paa_report(year, quarter, selected_depo=''):
     if selected_depo not in depos:
         selected_depo = ''
     shown = [p for p in eligible if not selected_depo or p.depo == selected_depo]
-    bps = {p.bp_code for p in shown}
+    billing_owner_by_bp = {p.bp_code: p.bp_code for p in shown}
+    for participant in shown:
+        for alias in (participant.billing_bp_aliases or '').split(','):
+            alias = alias.strip()
+            if re.fullmatch(r'\d{1,20}', alias):
+                billing_owner_by_bp.setdefault(alias, participant.bp_code)
     monthly_sales = {}
+    historical_sales = {}
     latest_billing = None
-    if bps:
+    if billing_owner_by_bp:
         billing_year = db.extract('year', Billing.billing_date)
         billing_month = db.extract('month', Billing.billing_date)
         billing_rows = db.session.query(
@@ -2925,13 +2965,23 @@ def build_ppg_paa_report(year, quarter, selected_depo=''):
             db.func.sum(Billing.nett_amount_with_tax),
             db.func.max(Billing.billing_date),
         ).filter(
-            Billing.sold_to_code.in_(bps),
+            Billing.sold_to_code.in_(list(billing_owner_by_bp)),
             Billing.billing_date >= months[0]['start'],
             Billing.billing_date <= months[-1]['end'],
         ).group_by(Billing.sold_to_code, billing_year, billing_month).all()
         for bp, sales_year, sales_month, amount, last_date in billing_rows:
-            monthly_sales[(bp, f'{int(sales_year)}-{int(sales_month):02d}')] = float(amount or 0)
+            key = (billing_owner_by_bp[bp], f'{int(sales_year)}-{int(sales_month):02d}')
+            monthly_sales[key] = monthly_sales.get(key, 0.0) + float(amount or 0)
             latest_billing = max(latest_billing, last_date) if latest_billing else last_date
+        history_rows = db.session.query(
+            Billing.sold_to_code, db.func.sum(Billing.nett_amount_with_tax),
+        ).filter(
+            Billing.sold_to_code.in_(list(billing_owner_by_bp)),
+            Billing.billing_date < months[0]['start'],
+        ).group_by(Billing.sold_to_code).all()
+        for bp, amount in history_rows:
+            owner_bp = billing_owner_by_bp[bp]
+            historical_sales[owner_bp] = historical_sales.get(owner_bp, 0.0) + float(amount or 0)
 
     groups = []
     rank = 0
@@ -2940,7 +2990,9 @@ def build_ppg_paa_report(year, quarter, selected_depo=''):
             continue
         rows = []
         for p in sorted((p for p in shown if p.depo == depo),
-                        key=lambda p: (p.dealer_name.casefold(), p.bp_code)):
+                        key=lambda p: (p.program_type != 'PAA + PPG',
+                                       -historical_sales.get(p.bp_code, 0.0),
+                                       p.dealer_name.casefold(), p.bp_code)):
             rank += 1
             target = float(p.monthly_target)
             cells = []
@@ -3162,6 +3214,8 @@ def manage_program_ppg_paa():
         return redirect(return_url)
 
     bp = normalize_bp(request.form.get('bp_code'))
+    alias_raw = request.form.get('billing_bp_aliases', participant.billing_bp_aliases if participant else '')
+    aliases = [normalize_bp(value) for value in alias_raw.split(',') if value.strip()]
     dealer_name = normalize_text(request.form.get('dealer_name'))
     depo = normalize_text(request.form.get('depo'))
     program_type = normalize_text(request.form.get('program_type')).upper()
@@ -3173,17 +3227,23 @@ def manage_program_ppg_paa():
     except (InvalidOperation, TypeError, ValueError):
         flash('Target atau tanggal Program PPG/PAA tidak valid.', 'danger')
         return redirect(return_url)
-    if (not re.fullmatch(r'\d{1,20}', bp) or not dealer_name or not depo
+    if (not re.fullmatch(r'\d{1,20}', bp)
+            or any(not re.fullmatch(r'\d{1,20}', alias) for alias in aliases)
+            or bp in aliases or len(aliases) != len(set(aliases))
+            or len(','.join(aliases)) > 255 or not dealer_name or not depo
             or program_type not in PPG_PAA_PROGRAM_TYPES
             or not monthly_target.is_finite() or monthly_target <= 0
             or monthly_target > Decimal('9999999999999999')
             or (valid_until and valid_until < valid_from)):
         flash('Lengkapi data peserta PPG/PAA dengan nilai yang valid.', 'danger')
         return redirect(return_url)
-    duplicate = ProgramPpgPaaParticipant.query.filter_by(bp_code=bp).first()
-    if duplicate and duplicate.id != (participant.id if participant else None):
-        flash('BP sudah terdaftar di master Program PPG/PAA.', 'danger')
-        return redirect(return_url)
+    all_codes = set(aliases) | {bp}
+    for other in ProgramPpgPaaParticipant.query.all():
+        if participant and other.id == participant.id:
+            continue
+        if all_codes & ({other.bp_code} | set((other.billing_bp_aliases or '').split(','))):
+            flash('BP sudah terdaftar di master Program PPG/PAA.', 'danger')
+            return redirect(return_url)
     active = request.form.get('active') == '1'
     if not active:
         today = datetime.now(STOCK_TIMEZONE).date()
@@ -3193,6 +3253,7 @@ def manage_program_ppg_paa():
         participant = ProgramPpgPaaParticipant()
         db.session.add(participant)
     participant.bp_code = bp
+    participant.billing_bp_aliases = ','.join(aliases)
     participant.dealer_name = dealer_name
     participant.depo = depo
     participant.program_type = program_type
