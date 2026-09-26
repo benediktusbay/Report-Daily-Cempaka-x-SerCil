@@ -3160,7 +3160,8 @@ def program():
                               bar_width=min(max(pct, 0), 100)))
         context_index = next((index for index, item in enumerate(months)
                               if item['key'] == month), len(months) - 1)
-        monthly_achievement = cells[context_index]['achievement'] if cells[context_index] else 0.0
+        context_cell = cells[context_index]
+        monthly_achievement = context_cell['achievement'] if context_cell else 0.0
         quarterly_achievement = sum(cell['achievement'] for cell in cells if cell)
         # When a category changes within the quarter, honor each month's
         # effective target. A single-category quarter keeps the configured
@@ -3168,7 +3169,7 @@ def program():
         cell_categories = {cell['category'] for cell in cells if cell}
         quarterly_target = (sum(cell['target'] for cell in cells if cell)
                             if len(cell_categories) > 1 else target_value * 3)
-        monthly_gap = monthly_achievement - target_value if cells[-1] else None
+        monthly_gap = monthly_achievement - context_cell['target'] if context_cell else None
         quarterly_gap = quarterly_achievement - quarterly_target
         monthly_rate, loyalty_rate = LOYALTY_REWARDS[category]
         program_loyalty.append({
