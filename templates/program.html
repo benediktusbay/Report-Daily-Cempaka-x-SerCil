@@ -62,10 +62,10 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 {% block body %}
 <div class="program-hero">
   <div><h1>Program</h1></div>
-  {% if active_tab == 'ppg-paa' %}<div class="program-ppn-toggle" role="group" aria-label="Basis Achievement PPG dan PAA">
+  <div class="program-ppn-toggle" role="group" aria-label="Basis Achievement Program">
     <button type="button" data-program-basis="with_ppn" aria-pressed="true">With PPN (11%)</button>
     <button type="button" data-program-basis="non_ppn" aria-pressed="false">Non-PPN</button>
-  </div>{% endif %}
+  </div>
 </div>
 
 <div class="tabs">
@@ -86,9 +86,9 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 {% for p in rows %}<tr>
   <td><button type="button" class="program-detail-trigger ppg-dealer-name" data-program-group="{{ p.id }}">{{ p.dealer }}</button><span class="ppg-bp">{{ p.bp }}</span></td>
   <td><span class="category">{{ p.category }}</span></td><td class="ppg-target">{{ p.target|rupiah }}</td>
-  {% for cell in p.months %}<td class="ppg-month-cell{% if cell %} {{ cell.status }}{% endif %}">{% if cell %}<div class="ppg-month-top" title="{{ cell.category }}"><span>{{ cell.achievement|rupiah }}</span><strong>{{ '%.1f'|format(cell.pct) }}%</strong></div><div class="ppg-progress"><span style="width:{{ cell.bar_width }}%"></span></div>{% else %}<span class="ppg-not-active">—</span>{% endif %}</td>{% endfor %}
-  <td class="loyalty-gap {% if p.monthly_gap is none %}zero{% elif p.monthly_gap > 0 %}positive{% elif p.monthly_gap < 0 %}negative{% else %}zero{% endif %}">{% if p.monthly_gap is none %}—{% elif p.monthly_gap > 0 %}+{% endif %}{% if p.monthly_gap is not none %}{{ p.monthly_gap|rupiah }}{% endif %}</td>
-  <td class="loyalty-gap {% if p.quarterly_gap > 0 %}positive{% elif p.quarterly_gap < 0 %}negative{% else %}zero{% endif %}">{% if p.quarterly_gap > 0 %}+{% endif %}{{ p.quarterly_gap|rupiah }}</td>
+  {% for cell in p.months %}<td class="ppg-month-cell{% if cell %} {{ cell.status }}{% endif %}"{% if cell %} data-program-month-cell data-target="{{ cell.target }}"{% endif %}>{% if cell %}<div class="ppg-month-top" title="{{ cell.category }}"><span data-program-achievement data-with-ppn="{{ cell.achievement }}" data-with-ppn-display="{{ cell.achievement|rupiah }}">{{ cell.achievement|rupiah }}</span><strong data-program-pct data-with-ppn-display="{{ '%.1f'|format(cell.pct) }}%">{{ '%.1f'|format(cell.pct) }}%</strong></div><div class="ppg-progress"><span style="width:{{ cell.bar_width }}%"></span></div>{% else %}<span class="ppg-not-active">—</span>{% endif %}</td>{% endfor %}
+  <td class="loyalty-gap {% if p.monthly_gap is none %}zero{% elif p.monthly_gap > 0 %}positive{% elif p.monthly_gap < 0 %}negative{% else %}zero{% endif %}"{% if p.monthly_gap is not none %} data-program-gap data-target="{{ p.achievement - p.monthly_gap }}" data-with-ppn="{{ p.achievement }}" data-with-ppn-display="{% if p.monthly_gap > 0 %}+{% endif %}{{ p.monthly_gap|rupiah }}"{% endif %}>{% if p.monthly_gap is none %}—{% elif p.monthly_gap > 0 %}+{% endif %}{% if p.monthly_gap is not none %}{{ p.monthly_gap|rupiah }}{% endif %}</td>
+  <td class="loyalty-gap {% if p.quarterly_gap > 0 %}positive{% elif p.quarterly_gap < 0 %}negative{% else %}zero{% endif %}" data-program-gap data-target="{{ p.quarterly_target }}" data-with-ppn="{{ p.quarterly_achievement }}" data-with-ppn-display="{% if p.quarterly_gap > 0 %}+{% endif %}{{ p.quarterly_gap|rupiah }}">{% if p.quarterly_gap > 0 %}+{% endif %}{{ p.quarterly_gap|rupiah }}</td>
 </tr>{% else %}<tr><td colspan="8" class="empty">Belum ada data Program Loyalty untuk filter ini.</td></tr>{% endfor %}
 </tbody></table></div></div>
 {% endmacro %}
@@ -223,11 +223,11 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 <script>
 (function(){
   const toggle=document.querySelector('.program-ppn-toggle');
-  const panel=document.querySelector('[data-program-panel="ppg-paa"]');
-  if(!toggle||!panel)return;
+  if(!toggle)return;
   const buttons=toggle.querySelectorAll('[data-program-basis]');
-  const cells=panel.querySelectorAll('[data-program-month-cell]');
-  const money=value=>'Rp '+Number(value||0).toLocaleString('id-ID',{maximumFractionDigits:0});
+  const cells=document.querySelectorAll('[data-program-month-cell]');
+  const gaps=document.querySelectorAll('[data-program-gap]');
+  const money=value=>(value<0?'-':'')+'Rp '+Math.abs(Number(value||0)).toLocaleString('id-ID',{maximumFractionDigits:0});
   function applyBasis(basis){
     cells.forEach(function(cell){
       const achievement=cell.querySelector('[data-program-achievement]');
@@ -245,7 +245,17 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
       cell.classList.remove('green','blue','orange','red');
       cell.classList.add(pct>=100?'green':pct>=80?'blue':pct>=50?'orange':'red');
     });
+    gaps.forEach(function(gap){
+      const withPpn=Number(gap.dataset.withPpn);
+      const target=Number(gap.dataset.target);
+      const selected=basis==='non_ppn'?withPpn/1.11:withPpn;
+      const difference=selected-target;
+      gap.textContent=basis==='non_ppn'?(difference>0?'+':'')+money(difference):gap.dataset.withPpnDisplay;
+      gap.classList.remove('positive','negative','zero');
+      gap.classList.add(difference>0?'positive':difference<0?'negative':'zero');
+    });
     buttons.forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.programBasis===basis)));
+    window.programPpnBasis=basis;
     try{localStorage.setItem('program_ppn_basis',basis)}catch(error){}
   }
   let stored='';
@@ -264,20 +274,24 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
   const detailDialog=document.getElementById('programGroupDialog');
   const money=function(value){return 'Rp'+Number(value||0).toLocaleString('id-ID',{maximumFractionDigits:0});};
   const percent=function(value){return Number(value||0).toLocaleString('id-ID',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';};
+  const selectedAchievement=function(value){return window.programPpnBasis==='non_ppn'?Number(value||0)/1.11:Number(value||0);};
+  const selectedPercent=function(achievement,target,withPpnPct){return window.programPpnBasis==='non_ppn'
+    ?Number(target?selectedAchievement(achievement)/target*100:0).toLocaleString('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2})+'%'
+    :percent(withPpnPct);};
   function metric(label,value){const item=document.createElement('div');const small=document.createElement('small');const strong=document.createElement('strong');small.textContent=label;strong.textContent=value;item.append(small,strong);return item;}
   document.querySelectorAll('[data-program-group]').forEach(function(button){button.addEventListener('click',function(){
     const group=detailData.find(function(row){return String(row.id)===button.dataset.programGroup;});if(!group)return;
     document.getElementById('programDetailName').textContent=group.dealer;
     document.getElementById('programDetailMeta').textContent=group.category+' · PIC '+group.salesman+' · BP utama '+group.bp;
     const metrics=document.getElementById('programDetailMetrics');metrics.replaceChildren(
-      metric('Target Monthly',money(group.target)),metric('Achievement Monthly',money(group.achievement)),
-      metric('Achievement Monthly %',percent(group.pct)),metric('Estimasi Reward Monthly',money(group.reward_monthly_estimate)),
-      metric('Target Quarterly',money(group.quarterly_target)),metric('Achievement Quarterly',money(group.quarterly_achievement)),
-      metric('Achievement Quarterly %',percent(group.quarterly_pct)),metric('Estimasi Reward Loyalty',group.reward_loyalty_estimate==null?'—':money(group.reward_loyalty_estimate))
+      metric('Target Monthly',money(group.target)),metric('Achievement Monthly',money(selectedAchievement(group.achievement))),
+      metric('Achievement Monthly %',selectedPercent(group.achievement,group.target,group.pct)),metric('Estimasi Reward Monthly',money(group.reward_monthly_estimate)),
+      metric('Target Quarterly',money(group.quarterly_target)),metric('Achievement Quarterly',money(selectedAchievement(group.quarterly_achievement))),
+      metric('Achievement Quarterly %',selectedPercent(group.quarterly_achievement,group.quarterly_target,group.quarterly_pct)),metric('Estimasi Reward Loyalty',group.reward_loyalty_estimate==null?'—':money(group.reward_loyalty_estimate))
     );
     const body=document.getElementById('programDetailRows');body.replaceChildren();
-    group.members.forEach(function(member){const tr=document.createElement('tr');[member.bp,member.dealer,member.depo,money(member.achievement)].forEach(function(value,index){const td=document.createElement('td');td.textContent=value;if(index===3)td.className='number';tr.append(td);});body.append(tr);});
-    const total=document.createElement('tr');total.className='total';const label=document.createElement('td');label.colSpan=3;label.textContent='TOTAL';const value=document.createElement('td');value.className='number';value.textContent=money(group.achievement);total.append(label,value);body.append(total);
+    group.members.forEach(function(member){const tr=document.createElement('tr');[member.bp,member.dealer,member.depo,money(selectedAchievement(member.achievement))].forEach(function(value,index){const td=document.createElement('td');td.textContent=value;if(index===3)td.className='number';tr.append(td);});body.append(tr);});
+    const total=document.createElement('tr');total.className='total';const label=document.createElement('td');label.colSpan=3;label.textContent='TOTAL';const value=document.createElement('td');value.className='number';value.textContent=money(selectedAchievement(group.achievement));total.append(label,value);body.append(total);
     detailDialog.showModal();
   });});
   detailDialog.querySelector('.program-dialog-close').addEventListener('click',function(){detailDialog.close();});
