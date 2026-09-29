@@ -51,12 +51,21 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 @media(min-width:1025px) and (max-width:1399px){.ppg-table.loyalty-quarter-table{min-width:1400px}}
 @media(max-width:1024px){.ppg-table.loyalty-quarter-table{min-width:1400px}.ppg-table.loyalty-quarter-table th:nth-child(2),.ppg-table.loyalty-quarter-table td:nth-child(2){min-width:0}.loyalty-quarter-table th:first-child,.loyalty-quarter-table td:first-child{position:sticky;left:0;z-index:2;background:#fff;box-shadow:3px 0 7px rgba(15,23,42,.12)}.loyalty-quarter-table th:first-child{z-index:3;background:#edf3fa}}
 @media(max-width:720px){.ppg-toolbar{gap:8px}.ppg-tools{width:100%;margin-left:0;justify-content:flex-start}.ppg-admin-panel,.ppg-filter-panel{right:auto;left:0}.ppg-admin-form{grid-template-columns:1fr}.ppg-table{min-width:1030px}.ppg-table td:nth-child(2),.ppg-table th:nth-child(2){min-width:190px}}
+.program-ppn-toggle{display:inline-flex;align-items:center;gap:2px;padding:3px;border:1px solid #d6e4f7;border-radius:999px;background:#f3f7fd;white-space:nowrap}
+.program-ppn-toggle button{border:0;border-radius:999px;background:transparent;color:#52647e;padding:6px 9px;font:inherit;font-size:10px;font-weight:800;line-height:1.2;cursor:pointer}
+.program-ppn-toggle button[aria-pressed="true"]{background:#1769e8;color:#fff}
+.program-ppn-toggle button:focus-visible{outline:2px solid #1769e8;outline-offset:2px}
+@media(max-width:720px){.program-hero{display:flex;flex-wrap:wrap}.program-ppn-toggle{max-width:100%}}
 </style>
 {% endblock %}
 
 {% block body %}
 <div class="program-hero">
   <div><h1>Program</h1></div>
+  {% if active_tab == 'ppg-paa' %}<div class="program-ppn-toggle" role="group" aria-label="Basis Achievement PPG dan PAA">
+    <button type="button" data-program-basis="with_ppn" aria-pressed="true">With PPN (11%)</button>
+    <button type="button" data-program-basis="non_ppn" aria-pressed="false">Non-PPN</button>
+  </div>{% endif %}
 </div>
 
 <div class="tabs">
@@ -201,7 +210,7 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
         <td>{{ row.number }}</td><td><span class="ppg-dealer-name">{{ row.participant.dealer_name }}</span><span class="ppg-bp">{{ row.participant.bp_code }}</span></td>
         <td><span class="ppg-badge{% if row.participant.program_type == 'PAA + PPG' %} combo{% elif row.participant.program_type == 'PAA' %} paa{% endif %}">{{ row.participant.program_type }}</span></td>
         <td class="ppg-target">{{ row.target|rupiah }}</td>
-        {% for cell in row.months %}<td class="ppg-month-cell{% if cell %} {{ cell.status }}{% endif %}">{% if cell %}<div class="ppg-month-top"><span>{{ cell.achievement|rupiah }}</span><strong>{{ '%.0f'|format(cell.pct) }}%</strong></div><div class="ppg-progress"><span style="width:{{ cell.bar_width }}%"></span></div>{% else %}<span class="ppg-not-active">—</span>{% endif %}</td>{% endfor %}
+        {% for cell in row.months %}<td class="ppg-month-cell{% if cell %} {{ cell.status }}{% endif %}"{% if cell %} data-program-month-cell data-target="{{ row.target }}"{% endif %}>{% if cell %}<div class="ppg-month-top"><span data-program-achievement data-with-ppn="{{ cell.achievement }}" data-with-ppn-display="{{ cell.achievement|rupiah }}">{{ cell.achievement|rupiah }}</span><strong data-program-pct data-with-ppn-display="{{ '%.0f'|format(cell.pct) }}%">{{ '%.0f'|format(cell.pct) }}%</strong></div><div class="ppg-progress"><span style="width:{{ cell.bar_width }}%"></span></div>{% else %}<span class="ppg-not-active">—</span>{% endif %}</td>{% endfor %}
       </tr>{% endfor %}
     {% else %}<tr><td colspan="7" class="empty">Belum ada peserta Program PPG untuk filter ini.</td></tr>{% endfor %}
   </tbody></table></div></div>
@@ -211,6 +220,40 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 {% endblock %}
 
 {% block scripts %}
+<script>
+(function(){
+  const toggle=document.querySelector('.program-ppn-toggle');
+  const panel=document.querySelector('[data-program-panel="ppg-paa"]');
+  if(!toggle||!panel)return;
+  const buttons=toggle.querySelectorAll('[data-program-basis]');
+  const cells=panel.querySelectorAll('[data-program-month-cell]');
+  const money=value=>'Rp '+Number(value||0).toLocaleString('id-ID',{maximumFractionDigits:0});
+  function applyBasis(basis){
+    cells.forEach(function(cell){
+      const achievement=cell.querySelector('[data-program-achievement]');
+      const percent=cell.querySelector('[data-program-pct]');
+      const bar=cell.querySelector('.ppg-progress span');
+      const withPpn=Number(achievement.dataset.withPpn);
+      const target=Number(cell.dataset.target);
+      const selected=basis==='non_ppn'?withPpn/1.11:withPpn;
+      const pct=target?selected/target*100:0;
+      achievement.textContent=basis==='non_ppn'?money(selected):achievement.dataset.withPpnDisplay;
+      percent.textContent=basis==='non_ppn'
+        ?pct.toLocaleString('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2})+'%'
+        :percent.dataset.withPpnDisplay;
+      bar.style.width=Math.min(Math.max(pct,0),100)+'%';
+      cell.classList.remove('green','blue','orange','red');
+      cell.classList.add(pct>=100?'green':pct>=80?'blue':pct>=50?'orange':'red');
+    });
+    buttons.forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.programBasis===basis)));
+    try{localStorage.setItem('program_ppn_basis',basis)}catch(error){}
+  }
+  let stored='';
+  try{stored=localStorage.getItem('program_ppn_basis')||''}catch(error){}
+  applyBasis(stored==='non_ppn'?'non_ppn':'with_ppn');
+  buttons.forEach(button=>button.addEventListener('click',()=>applyBasis(button.dataset.programBasis)));
+})();
+</script>
 <script>
 (function(){
   const tabs=document.querySelectorAll('[data-program-tab]');
