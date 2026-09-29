@@ -1051,7 +1051,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 
 <div class="filters" id="dashboardFilters">
   <form class="filter-form" method="get" action="{{ url_for('dashboard') }}">
-    <input type="hidden" name="qvo_basis" value="{{ qvo_basis }}">
+    <input type="hidden" name="qvo_basis" id="qvoBasisFilter" value="{{ qvo_basis }}">
     <div class="field">
       <label>Period</label>
       <input type="month" name="month" value="{{ month }}" required>
@@ -1401,14 +1401,14 @@ document.addEventListener('click',function(event){
       {% for d in dealer_no_purchase %}<tr data-no-purchase-row data-bp="{{ d.bp|e }}" data-dealer="{{ d.dealer|e }}" data-salesman="{{ d.salesman|e }}" data-depo="{{ d.depo|e }}" data-device-target="{{ d.device_target or 0 }}" data-macbook-target="{{ d.macbook_target or 0 }}" data-acc-target="{{ d.acc_target or 0 }}" data-total-target="{{ d.target or 0 }}"><td>{{ d.bp }}</td><td>{{ d.dealer }}</td><td>{{ d.salesman }}</td><td>{{ d.depo }}</td><td class="number">{{ d.device_target|rupiah }}</td><td class="number">{{ d.macbook_target|rupiah }}</td><td class="number">{{ d.acc_target|rupiah }}</td><td class="number">{{ d.target|rupiah }}</td><td>{{ d.last_purchase|date_id }}</td></tr>{% endfor %}
     </tbody></table></div>
   </dialog>
-  <div class="card dealer-action-card qvo-potential-card" id="qvoPotentialCard">
+  <div class="card dealer-action-card qvo-potential-card" id="qvoPotentialCard" data-url-basis="{{ qvo_basis_requested }}">
     <div class="dealer-action-header"><h3>QVO Potential</h3><div class="qvo-header-actions"><div class="dealer-count-badge qvo-potential" id="qvoPotentialBadge" aria-label="{{ qvo_potential|length }} dealer QVO potential"><span class="dealer-count-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="4"></circle><path d="M12 12l7-7"></path><path d="M16 5h3v3"></path></svg></span><span class="dealer-count-copy"><strong id="qvoPotentialCount">{{ qvo_potential|length }}</strong><span>Dealer</span></span></div>
     <div class="qvo-basis-toggle" role="group" aria-label="Basis nilai QVO">
       <button type="button" data-qvo-basis="with_ppn" aria-pressed="{{ 'true' if qvo_basis == 'with_ppn' else 'false' }}">With PPN (11%)</button>
       <button type="button" data-qvo-basis="non_ppn" aria-pressed="{{ 'true' if qvo_basis == 'non_ppn' else 'false' }}">Non-PPN</button>
     </div></div></div>
     <div class="qvo-compact-row qvo-potential-head"><span>Dealer</span><span>Sales MTD</span><span>Gap</span><span>Action</span></div>
-    {% for d in qvo_potential %}<div class="qvo-compact-row qvo-potential-item" data-salesman="{{ d.salesman|e }}" data-depo="{{ d.depo|e }}"{% if loop.index > 3 %} hidden{% endif %}><span class="dealer-cell"><b>{{ d.dealer }}</b><small>{{ d.bp }} · {{ d.depo }}</small></span><span class="qvo-money">{{ d.sales_mtd|rupiah_short }}</span><span class="qvo-money qvo-gap">{{ d.gap|rupiah_short }}</span><span class="qvo-action {{ d.action|lower|replace(' ','-') }}">{{ d.action }}</span></div>{% endfor %}
+    {% for d in qvo_potential %}<div class="qvo-compact-row qvo-potential-item" data-salesman="{{ d.salesman|e }}" data-depo="{{ d.depo|e }}"{% if loop.index > 3 %} hidden{% endif %}><span class="dealer-cell"><b>{{ d.dealer }}</b><small>{{ d.bp }} · {{ d.depo }}</small></span><span class="qvo-money" data-with-ppn="{{ d.sales_mtd }}">{{ d.sales_mtd|rupiah_short }}</span><span class="qvo-money qvo-gap" data-with-ppn="{{ d.gap }}">{{ d.gap|rupiah_short }}</span><span class="qvo-action {{ d.action|lower|replace(' ','-') }}">{{ d.action }}</span></div>{% endfor %}
     <p class="empty" id="qvoPotentialEmpty"{% if qvo_potential %} hidden{% endif %}>Belum ada data untuk periode ini.</p>
     <div class="qvo-card-footer"><span class="dealer-card-count" id="qvoPotentialFooter">Menampilkan {{ 3 if qvo_potential|length > 3 else qvo_potential|length }} dari {{ qvo_potential|length }} dealer</span><a class="qvo-analysis-link" id="qvoAnalysisLink" href="{{ url_for('qvo_analysis', month=month, depo=depo_filters, salesman=salesman_filters, qvo_basis=qvo_basis) }}">Lihat Analisis <span>→</span></a></div>
   </div>
@@ -1844,13 +1844,51 @@ document.addEventListener('click',function(event){
 {% block scripts %}
 <script>
 (function(){
-  document.querySelectorAll('[data-qvo-basis]').forEach(function(button){
-    button.addEventListener('click',function(){
-      const url=new URL(window.location.href);
-      url.searchParams.set('qvo_basis',button.dataset.qvoBasis);
-      window.location.assign(url.toString());
+  const card=document.getElementById('qvoPotentialCard');
+  if(!card)return;
+  const buttons=card.querySelectorAll('[data-qvo-basis]');
+  const values=card.querySelectorAll('[data-with-ppn]');
+  const link=document.getElementById('qvoAnalysisLink');
+  const filter=document.getElementById('qvoBasisFilter');
+  const valid=basis=>basis==='with_ppn'||basis==='non_ppn';
+  function shortRupiah(value){
+    const prefix=value<0?'-':'';
+    const amount=Math.abs(value);
+    function scaled(unit,digits,suffix){
+      return prefix+'Rp'+(amount/unit).toFixed(digits).replace(/\.?0+$/,'').replace('.',',')+suffix;
+    }
+    if(amount>=1_000_000_000)return scaled(1_000_000_000,2,' M');
+    if(amount>=1_000_000)return scaled(1_000_000,1,' Jt');
+    if(amount>=1_000)return scaled(1_000,1,' Rb');
+    return prefix+'Rp'+Math.round(amount).toLocaleString('id-ID');
+  }
+  function setBasis(basis,updateUrl){
+    values.forEach(function(value){
+      const withPpn=Number(value.dataset.withPpn);
+      if(Number.isFinite(withPpn))value.textContent=shortRupiah(basis==='non_ppn'?withPpn/1.11:withPpn);
     });
-  });
+    buttons.forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.qvoBasis===basis)));
+    if(filter)filter.value=basis;
+    if(link){
+      const base=new URL(link.dataset.baseHref||link.href,document.baseURI);
+      base.searchParams.set('qvo_basis',basis);
+      link.dataset.baseHref=base.toString();
+      const current=new URL(link.href,document.baseURI);
+      current.searchParams.set('qvo_basis',basis);
+      link.href=current.toString();
+    }
+    try{localStorage.setItem('qvo_basis',basis)}catch(error){}
+    if(updateUrl){
+      const page=new URL(document.URL);
+      page.searchParams.set('qvo_basis',basis);
+      history.replaceState(history.state,'',page.toString());
+    }
+  }
+  let stored='';
+  try{stored=localStorage.getItem('qvo_basis')||''}catch(error){}
+  const initial=valid(card.dataset.urlBasis)?card.dataset.urlBasis:(valid(stored)?stored:'with_ppn');
+  setBasis(initial);
+  buttons.forEach(button=>button.addEventListener('click',()=>setBasis(button.dataset.qvoBasis,true)));
 })();
 </script>
 <script>
