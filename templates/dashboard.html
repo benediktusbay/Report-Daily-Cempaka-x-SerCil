@@ -1005,6 +1005,13 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 .kpi-compare span{min-width:0;text-align:right;line-height:1.25}
 .no-purchase-target-total{font-size:11px;font-weight:800;color:#52647e;margin:-5px 0 10px}
 @media(max-width:768px){.kpi-compare{display:block;font-size:10px}.kpi-compare strong,.kpi-compare span{display:block;text-align:left}.achievement-layout .kpi-card{min-height:185px}}
+
+.qvo-basis-toggle{display:inline-flex;align-items:center;gap:2px;padding:3px;border:1px solid #d6e4f7;border-radius:999px;background:#f3f7fd;white-space:nowrap}
+.qvo-basis-toggle button{border:0;border-radius:999px;background:transparent;color:#52647e;padding:6px 9px;font:inherit;font-size:10px;font-weight:800;line-height:1.2;cursor:pointer}
+.qvo-basis-toggle button[aria-pressed="true"]{background:#1769e8;color:#fff}
+.qvo-basis-toggle button:focus-visible{outline:2px solid #1769e8;outline-offset:2px}
+.qvo-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+@media(max-width:768px){.qvo-potential-card .dealer-action-header{flex-wrap:wrap}.qvo-header-actions{width:100%;justify-content:space-between}.qvo-basis-toggle button{font-size:10px;padding:6px 8px}}
 </style>
 {% endblock %}
 
@@ -1044,6 +1051,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 
 <div class="filters" id="dashboardFilters">
   <form class="filter-form" method="get" action="{{ url_for('dashboard') }}">
+    <input type="hidden" name="qvo_basis" value="{{ qvo_basis }}">
     <div class="field">
       <label>Period</label>
       <input type="month" name="month" value="{{ month }}" required>
@@ -1394,11 +1402,15 @@ document.addEventListener('click',function(event){
     </tbody></table></div>
   </dialog>
   <div class="card dealer-action-card qvo-potential-card" id="qvoPotentialCard">
-    <div class="dealer-action-header"><h3>QVO Potential</h3><div class="dealer-count-badge qvo-potential" id="qvoPotentialBadge" aria-label="{{ qvo_potential|length }} dealer QVO potential"><span class="dealer-count-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="4"></circle><path d="M12 12l7-7"></path><path d="M16 5h3v3"></path></svg></span><span class="dealer-count-copy"><strong id="qvoPotentialCount">{{ qvo_potential|length }}</strong><span>Dealer</span></span></div></div>
+    <div class="dealer-action-header"><h3>QVO Potential</h3><div class="qvo-header-actions"><div class="dealer-count-badge qvo-potential" id="qvoPotentialBadge" aria-label="{{ qvo_potential|length }} dealer QVO potential"><span class="dealer-count-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="4"></circle><path d="M12 12l7-7"></path><path d="M16 5h3v3"></path></svg></span><span class="dealer-count-copy"><strong id="qvoPotentialCount">{{ qvo_potential|length }}</strong><span>Dealer</span></span></div>
+    <div class="qvo-basis-toggle" role="group" aria-label="Basis nilai QVO">
+      <button type="button" data-qvo-basis="with_ppn" aria-pressed="{{ 'true' if qvo_basis == 'with_ppn' else 'false' }}">With PPN (11%)</button>
+      <button type="button" data-qvo-basis="non_ppn" aria-pressed="{{ 'true' if qvo_basis == 'non_ppn' else 'false' }}">Non-PPN</button>
+    </div></div></div>
     <div class="qvo-compact-row qvo-potential-head"><span>Dealer</span><span>Sales MTD</span><span>Gap</span><span>Action</span></div>
     {% for d in qvo_potential %}<div class="qvo-compact-row qvo-potential-item" data-salesman="{{ d.salesman|e }}" data-depo="{{ d.depo|e }}"{% if loop.index > 3 %} hidden{% endif %}><span class="dealer-cell"><b>{{ d.dealer }}</b><small>{{ d.bp }} · {{ d.depo }}</small></span><span class="qvo-money">{{ d.sales_mtd|rupiah_short }}</span><span class="qvo-money qvo-gap">{{ d.gap|rupiah_short }}</span><span class="qvo-action {{ d.action|lower|replace(' ','-') }}">{{ d.action }}</span></div>{% endfor %}
     <p class="empty" id="qvoPotentialEmpty"{% if qvo_potential %} hidden{% endif %}>Belum ada data untuk periode ini.</p>
-    <div class="qvo-card-footer"><span class="dealer-card-count" id="qvoPotentialFooter">Menampilkan {{ 3 if qvo_potential|length > 3 else qvo_potential|length }} dari {{ qvo_potential|length }} dealer</span><a class="qvo-analysis-link" id="qvoAnalysisLink" href="{{ url_for('qvo_analysis', month=month, depo=depo_filters, salesman=salesman_filters) }}">Lihat Analisis <span>→</span></a></div>
+    <div class="qvo-card-footer"><span class="dealer-card-count" id="qvoPotentialFooter">Menampilkan {{ 3 if qvo_potential|length > 3 else qvo_potential|length }} dari {{ qvo_potential|length }} dealer</span><a class="qvo-analysis-link" id="qvoAnalysisLink" href="{{ url_for('qvo_analysis', month=month, depo=depo_filters, salesman=salesman_filters, qvo_basis=qvo_basis) }}">Lihat Analisis <span>→</span></a></div>
   </div>
 </div>
 <script>
@@ -1830,6 +1842,17 @@ document.addEventListener('click',function(event){
 {% endblock %}
 
 {% block scripts %}
+<script>
+(function(){
+  document.querySelectorAll('[data-qvo-basis]').forEach(function(button){
+    button.addEventListener('click',function(){
+      const url=new URL(window.location.href);
+      url.searchParams.set('qvo_basis',button.dataset.qvoBasis);
+      window.location.assign(url.toString());
+    });
+  });
+})();
+</script>
 <script>
 (function(){
   const filters=document.getElementById('dashboardFilters');
