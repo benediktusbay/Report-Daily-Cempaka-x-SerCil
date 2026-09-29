@@ -2279,7 +2279,8 @@ def dashboard():
     latest_target_month = db.session.query(db.func.max(MonthlyTarget.month)).scalar()
     default_month = latest.strftime('%Y-%m') if latest else (latest_target_month or datetime.now().strftime('%Y-%m'))
     month = request.args.get('month', default_month)
-    qvo_basis = 'non_ppn' if request.args.get('qvo_basis') == 'non_ppn' else 'with_ppn'
+    qvo_basis_requested = request.args.get('qvo_basis', '')
+    qvo_basis = 'non_ppn' if qvo_basis_requested == 'non_ppn' else 'with_ppn'
 
     # Multi-select Depo.
     # IMPORTANT: Viewer restriction is enforced in backend, not only hidden in HTML,
@@ -2746,7 +2747,8 @@ def dashboard():
     ]
     qvo_all_candidates, qvo_history_months = build_qvo_potential(month, qvo_current_dealers)
     # Dashboard QVO Potential means actionable dealers only. Low Priority remains available in QVO Analysis.
-    qvo_potential = [qvo_display_row(r, qvo_basis) for r in qvo_all_candidates
+    # Send With-PPN values once; the card switches display basis in the browser.
+    qvo_potential = [qvo_display_row(r, 'with_ppn') for r in qvo_all_candidates
                      if r['action'] != 'Low Priority']
     # Backward-compatible alias for older partial templates.
     qvo_opportunities = qvo_potential
@@ -2778,8 +2780,9 @@ def dashboard():
         cards=cards, table=table, leaderboard=leaderboard,
         speed_rows=speed_rows, sku_rows=sku_rows, sku_detail=sku_detail, dealer_detail=dealer_detail,
         sku_targets=SKU_TARGETS, uploads=uploads, target_uploads=target_uploads,
-        qvo_threshold=qvo_display_amount(QVO_THRESHOLD, qvo_basis),
-        qvo_basis=qvo_basis, latest_in_scope=latest_in_scope,
+        qvo_threshold=qvo_display_amount(QVO_THRESHOLD, 'with_ppn'),
+        qvo_basis=qvo_basis, qvo_basis_requested=qvo_basis_requested,
+        latest_in_scope=latest_in_scope,
         target_available=target_available,
         projection_rows=projection_rows, projection_summary=projection_summary,
         projection_timegone=projection_timegone,
