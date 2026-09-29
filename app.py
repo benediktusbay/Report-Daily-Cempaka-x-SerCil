@@ -51,6 +51,25 @@ ACC_GROUPS = {'audio', 'computer accessories', 'mobile accessories', 'tablets ac
 # QVO compares pre-tax Billing.nett_amount with the tax-exclusive target.
 QVO_TARGET_WITH_TAX = 50_000_000
 QVO_THRESHOLD = QVO_TARGET_WITH_TAX / 1.11
+
+
+def qvo_display_amount(value_no_tax, basis):
+    """QVO billing is stored without PPN; convert only for display."""
+    amount = float(value_no_tax or 0)
+    return amount if basis == 'non_ppn' else amount * 1.11
+
+
+def qvo_display_row(row, basis):
+    display = dict(row)
+    for key in ('sales_mtd', 'gap', 'avg_sales', 'recent_avg'):
+        if key in display:
+            display[key] = qvo_display_amount(display[key], basis)
+    if 'history' in display:
+        display['history'] = [
+            dict(item, sales=qvo_display_amount(item['sales'], basis))
+            for item in display['history']
+        ]
+    return display
 WEEK_PCTS = {1: 0.75, 2: 0.90, 3: 1.00, 4: 1.00}
 WEEK_END_DAY = {1: 7, 2: 14, 3: 21, 4: 31}
 WEEK_START_DAY = {1: 1, 2: 8, 3: 15, 4: 22}
@@ -2260,6 +2279,7 @@ def dashboard():
     latest_target_month = db.session.query(db.func.max(MonthlyTarget.month)).scalar()
     default_month = latest.strftime('%Y-%m') if latest else (latest_target_month or datetime.now().strftime('%Y-%m'))
     month = request.args.get('month', default_month)
+    qvo_basis = 'non_ppn' if request.args.get('qvo_basis') == 'non_ppn' else 'with_ppn'
 
     # Multi-select Depo.
     # IMPORTANT: Viewer restriction is enforced in backend, not only hidden in HTML,
@@ -2726,7 +2746,8 @@ def dashboard():
     ]
     qvo_all_candidates, qvo_history_months = build_qvo_potential(month, qvo_current_dealers)
     # Dashboard QVO Potential means actionable dealers only. Low Priority remains available in QVO Analysis.
-    qvo_potential = [r for r in qvo_all_candidates if r['action'] != 'Low Priority']
+    qvo_potential = [qvo_display_row(r, qvo_basis) for r in qvo_all_candidates
+                     if r['action'] != 'Low Priority']
     # Backward-compatible alias for older partial templates.
     qvo_opportunities = qvo_potential
     dealer_no_purchase.sort(key=lambda d: (-d['target'], d['dealer']))
@@ -2757,7 +2778,8 @@ def dashboard():
         cards=cards, table=table, leaderboard=leaderboard,
         speed_rows=speed_rows, sku_rows=sku_rows, sku_detail=sku_detail, dealer_detail=dealer_detail,
         sku_targets=SKU_TARGETS, uploads=uploads, target_uploads=target_uploads,
-        qvo_threshold=QVO_THRESHOLD, latest_in_scope=latest_in_scope,
+        qvo_threshold=qvo_display_amount(QVO_THRESHOLD, qvo_basis),
+        qvo_basis=qvo_basis, latest_in_scope=latest_in_scope,
         target_available=target_available,
         projection_rows=projection_rows, projection_summary=projection_summary,
         projection_timegone=projection_timegone,
@@ -2781,6 +2803,7 @@ def qvo_analysis():
     latest_target_month = db.session.query(db.func.max(MonthlyTarget.month)).scalar()
     default_month = latest.strftime('%Y-%m') if latest else (latest_target_month or datetime.now().strftime('%Y-%m'))
     month = request.args.get('month', default_month)
+    qvo_basis = 'non_ppn' if request.args.get('qvo_basis') == 'non_ppn' else 'with_ppn'
     current, depos, salesmen, depo_filters, salesman_filters = qvo_analysis_scope(
         month, request.args.getlist('depo'), request.args.getlist('salesman')
     )
@@ -2798,10 +2821,14 @@ def qvo_analysis():
                 'avg_score': sum(r['score'] for r in subset) / len(subset),
             })
     gap_bands = [
-        {'label': '≤ Rp5 jt', 'count': sum(r['gap'] <= 5_000_000 for r in rows)},
-        {'label': 'Rp5–10 jt', 'count': sum(5_000_000 < r['gap'] <= 10_000_000 for r in rows)},
-        {'label': 'Rp10–20 jt', 'count': sum(10_000_000 < r['gap'] <= 20_000_000 for r in rows)},
-        {'label': '> Rp20 jt', 'count': sum(r['gap'] > 20_000_000 for r in rows)},
+        {'label': f'≤ {rupiah_short(qvo_display_amount(5_000_000, qvo_basis))}',
+         'count': sum(r['gap'] <= 5_000_000 for r in rows)},
+        {'label': f'{rupiah_short(qvo_display_amount(5_000_000, qvo_basis))}–{rupiah_short(qvo_display_amount(10_000_000, qvo_basis))}',
+         'count': sum(5_000_000 < r['gap'] <= 10_000_000 for r in rows)},
+        {'label': f'{rupiah_short(qvo_display_amount(10_000_000, qvo_basis))}–{rupiah_short(qvo_display_amount(20_000_000, qvo_basis))}',
+         'count': sum(10_000_000 < r['gap'] <= 20_000_000 for r in rows)},
+        {'label': f'> {rupiah_short(qvo_display_amount(20_000_000, qvo_basis))}',
+         'count': sum(r['gap'] > 20_000_000 for r in rows)},
     ]
     conversion = []
     for m in history_months:
@@ -2810,12 +2837,15 @@ def qvo_analysis():
             'label': pd.to_datetime(m + '-01').strftime('%b %Y'),
             'count': sum(any(h['month'] == m and h['qvo'] for h in r['history']) for r in potential_rows),
         })
+    rows = [qvo_display_row(r, qvo_basis) for r in rows]
+    potential_rows = [r for r in rows if r['action'] != 'Low Priority']
     watchlist_rows = [r for r in rows if r['action'] == 'Watchlist']
     return render_template(
         'qvo_analysis.html', month=month, rows=rows, potential_rows=potential_rows,
         top_rows=potential_rows[:10], recovery=watchlist_rows,
         by_salesman=by_salesman, gap_bands=gap_bands, conversion=conversion,
-        qvo_threshold=QVO_THRESHOLD, depos=depos, salesmen=salesmen,
+        qvo_threshold=qvo_display_amount(QVO_THRESHOLD, qvo_basis),
+        qvo_basis=qvo_basis, depos=depos, salesmen=salesmen,
         depo_filters=depo_filters, salesman_filters=salesman_filters,
     )
 
