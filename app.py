@@ -48,8 +48,9 @@ db = SQLAlchemy(app)
 DEVICE_GROUPS = {'mobile phones', 'tablet'}
 MAC_GROUPS = {'computer'}
 ACC_GROUPS = {'audio', 'computer accessories', 'mobile accessories', 'tablets accessories', 'wearable'}
-# QVO compares pre-tax Billing.nett_amount with this threshold.
-QVO_THRESHOLD = 44_500_000
+# QVO compares pre-tax Billing.nett_amount with the tax-exclusive target.
+QVO_TARGET_WITH_TAX = 50_000_000
+QVO_THRESHOLD = QVO_TARGET_WITH_TAX / 1.11
 WEEK_PCTS = {1: 0.75, 2: 0.90, 3: 1.00, 4: 1.00}
 WEEK_END_DAY = {1: 7, 2: 14, 3: 21, 4: 31}
 WEEK_START_DAY = {1: 1, 2: 8, 3: 15, 4: 22}
@@ -2092,6 +2093,7 @@ def pjp_recommendations(month, salesman):
     unresolved = {i.bp_code for p in plans for i in PJPPlanItem.query.filter_by(weekly_plan_id=p.id).all()}
     result = []
     for row in source:
+        row.qvo_gap = max(QVO_THRESHOLD - (row.current_revenue or 0), 0)
         days_ago = (current_end - row.last_order_date).days if row.last_order_date else 999
         inactivity = row.active_months >= 3 and row.current_revenue == 0
         score = min(days_ago, 90) * .45 + row.active_months * 8 + min(row.average_monthly_revenue / QVO_THRESHOLD * 20, 20) + (20 if inactivity else 0)
