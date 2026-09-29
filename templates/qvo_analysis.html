@@ -22,6 +22,13 @@
 .qvo-focus-item{background:transparent;border-top:0;border-bottom:0;border-left:0;cursor:pointer;text-align:left}.qvo-focus-item:hover{background:#eff6ff}.qvo-action{border:0;cursor:pointer}.qvo-action:hover{filter:brightness(.97);box-shadow:0 0 0 2px rgba(23,105,232,.10)}
 .qvo-list-dialog,.qvo-action-dialog{border:1px solid #dce5f2;border-radius:16px;padding:0;width:min(920px,calc(100vw - 28px));max-height:86vh;overflow:hidden;color:#102a48;box-shadow:0 24px 70px rgba(15,23,42,.25)}.qvo-list-dialog::backdrop,.qvo-action-dialog::backdrop{background:rgba(15,35,60,.48)}.qvo-dialog-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:17px 20px;border-bottom:1px solid #e5e7eb}.qvo-dialog-head h3{margin:0 0 4px;font-size:18px}.qvo-dialog-head p{margin:0;color:#64748b;font-size:11px}.qvo-dialog-close{border:0;background:#eef2f7;width:34px;height:34px;border-radius:8px;cursor:pointer;font-size:18px}.qvo-dialog-body{padding:14px 20px 20px;max-height:68vh;overflow:auto}.qvo-list-table{width:100%;border-collapse:collapse;min-width:760px}.qvo-list-table th,.qvo-list-table td{font-size:11px;padding:9px 8px;border-bottom:1px solid #eef2f7}.qvo-action-definition{background:#eff6ff;border:1px solid #dbeafe;border-radius:10px;padding:12px;color:#334155;font-size:12px;line-height:1.45;margin-bottom:12px}.qvo-action-reason{font-size:12px;color:#475569;margin-bottom:12px}.qvo-action-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.qvo-action-metric{border:1px solid #e5e7eb;background:#f8fafc;border-radius:10px;padding:10px}.qvo-action-metric span{display:block;color:#64748b;font-size:9px;text-transform:uppercase;font-weight:900;margin-bottom:5px}.qvo-action-metric strong{font-size:13px}@media(max-width:600px){.qvo-action-metrics{grid-template-columns:1fr 1fr}.qvo-list-table{min-width:700px}}
 
+
+.qvo-basis-toggle{display:inline-flex;align-items:center;gap:2px;padding:3px;border:1px solid #d6e4f7;border-radius:999px;background:#f3f7fd;white-space:nowrap}
+.qvo-basis-toggle button{border:0;border-radius:999px;background:transparent;color:#52647e;padding:6px 9px;font:inherit;font-size:10px;font-weight:800;line-height:1.2;cursor:pointer}
+.qvo-basis-toggle button[aria-pressed="true"]{background:#1769e8;color:#fff}
+.qvo-basis-toggle button:focus-visible{outline:2px solid #1769e8;outline-offset:2px}
+.qvo-top-actions{display:flex;align-items:center;justify-content:flex-end;gap:9px;flex-wrap:wrap}
+@media(max-width:768px){.qvo-top-actions{justify-content:flex-start;margin-top:10px}.qvo-top-actions .qvo-back{margin-top:0}}
 </style>
 {% endblock %}
 
@@ -32,11 +39,18 @@
       <h1>QVO Analysis</h1>
       <p>Prioritas dealer untuk dikejar berdasarkan Sales MTD, gap, history QVO dan pola penjualan.</p>
     </div>
-    <a class="qvo-back" href="{{ url_for('dashboard', month=month) }}">← Kembali ke Dashboard</a>
+    <div class="qvo-top-actions">
+    <div class="qvo-basis-toggle" role="group" aria-label="Basis nilai QVO">
+      <button type="button" data-qvo-basis="with_ppn" aria-pressed="{{ 'true' if qvo_basis == 'with_ppn' else 'false' }}">With PPN (11%)</button>
+      <button type="button" data-qvo-basis="non_ppn" aria-pressed="{{ 'true' if qvo_basis == 'non_ppn' else 'false' }}">Non-PPN</button>
+    </div>
+    <a class="qvo-back" href="{{ url_for('dashboard', month=month, qvo_basis=qvo_basis) }}">← Kembali ke Dashboard</a>
+    </div>
   </div>
 
   <div class="qvo-filter-card">
     <form class="qvo-filter-form" method="get" action="{{ url_for('qvo_analysis') }}">
+      <input type="hidden" name="qvo_basis" value="{{ qvo_basis }}">
       <div class="qvo-field period">
         <label>Period</label>
         <input type="month" name="month" value="{{ month }}" required>
@@ -129,7 +143,7 @@
     </div>
 
     <div class="qvo-insight-card">
-      <div class="qvo-insight-head"><div><h3>Gap to QVO Distribution</h3><p>Sebaran kekurangan ke threshold {{ qvo_threshold|rupiah_short }} exc PPN.</p></div></div>
+      <div class="qvo-insight-head"><div><h3>Gap to QVO Distribution</h3><p>Sebaran kekurangan ke threshold {{ qvo_threshold|rupiah_short }} {{ 'Non-PPN' if qvo_basis == 'non_ppn' else 'With PPN' }}.</p></div></div>
       <div class="qvo-bar-list">
         {% set max_gap = (gap_bands|max(attribute='count')).count if gap_bands else 1 %}
         {% for x in gap_bands %}<div class="qvo-bar-row"><span>{{ x.label }}</span><div class="qvo-bar-track"><span style="width:{{ (x.count/max_gap*100) if max_gap else 0 }}%"></span></div><span class="qvo-bar-value">{{ x.count }}</span></div>{% endfor %}
@@ -174,6 +188,17 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+(function(){
+  document.querySelectorAll('[data-qvo-basis]').forEach(function(button){
+    button.addEventListener('click',function(){
+      const url=new URL(window.location.href);
+      url.searchParams.set('qvo_basis',button.dataset.qvoBasis);
+      window.location.assign(url.toString());
+    });
+  });
+})();
+</script>
 <script>
 (function(){
   function setupMulti(rootId,buttonId,summaryId,name,emptyText){
