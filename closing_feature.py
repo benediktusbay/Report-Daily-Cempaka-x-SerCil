@@ -1,295 +1,437 @@
-"""Request-local Closing calculation. No upload is persisted; no DB access here."""
-import math
+"""Closing-only Excel parsing and calculation; no database writes or file storage."""
+import io
 import re
-from decimal import Decimal
+from collections import Counter, defaultdict
+from datetime import datetime
+from decimal import Decimal, InvalidOperation
+from zipfile import BadZipFile
 
-import pandas as pd
 from openpyxl import load_workbook
 
-DEPOTS = {'so_bc22': 'Cempaka', 'so_bc13': 'Serang', 'so_bc66': 'Cilegon'}
-SITE_CODES = {'BC22': 'Cempaka', 'BC13': 'Serang', 'BC66': 'Cilegon'}
+SLOTS = {'so_bcc1': ('BCC1', 'Cempaka'), 'so_bc22': ('BC22', 'Cempaka'),
+         'so_bc13': ('BC13', 'Serang'), 'so_bc66': ('BC66', 'Cilegon')}
+DEPOT_CODES = {'BCC1': 'Cempaka', 'BC22': 'Cempaka', 'BC13': 'Serang', 'BC66': 'Cilegon'}
+DEPOTS = ('Cempaka', 'Serang', 'Cilegon', 'Unassigned')
 CATEGORIES = ('Device', 'Macbook', 'ACC')
-COMMON_COLUMNS = {
-    'salesman': ('Salesman Name', 'Salesman', 'Sales Person', 'Salesperson Name'),
-    'brand_name': ('Brand Name',), 'brand': ('Brand',),
-    'group': ('Item Group Desc', 'Item Group Description', 'Item Group', 'Product Group'),
-    'article_code': ('Article Code', 'Material', 'Material Code', 'Material Number'),
-    'article': ('Article Description', 'Material Description', 'Description'),
+TSH = {'Zefanya Septania Simorangkir', 'Rafhyski Alhasan', 'Ikmah Novtianingrum'}
+# Audit reference only. Production targets always come from MonthlyTarget.
+SEPTEMBER_2026_TARGET_REFERENCE = {
+    'ALL': {'Device': 32_500_000_000, 'Macbook': 1_625_000_000,
+            'ACC': 780_000_000, 'TOTAL': 34_905_000_000},
+    'Cempaka': {'TOTAL': 32_220_000_000},
+    'Serang': {'TOTAL': 819_264_432},
+    'Cilegon': {'TOTAL': 1_865_735_568},
 }
+
 BILLING_COLUMNS = {
-    **COMMON_COLUMNS,
-    'so': ('SO Number',),
+    'so': ('SO Number',), 'article_code': ('Article Code',),
+    'description': ('Article Description',), 'brand': ('Brand Name', 'Brand'),
+    'group': ('Item Group Desc', 'Item Group Description', 'Item Group'),
+    'bp': ('Sold to Party Code',), 'dealer': ('Sold to Party Name',),
+    'cust': ('Cust Code',), 'site': ('Site Code',), 'date': ('Billing Date',),
+    'salesman': ('Salesman Name',),
     'amount': ('Total Nett Amount No Tax', 'Total Net Amount No Tax'),
-    'site': ('Site Code', 'Site Desc', 'Depot', 'Depo'),
-    'date': ('Billing Date',),
+    'qty': ('Quantity',),
 }
 SO_COLUMNS = {
-    **COMMON_COLUMNS,
     'so': ('Sales Order Number', 'SO Number'), 'do': ('DO Number', 'Delivery No'),
+    'item': ('Item Number', 'SO Item No'), 'article_code': ('Article Code', 'Material'),
+    'description': ('Article Description', 'Material Description', 'Description'),
+    'bp': ('Soldto Code', 'Sold to Party Code', 'Sold to Code'),
+    'dealer': ('Soldto Name', 'Sold to Party Name', 'Dealer'),
+    'salesman': ('Salesman Name',), 'qty': ('Quantity', 'Qty'),
     'sales': ('TTL Sales Price',), 'discount': ('TTL Discount',),
-    'qty': ('Quantity', 'Qty'), 'dealer': ('Soldto Name', 'Sold to Party Name', 'Sold to Name', 'Dealer'),
-    'date': ('Order Date',),
-    # Parsed for compatibility only; SO depot always comes from the upload slot.
-    'site': ('Depot', 'Depo', 'Site Code', 'Site Desc', 'Plant', 'Plant Description'),
+    'date': ('Order Date',), 'site': ('Plant', 'Site Code'),
 }
 
-
 def clean(value):
-    return '' if value is None or pd.isna(value) else str(value).strip()
+    if value is None:
+        return ''
+    result = str(value).strip()
+    return '' if result.casefold() in ('nan', 'none', 'nat', 'null') else result
 
-
-def key(value):
+def header_key(value):
     return re.sub(r'\s+', ' ', clean(value)).casefold()
 
-
-def columns(header, aliases, required, label):
-    present = {key(value): i for i, value in enumerate(header) if value is not None}
-    mapped = {name: next((present[key(alias)] for alias in choices if key(alias) in present), None)
-              for name, choices in aliases.items()}
-    missing = [aliases[name][0] for name in required if mapped[name] is None]
-    if missing:
-        raise ValueError(f'{label}: kolom wajib tidak ditemukan: {", ".join(missing)}.')
-    return mapped
-
-
-def rows_from_excel(stream, aliases, required, label):
-    stream.seek(0)
-    workbook = load_workbook(stream, read_only=True, data_only=True)
-    try:
-        sheet = workbook['Export'] if label == 'Billing Detail' and 'Export' in workbook else workbook.active
-        iterator = sheet.iter_rows(values_only=True)
-        mapping = None
-        for _ in range(30):
-            row = next(iterator, None)
-            if row is None:
-                break
-            try:
-                mapping = columns(row, aliases, required, label)
-                break
-            except ValueError:
-                continue
-        if mapping is None:
-            raise ValueError(f'{label}: header tidak ditemukan. Perlu kolom: {", ".join(aliases[n][0] for n in required)}.')
-        for row in iterator:
-            if any(value is not None and str(value).strip() for value in row):
-                record = {name: row[index] if index is not None and index < len(row) else None
-                          for name, index in mapping.items()}
-                record['_has_brand'] = mapping['brand'] is not None or mapping['brand_name'] is not None
-                record['_has_site'] = mapping['site'] is not None
-                yield record
-    finally:
-        workbook.close()
-
+def normalize_id(value):
+    result = clean(value)
+    if not result:
+        return ''
+    if re.fullmatch(r'\d+(?:\.\d+)?[eE][+-]?\d+', result):
+        try:
+            result = format(Decimal(result), 'f')
+        except InvalidOperation:
+            return ''
+    if re.fullmatch(r'\d+\.0+', result):
+        result = result.split('.')[0]
+    return result.lstrip('0') or ('0' if result and set(result) == {'0'} else result)
 
 def normalize_so(value):
-    value = clean(value)
-    if key(value) in ('', 'nan', 'none', 'null', '-', 'nat'):
-        return ''
-    if re.fullmatch(r'\d+(?:\.\d+)?[eE][+-]?\d+', value):
-        value = format(Decimal(value), 'f')
-    if re.fullmatch(r'\d+\.0+', value):
-        value = value.split('.')[0]
-    return value.lstrip('0') or ('0' if value else '')
+    result = normalize_id(value)
+    return result if re.fullmatch(r'\d+', result) else ''
 
-
-def number(value, label, row_number, blank_zero=False):
+def money(value, context, blank_zero=False):
     raw = clean(value)
     if not raw:
         if blank_zero:
-            return 0.0
-        raise ValueError(f'{label} baris {row_number}: nilai wajib kosong.')
+            return Decimal(0)
+        raise ValueError(f'{context}: nilai kosong.')
+    raw = re.sub(r'(?i)rp|\s', '', raw)
+    if ',' in raw and '.' in raw:
+        raw = raw.replace('.', '').replace(',', '.') if raw.rfind(',') > raw.rfind('.') else raw.replace(',', '')
+    elif ',' in raw:
+        raw = raw.replace(',', '.') if len(raw.rsplit(',', 1)[-1]) in (1, 2) else raw.replace(',', '')
+    elif re.fullmatch(r'-?\d{1,3}(?:\.\d{3})+', raw):
+        raw = raw.replace('.', '')
+    try:
+        result = Decimal(raw)
+    except InvalidOperation:
+        raise ValueError(f'{context}: angka tidak valid ({value}).') from None
+    if not result.is_finite():
+        raise ValueError(f'{context}: angka tidak valid ({value}).')
+    return result
+
+def quantity_key(value):
+    raw = clean(value)
+    if not raw:
+        return ''
+    try:
+        return format(Decimal(raw).normalize(), 'f')
+    except InvalidOperation:
+        return raw
+
+def date_value(value):
+    if isinstance(value, datetime):
+        return value.date()
+    if hasattr(value, 'year') and hasattr(value, 'month') and hasattr(value, 'day'):
+        return value
     if isinstance(value, (int, float)):
-        result = float(value)
-    else:
-        raw = re.sub(r'(?i)rp|\s', '', raw)
-        if ',' in raw and '.' in raw:
-            raw = raw.replace('.', '').replace(',', '.') if raw.rfind(',') > raw.rfind('.') else raw.replace(',', '')
-        elif ',' in raw:
-            raw = raw.replace(',', '.') if len(raw.rsplit(',', 1)[-1]) in (1, 2) else raw.replace(',', '')
-        elif re.fullmatch(r'-?\d{1,3}(?:\.\d{3})+', raw):
-            raw = raw.replace('.', '')
+        from openpyxl.utils.datetime import from_excel
         try:
-            result = float(raw)
+            return from_excel(value).date()
+        except (TypeError, ValueError, OverflowError):
+            return None
+    text = clean(value)
+    if not text:
+        return None
+    for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y'):
+        try:
+            return datetime.strptime(text[:10], fmt).date()
         except ValueError:
-            result = float('nan')
-    if not math.isfinite(result):
-        raise ValueError(f'{label} baris {row_number}: angka tidak valid ({value}).')
-    return result
-
-
-def code(value):
-    return normalize_so(value)
-
-
-# Anchored families, not arbitrary mentions (e.g. "case for iPhone").
-# MBA, MB NEO and APP WATCH spellings were observed in the supplied exports.
-APPLE_FAMILY = re.compile(
-    r'^(?:(?:apple\s+)?(?:iphone|ipad|macbook|mac\s+mini|mac\s+studio|mac\s+pro|imac|airpods|earpods)\b'
-    r'|apple\s+(?:pencil|watch)\b|(?:apple\s+)?magic\s+(?:mouse|keyboard|trackpad)\b'
-    r'|mba\s+\d{2}\b|mb\s+neo\s+\d{2}\b|app\s+watch\b)', re.I)
-NON_APPLE = re.compile(r'\b(?:samsung|galaxy|redmi|tecno|xiaomi|poco|oppo|vivo|infinix|realme|huawei|honor)\b', re.I)
-
-
-def apple_mask(frame):
-    """Brand is authoritative; blank/unknown brand is NOT description fallback."""
-    names = frame['brand_name'].map(key)
-    brands = frame['brand'].map(key)
-    known_name = names.ne('')
-    by_brand = names.eq('apple') | (~known_name & brands.isin(('apple', 'app')))
-    # Reject conflicting non-Apple codes as well as non-Apple brand names.
-    by_brand &= brands.isin(('', 'apple', 'app'))
-    descriptions = frame['article'].map(clean)
-    material = frame['article_code'].map(clean)
-    by_description = (descriptions.str.match(APPLE_FAMILY) | material.str.match(APPLE_FAMILY))
-    by_description &= ~(descriptions.str.contains(NON_APPLE) | material.str.contains(NON_APPLE))
-    # A third-party compatibility claim is not evidence of Apple manufacture.
-    compatibility = r'\b(?:compatible|compatibility|replacement|for|untuk)\b'
-    by_description &= ~(descriptions.str.contains(compatibility, case=False) |
-                        material.str.contains(compatibility, case=False))
-    return by_brand.where(frame['_has_brand'], by_description)
-
-
-def so_group_from_description(description):
-    """Category inference is called ONLY after Apple identity is established."""
-    name = key(description)
-    # Accessories before devices, for explicitly branded accessory descriptions.
-    if re.search(r'\b(pencil|keyboard|mouse|trackpad)\b', name):
-        return 'Computer Accessories'
-    if re.search(r'\b(case|cover|charger|adapter|cable|magsafe)\b', name):
-        return 'Mobile Accessories'
-    if re.search(r'\b(airpods|earpods)\b', name):
-        return 'Audio'
-    if re.search(r'\bwatch\b', name):
-        return 'Wearable'
-    if re.search(r'\bipad\b', name):
-        return 'Tablet'
-    if re.search(r'\biphone\b', name):
-        return 'Mobile Phones'
-    if re.search(r'\b(macbook|mba|mbp|mb neo|mac mini|mac studio|mac pro|imac)\b', name):
-        return 'Computer'
-    return ''
-
-
-def dates_from_values(values):
-    """Accept Excel serials, native datetime and day-first SAP export strings."""
-    result = pd.Series(pd.NaT, index=values.index, dtype='datetime64[ns]')
-    numeric = values.map(lambda v: isinstance(v, (int, float)) and not pd.isna(v))
-    if numeric.any():
-        result.loc[numeric] = pd.to_datetime(values[numeric].astype(float), unit='D', origin='1899-12-30', errors='coerce')
-    remaining = ~numeric
-    if remaining.any():
-        # Explicit ISO handling avoids day-first swapping YYYY-MM-DD dates.
-        text = values[remaining].map(clean)
-        iso = text.str.match(r'^\d{4}-\d{2}-\d{2}')
-        result.loc[text.index[iso]] = pd.to_datetime(text[iso], format='ISO8601', errors='coerce')
-        result.loc[text.index[~iso]] = pd.to_datetime(text[~iso], dayfirst=True, format='mixed', errors='coerce')
-    return result
-
-
-def prepare_closing(billing_stream, so_streams, month, targets, classify, canonical_depo,
-                    *, locked_salesmen, allowed_depos, canonical_salesman=None):
-    """All frames live inside this request; scope comes from dashboard constants."""
-    if not re.fullmatch(r'\d{4}-(0[1-9]|1[0-2])', month):
-        raise ValueError('Periode Closing tidak valid.')
-    if not so_streams:
-        raise ValueError('Upload minimal satu file SO/DO.')
-    normalize_owner = canonical_salesman or clean
-    owners = {key(normalize_owner(v)) for v in locked_salesmen}
-
-    def depot_of(value):
-        text = clean(value)
-        return SITE_CODES.get(text.upper(), canonical_depo(text))
-
-    allowed = {depot_of(v) for v in allowed_depos} & set(DEPOTS.values())
-
-    def scope(frame, slot_depot=None):
-        if frame.empty:
-            frame['depot'] = pd.Series(dtype=str)
-            return frame
-        # SO/DO: upload slot is authoritative, regardless of Plant/Site/Depot.
-        # Billing keeps its existing source-site mapping.
-        frame['depot'] = slot_depot if slot_depot is not None else frame['site'].map(depot_of)
-        frame = frame.loc[frame['depot'].isin(allowed)].copy()
-        frame = frame.loc[frame['salesman'].map(lambda v: key(normalize_owner(v))).isin(owners)].copy()
-        return frame.loc[apple_mask(frame)].copy()
-
-    billing = pd.DataFrame(list(rows_from_excel(
-        billing_stream, BILLING_COLUMNS, ('so', 'amount', 'group', 'site', 'date', 'salesman'),
-        'Billing Detail')), columns=[*BILLING_COLUMNS, '_has_brand', '_has_site'])
-    billing = scope(billing)
-    billing['category'] = billing['group'].map(classify)
-    billing = billing.loc[billing['category'].isin(CATEGORIES)].copy()
-    billing['normalized_so'] = billing['so'].map(normalize_so)
-    # Match all scoped Billing SOs in this upload, irrespective of billing date.
-    billing_so = set(billing.loc[billing['normalized_so'].ne(''), 'normalized_so'])
-    article_groups = {code(a): g for a, g in zip(billing['article_code'], billing['group']) if code(a)}
-    dates = dates_from_values(billing['date'])
-    actual_rows = billing.loc[dates.dt.strftime('%Y-%m').eq(month)].copy()
-    actual_rows['amount'] = [number(v, 'Billing Total Nett Amount No Tax', i + 2)
-                             for i, v in enumerate(actual_rows['amount'])]
-    actual = actual_rows.groupby(['depot', 'category'])['amount'].sum().to_dict()
-
-    frames = []
-    for slot, stream in so_streams.items():
-        if slot not in DEPOTS:
-            raise ValueError(f'Slot SO/DO tidak dikenal: {slot}.')
-        depot = DEPOTS[slot]
-        frame = pd.DataFrame(list(rows_from_excel(
-            stream, SO_COLUMNS, ('so', 'sales', 'discount', 'article', 'salesman'), f'SO/DO {depot}')),
-            columns=[*SO_COLUMNS, '_has_brand', '_has_site'])
-        frame = scope(frame, depot)
-        if frame.empty:
             continue
-        # Retain existing monthly order-date behavior when dates are supplied.
-        if frame['date'].map(clean).ne('').any():
-            dates = dates_from_values(frame['date'])
-            frame = frame.loc[dates.dt.strftime('%Y-%m').eq(month)].copy()
-        if frame.empty:
-            continue
-        frame['group'] = [clean(g) or article_groups.get(code(a), '') or so_group_from_description(d)
-                          for g, a, d in zip(frame['group'], frame['article_code'], frame['article'])]
-        frame['category'] = frame['group'].map(classify)
-        unknown = ~frame['category'].isin(CATEGORIES)
-        if unknown.any():
-            examples = ', '.join(frame.loc[unknown, 'article'].map(clean).iloc[:3])
-            raise ValueError(f'SO/DO {depot}: kategori Apple tidak dapat ditentukan ({examples}). Tambahkan Item Group Desc.')
-        frame['normalized_so'] = frame['so'].map(normalize_so)
-        frame = frame.loc[frame['normalized_so'].ne('')].copy()
-        frame['is_billed'] = frame['normalized_so'].isin(billing_so)
-        frames.append(frame)
-    so = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(
-        columns=[*SO_COLUMNS, 'depot', 'category', 'normalized_so', 'is_billed'])
-    pending = so.loc[so['is_billed'].eq(False)].copy()
-    pending['sales'] = [number(v, 'SO/DO TTL Sales Price', i + 2) for i, v in enumerate(pending['sales'])]
-    pending['discount'] = [number(v, 'SO/DO TTL Discount', i + 2, True) for i, v in enumerate(pending['discount'])]
-    pending['nett'] = pending['sales'] + pending['discount']
-    pending_totals = pending.groupby(['depot', 'category'])['nett'].sum().to_dict()
+    return None
 
-    target = {}
-    for row in targets:
-        depot = depot_of(row.depo)
-        if depot not in allowed or key(normalize_owner(row.salesman)) not in owners:
+def excel_records(stream, fields, required, label, sheet_name=None):
+    stream.seek(0)
+    try:
+        wb = load_workbook(stream, read_only=True, data_only=True)
+    except (BadZipFile, OSError, ValueError) as exc:
+        raise ValueError(f'{label}: file Excel tidak dapat dibaca ({exc}).') from None
+    try:
+        if sheet_name and sheet_name not in wb.sheetnames:
+            raise ValueError(f'{label}: sheet {sheet_name} tidak ditemukan.')
+        sheet = wb[sheet_name] if sheet_name else wb.active
+        rows = iter(sheet.values)
+        index = None
+        for _ in range(30):
+            candidate = next(rows, None)
+            if candidate is None:
+                break
+            found = {header_key(v): i for i, v in enumerate(candidate) if clean(v)}
+            resolved = {name: next((found[header_key(alias)] for alias in choices if header_key(alias) in found), None)
+                        for name, choices in fields.items()}
+            if all(resolved[name] is not None for name in required):
+                index = resolved
+                break
+        if index is None:
+            raise ValueError(f'{label}: header tidak ditemukan. Perlu: {", ".join(fields[n][0] for n in required)}.')
+        for line, row in enumerate(rows, 2):
+            if not any(clean(v) for v in row):
+                continue
+            yield line, {name: row[i] if i is not None and i < len(row) else None for name, i in index.items()}
+    finally:
+        wb.close()
+
+def depot_from_code(value, canonical_depo):
+    raw = clean(value).upper()
+    return DEPOT_CODES.get(raw, canonical_depo(value) if raw else 'Unassigned')
+
+def apple_metadata(description, brand='', group='', classify=None):
+    """Use Billing brand/group first; description inference is conservative and flagged."""
+    text = clean(description)
+    low = text.casefold()
+    b = clean(brand).casefold()
+    if b and b not in ('app', 'apple'):
+        return 'Non-Apple', '', ''
+    if b in ('app', 'apple') and classify:
+        cat = classify(group)
+        if cat in CATEGORIES:
+            return 'Apple', cat, ''
+    # Explicit non-Apple families override vague accessory words.
+    if re.match(r'^(samsung|sam\s+galaxy|galaxy|xim\b|xiaomi|redmi|oppo|vivo|tecno|poco|infinix|realme|honor|huawei)\b', low):
+        return 'Non-Apple', '', ''
+    if re.match(r'^(iphone\b|ipad\b)', low):
+        return 'Apple', 'Device', 'Kategori dari deskripsi'
+    if re.match(r'^(macbook\b|mb\s+neo\b|mba\s+\d|mbp\s+\d|imac\b|mac\s+(mini|studio|pro)\b)', low):
+        return 'Apple', 'Macbook', 'Kategori dari deskripsi'
+    if re.match(r'^(app\b|apple\b|beats\b|airpods\b|earpods\b)', low):
+        return 'Apple', 'ACC', 'Kategori dari deskripsi'
+    return 'Unmapped', '', ''
+
+def parse_billing(stream, month, classify, canonical_salesman, canonical_depo):
+    billed_so = set()
+    articles = {}
+    cust_depot = {}
+    bp_site = {}
+    actual_rows = []
+    rows = 0
+    max_date = None
+    for line, row in excel_records(stream, BILLING_COLUMNS,
+                                   ('so', 'article_code', 'description', 'group', 'bp', 'cust', 'site',
+                                    'date', 'salesman', 'amount'), 'Billing Baseline', 'Export'):
+        so = normalize_so(row['so'])
+        if not so:
             continue
-        for cat, field in (('Device', 'device_target'), ('Macbook', 'macbook_target'), ('ACC', 'acc_target')):
-            target[(depot, cat)] = target.get((depot, cat), 0.0) + float(getattr(row, field) or 0)
+        billed_so.add(so)  # ALL billed SO, before Apple/salesman/depot filters.
+        rows += 1
+        article = normalize_id(row['article_code'])
+        brand = clean(row['brand'])
+        group = clean(row['group'])
+        desc = clean(row['description'])
+        if article and (brand or group):
+            articles[article] = (brand, group)
+        bp = normalize_id(row['bp'])
+        cust = depot_from_code(row['cust'], canonical_depo)
+        site = clean(row['site']).upper()
+        if bp and cust in DEPOTS[:3]:
+            cust_depot[bp] = cust
+        if bp and site:
+            bp_site.setdefault(bp, set()).add(site)
+        day = date_value(row['date'])
+        if day and (max_date is None or day > max_date):
+            max_date = day
+        if not day or day.strftime('%Y-%m') != month:
+            continue
+        salesman = canonical_salesman(row['salesman'])
+        if salesman not in TSH:
+            continue
+        identity, cat, flag = apple_metadata(desc, brand, group, classify)
+        if identity != 'Apple' or cat not in CATEGORIES:
+            continue
+        actual_rows.append(dict(bp=bp, dealer=clean(row['dealer']), salesman=salesman,
+                                category=cat, value=money(row['amount'], f'Billing baris {line}'),
+                                site=site, cust=cust, so=so, flag=flag))
+    return dict(month=month, billed_so=billed_so, articles=articles, cust_depot=cust_depot,
+                bp_site=bp_site, actual_rows=actual_rows, max_date=max_date,
+                rows=rows, so_count=len(billed_so))
+
+def parse_so(stream, slot, month, canonical_salesman):
+    if slot not in SLOTS:
+        raise ValueError(f'Slot SO/DO tidak dikenal: {slot}.')
+    label, source_depot = SLOTS[slot]
+    records = []
+    so_seen = set()
+    for line, row in excel_records(stream, SO_COLUMNS,
+                                   ('so', 'article_code', 'description', 'bp', 'salesman', 'sales', 'discount'),
+                                   f'SO/DO {label}'):
+        so = normalize_so(row['so'])
+        if not so:
+            continue
+        day = date_value(row['date'])
+        if day and day.strftime('%Y-%m') != month:
+            continue
+        owner = canonical_salesman(row['salesman'])
+        if owner not in TSH:
+            continue
+        sales = money(row['sales'], f'SO/DO {label} baris {line} TTL Sales Price')
+        discount = money(row['discount'], f'SO/DO {label} baris {line} TTL Discount', True)
+        bp = normalize_id(row['bp'])
+        article = normalize_id(row['article_code'])
+        records.append(dict(so=so, so_display=clean(row['so']), do=normalize_so(row['do']),
+                            item=normalize_id(row['item']), article=article,
+                            description=clean(row['description']), bp=bp,
+                            dealer=clean(row['dealer']), salesman=owner, qty=clean(row['qty']),
+                            qty_key=quantity_key(row['qty']),
+                            sales=sales, discount=discount, nett=sales+discount,
+                            source_slot=label, source_depot=source_depot,
+                            site=clean(row['site']).upper()))
+        so_seen.add(so)
+    return dict(rows=records, row_count=len(records), so_count=len(so_seen))
+
+def target_depot(target, canonical_depo):
+    return depot_from_code(getattr(target, 'depo', ''), canonical_depo)
+
+def calculate(baseline, slots, targets, billing_rows, classify, canonical_salesman, canonical_depo):
+    """Return JSON-ready summary, details and audit. Caller provides two bounded DB reads."""
+    master = {normalize_id(t.bp): t for t in targets if normalize_id(t.bp)}
+    target_amount = defaultdict(Decimal)
+    for t in targets:
+        if canonical_salesman(t.salesman) not in TSH or not normalize_id(t.bp):
+            continue
+        depot = target_depot(t, canonical_depo)
+        depot = depot if depot in DEPOTS else 'Unassigned'
+        for cat, field in (('Device','device_target'), ('Macbook','macbook_target'), ('ACC','acc_target')):
+            target_amount[(depot, cat)] += money(getattr(t, field) or 0, 'Target', True)
+    warnings = Counter()
+    examples = defaultdict(list)
+    warning_seen = defaultdict(set)
+    def flag(name, detail='', unique=False):
+        if unique and detail in warning_seen[name]:
+            return
+        if unique:
+            warning_seen[name].add(detail)
+        warnings[name] += 1
+        if detail and len(examples[name]) < 8:
+            examples[name].append(detail)
+    if not any(value for value in target_amount.values()):
+        flag('Target Master periode belum tersedia')
+    if not billing_rows:
+        flag('Actual Dashboard periode belum tersedia')
+    def home(bp, site='', slot_depot=''):
+        t = master.get(bp)
+        if t:
+            depot = target_depot(t, canonical_depo)
+            depot = depot if depot in DEPOTS else 'Unassigned'
+            cust = baseline['cust_depot'].get(bp)
+            if cust and cust != depot:
+                flag('Depo master vs Billing berbeda', bp, True)
+            source = 'Master'
+        else:
+            depot = baseline['cust_depot'].get(bp, '')
+            if depot:
+                source = 'Depo dari Billing'
+                flag(source, bp, True)
+            elif slot_depot:
+                depot = slot_depot
+                source = 'Depo fallback'
+                flag(source, bp, True)
+            else:
+                depot = 'Unassigned'
+                source = 'Unassigned'
+                flag(source, bp, True)
+        cross = bool(site and site in DEPOT_CODES and depot in DEPOTS[:3] and DEPOT_CODES[site] != depot)
+        return depot, source, cross
+    actual = defaultdict(Decimal)
+    baseline_actual = defaultdict(Decimal)
+    dashboard_date = None
+    for row in billing_rows:
+        day = row.billing_date
+        if day and (dashboard_date is None or day > dashboard_date):
+            dashboard_date = day
+        salesman = canonical_salesman(row.salesman)
+        if salesman not in TSH:
+            continue
+        identity, cat, _ = apple_metadata(row.article, '', row.item_group, classify)
+        if identity != 'Apple' or cat not in CATEGORIES:
+            continue
+        bp = normalize_id(row.sold_to_code)
+        depot, _, _ = home(bp)
+        actual[(depot, cat)] += money(row.nett_amount or 0, 'Actual Dashboard', True)
+    for row in baseline['actual_rows']:
+        depot, source, cross = home(row['bp'], row['site'])
+        baseline_actual[(depot, row['category'])] += row['value']
+        if cross:
+            flag('Cross-site', f"{row['bp']}: {row['site']}", True)
+    processed = []
+    seen = set()
+    for slot in SLOTS:
+        if slot not in slots:
+            continue
+        for row in slots[slot]['rows']:
+            identity = (row['so'], row['item'], row['article'], row['qty_key'], row['sales'], row['discount'])
+            if identity in seen:
+                flag('Duplicate row identik', row['so'])
+                continue
+            seen.add(identity)
+            article = baseline['articles'].get(row['article'])
+            if article:
+                brand, group = article
+                product, cat, category_flag = apple_metadata(row['description'], brand, group, classify)
+            else:
+                product, cat, category_flag = apple_metadata(row['description'], '', '', classify)
+            if product == 'Non-Apple':
+                continue
+            depot, source, cross = home(row['bp'], row['source_slot'], row['source_depot'])
+            flags = []
+            if source != 'Master':
+                flags.append(source)
+            if cross:
+                flags.append(f"Cross-site: {row['source_slot']}")
+                flag('Cross-site', f"{row['bp']}: {row['source_slot']}", True)
+            if category_flag:
+                flags.append(category_flag)
+                flag(category_flag, row['article'])
+            item = dict(row)
+            item.update(depot=depot, category=cat, product=product,
+                        flags=flags, billed=row['so'] in baseline['billed_so'],
+                        status='DO tersedia' if row['do'] else 'No DO belum tersedia')
+            if product == 'Unmapped' or not cat:
+                flag('Unmapped article', row['article'])
+            processed.append(item)
+    pending_amount = defaultdict(Decimal)
+    detail = {'pending': [], 'billed': [], 'no_do': [], 'unmapped': []}
+    unmapped_amount = Decimal(0)
+    excluded_amount = Decimal(0)
+    for row in processed:
+        out = dict(depot=row['depot'], source_slot=row['source_slot'], salesman=row['salesman'],
+                   dealer=row['dealer'], bp=row['bp'], so=row['so_display'], normalized_so=row['so'],
+                   do=row['do'] or '-', article=row['article'], description=row['description'],
+                   category=row['category'] or 'Unmapped', qty=row['qty'],
+                   nett=float(row['nett']), status=row['status'], flags=', '.join(row['flags']))
+        if row['billed']:
+            detail['billed'].append(out)
+            excluded_amount += row['nett']
+        elif row['product'] == 'Unmapped' or not row['category']:
+            detail['unmapped'].append(out)
+            unmapped_amount += row['nett']
+        else:
+            detail['pending'].append(out)
+            pending_amount[(row['depot'], row['category'])] += row['nett']
+            if not row['do']:
+                detail['no_do'].append(out)
     summary = {}
-    for depot in ('ALL', *DEPOTS.values()):
+    for depot in ('ALL', *DEPOTS):
         summary[depot] = {}
-        for cat in (*CATEGORIES, 'TOTAL'):
-            depots = tuple(DEPOTS.values()) if depot == 'ALL' else (depot,)
-            cats = CATEGORIES if cat == 'TOTAL' else (cat,)
-            billed = float(sum(actual.get((d, c), 0) for d in depots for c in cats))
-            goal = float(sum(target.get((d, c), 0) for d in depots for c in cats))
-            value = float(sum(pending_totals.get((d, c), 0) for d in depots for c in cats))
-            estimated = billed + value
-            summary[depot][cat] = dict(actual=billed, pending=value, estimated=estimated, target=goal,
-                                      pct=(estimated / goal * 100 if goal else 0), gap=estimated - goal)
-    details = []
-    for row in pending.itertuples(index=False):
-        do = normalize_so(row.do)
-        details.append(dict(depot=row.depot, category=row.category, normalized_so=row.normalized_so,
-                            so=clean(row.so), do=do or '-', dealer=clean(row.dealer), article=clean(row.article_code),
-                            description=clean(row.article), qty=clean(row.qty), sales=float(row.sales),
-                            discount=float(row.discount), nett=float(row.nett),
-                            note='' if do else 'No DO belum tersedia'))
-    return summary, details, len(so), len(pending)
+        depots = DEPOTS if depot == 'ALL' else (depot,)
+        for category in (*CATEGORIES, 'TOTAL'):
+            cats = CATEGORIES if category == 'TOTAL' else (category,)
+            a = sum((actual[(d,c)] for d in depots for c in cats), Decimal(0))
+            p = sum((pending_amount[(d,c)] for d in depots for c in cats), Decimal(0))
+            t = sum((target_amount[(d,c)] for d in depots for c in cats), Decimal(0))
+            e = a+p
+            summary[depot][category] = dict(actual=float(a), pending=float(p), estimated=float(e),
+                                             target=float(t), pct=float(e/t*100) if t else 0,
+                                             gap=float(e-t))
+    dashboard_total = sum(actual.values(), Decimal(0))
+    baseline_total = sum(baseline_actual.values(), Decimal(0))
+    difference = dashboard_total - baseline_total
+    reconciliation = []
+    for depot in DEPOTS:
+        for cat in CATEGORIES:
+            delta = actual[(depot, cat)] - baseline_actual[(depot, cat)]
+            if delta:
+                reconciliation.append(dict(depot=depot, category=cat, difference=float(delta)))
+    target_reference_differences = []
+    if baseline['month'] == '2026-09':
+        for depot, cats in SEPTEMBER_2026_TARGET_REFERENCE.items():
+            for cat, expected in cats.items():
+                observed = summary[depot][cat]['target']
+                if observed != expected:
+                    target_reference_differences.append(dict(depot=depot, category=cat,
+                                                             expected=expected, actual=observed,
+                                                             difference=observed-expected))
+        if target_reference_differences:
+            flag('Target vs acuan September berbeda', str(len(target_reference_differences)))
+    if baseline['max_date'] != dashboard_date:
+        flag('Billing Baseline tidak sinkron', f"Dashboard {dashboard_date}; Baseline {baseline['max_date']}")
+    if difference:
+        flag('Dashboard vs Baseline Actual difference', str(difference))
+    audit = dict(source='Dashboard (Billing.nett_amount No Tax)',
+                 dashboard_date=dashboard_date.isoformat() if dashboard_date else '-',
+                 baseline_date=baseline['max_date'].isoformat() if baseline['max_date'] else '-',
+                 dashboard_actual=float(dashboard_total), baseline_actual=float(baseline_total),
+                 difference=float(difference), unmapped=float(unmapped_amount),
+                 excluded=float(excluded_amount), warnings=dict(warnings), examples=dict(examples),
+                 reconciliation=reconciliation,
+                 target_reference_differences=target_reference_differences)
+    return dict(summary=summary, detail=detail, audit=audit)
