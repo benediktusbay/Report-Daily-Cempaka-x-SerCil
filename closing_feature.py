@@ -22,6 +22,21 @@ SEPTEMBER_2026_TARGET_REFERENCE = {
     'Serang': {'TOTAL': 819_264_432},
     'Cilegon': {'TOTAL': 1_865_735_568},
 }
+AUDIT_EXPLANATIONS = {
+    'Depo dari Billing': ('Depo dari Billing', 'Dealer belum ada di Target Master. Depo diambil dari Cust Code pada Billing Baseline.', 'dealer'),
+    'Depo master vs Billing berbeda': ('Depo master berbeda dari Billing', 'Closing memakai depo pada Target Master. Perbedaan dengan Cust Code Billing perlu diperiksa.', 'dealer'),
+    'Depo fallback': ('Depo dari slot SO/DO', 'Dealer tidak ditemukan di Target Master maupun Billing Baseline. Depo mengikuti slot upload.', 'dealer'),
+    'Unassigned': ('Depo belum diketahui', 'Dealer belum dapat dipetakan ke depo; nilainya tetap terlihat di ALL.', 'dealer'),
+    'Cross-site': ('Transaksi lintas depo', 'Lokasi transaksi berbeda dari home depo dealer. Closing tetap mengikuti home depo.', 'dealer'),
+    'Kategori dari deskripsi': ('Kategori dari deskripsi produk', 'Article Code tidak ditemukan pada Billing Baseline; kategori dikenali dari nama produk.', 'baris'),
+    'Unmapped article': ('Produk belum dikenali', 'Produk ini belum masuk nilai Closing sampai kategorinya jelas.', 'baris'),
+    'Duplicate row identik': ('Baris duplikat', 'Baris SO/DO yang sama muncul lebih dari sekali dan hanya dihitung sekali.', 'baris'),
+    'Target vs acuan September berbeda': ('Target berbeda dari angka acuan', 'Target Master tetap dipakai untuk perhitungan. Tabel di bawah menunjukkan selisih terhadap acuan September.', 'pemeriksaan'),
+    'Billing Baseline tidak sinkron': ('Tanggal Billing berbeda', 'Tanggal data Dashboard dan Billing Baseline tidak sama. Periksa apakah file yang diunggah sudah terbaru.', 'pemeriksaan'),
+    'Dashboard vs Baseline Actual difference': ('Actual berbeda', 'Actual Dashboard berbeda dari total No Tax pada Billing Baseline untuk tiga salesman Closing.', 'pemeriksaan'),
+    'Target Master periode belum tersedia': ('Target belum tersedia', 'Target Master belum berisi nilai untuk periode yang dipilih.', 'pemeriksaan'),
+    'Actual Dashboard periode belum tersedia': ('Actual belum tersedia', 'Dashboard belum memiliki Billing untuk periode yang dipilih.', 'pemeriksaan'),
+}
 
 BILLING_COLUMNS = {
     'so': ('SO Number',), 'article_code': ('Article Code',),
@@ -182,6 +197,7 @@ def parse_billing(stream, month, classify, canonical_salesman, canonical_depo):
     billed_so = set()
     articles = {}
     cust_depot = {}
+    dealer_names = {}
     bp_site = {}
     actual_rows = []
     rows = 0
@@ -201,6 +217,8 @@ def parse_billing(stream, month, classify, canonical_salesman, canonical_depo):
         if article and (brand or group):
             articles[article] = (brand, group)
         bp = normalize_id(row['bp'])
+        if bp and clean(row['dealer']):
+            dealer_names[bp] = clean(row['dealer'])
         cust = depot_from_code(row['cust'], canonical_depo)
         site = clean(row['site']).upper()
         if bp and cust in DEPOTS[:3]:
@@ -222,6 +240,7 @@ def parse_billing(stream, month, classify, canonical_salesman, canonical_depo):
                                 category=cat, value=money(row['amount'], f'Billing baris {line}'),
                                 site=site, cust=cust, so=so, flag=flag))
     return dict(month=month, billed_so=billed_so, articles=articles, cust_depot=cust_depot,
+                dealer_names=dealer_names,
                 bp_site=bp_site, actual_rows=actual_rows, max_date=max_date,
                 rows=rows, so_count=len(billed_so))
 
@@ -275,40 +294,45 @@ def calculate(baseline, slots, targets, billing_rows, classify, canonical_salesm
     warnings = Counter()
     examples = defaultdict(list)
     warning_seen = defaultdict(set)
-    def flag(name, detail='', unique=False):
+    def dealer_name(bp, supplied=''):
+        target = master.get(bp)
+        return (clean(getattr(target, 'dealer', '')) if target else '') or baseline['dealer_names'].get(bp) or clean(supplied) or 'Dealer belum diketahui'
+    def flag(name, detail='', unique=False, display=None):
         if unique and detail in warning_seen[name]:
             return
         if unique:
             warning_seen[name].add(detail)
         warnings[name] += 1
-        if detail and len(examples[name]) < 8:
-            examples[name].append(detail)
+        if display and len(examples[name]) < 8:
+            examples[name].append(display)
     if not any(value for value in target_amount.values()):
         flag('Target Master periode belum tersedia')
     if not billing_rows:
         flag('Actual Dashboard periode belum tersedia')
-    def home(bp, site='', slot_depot=''):
+    def home(bp, site='', slot_depot='', supplied_dealer=''):
+        dealer = dealer_name(bp, supplied_dealer)
         t = master.get(bp)
         if t:
             depot = target_depot(t, canonical_depo)
             depot = depot if depot in DEPOTS else 'Unassigned'
             cust = baseline['cust_depot'].get(bp)
             if cust and cust != depot:
-                flag('Depo master vs Billing berbeda', bp, True)
+                flag('Depo master vs Billing berbeda', bp, True,
+                     f'{dealer}: master {depot}, Billing {cust}')
             source = 'Master'
         else:
             depot = baseline['cust_depot'].get(bp, '')
             if depot:
                 source = 'Depo dari Billing'
-                flag(source, bp, True)
+                flag(source, bp, True, dealer)
             elif slot_depot:
                 depot = slot_depot
                 source = 'Depo fallback'
-                flag(source, bp, True)
+                flag(source, bp, True, dealer)
             else:
                 depot = 'Unassigned'
                 source = 'Unassigned'
-                flag(source, bp, True)
+                flag(source, bp, True, dealer)
         cross = bool(site and site in DEPOT_CODES and depot in DEPOTS[:3] and DEPOT_CODES[site] != depot)
         return depot, source, cross
     actual = defaultdict(Decimal)
@@ -328,10 +352,11 @@ def calculate(baseline, slots, targets, billing_rows, classify, canonical_salesm
         depot, _, _ = home(bp)
         actual[(depot, cat)] += money(row.nett_amount or 0, 'Actual Dashboard', True)
     for row in baseline['actual_rows']:
-        depot, source, cross = home(row['bp'], row['site'])
+        depot, source, cross = home(row['bp'], row['site'], supplied_dealer=row['dealer'])
         baseline_actual[(depot, row['category'])] += row['value']
         if cross:
-            flag('Cross-site', f"{row['bp']}: {row['site']}", True)
+            flag('Cross-site', f"{row['bp']}: {row['site']}", True,
+                 f"{dealer_name(row['bp'], row['dealer'])}: transaksi {row['site']}, home {depot}")
     processed = []
     seen = set()
     for slot in SLOTS:
@@ -340,7 +365,7 @@ def calculate(baseline, slots, targets, billing_rows, classify, canonical_salesm
         for row in slots[slot]['rows']:
             identity = (row['so'], row['item'], row['article'], row['qty_key'], row['sales'], row['discount'])
             if identity in seen:
-                flag('Duplicate row identik', row['so'])
+                flag('Duplicate row identik', row['so'], display=dealer_name(row['bp'], row['dealer']))
                 continue
             seen.add(identity)
             article = baseline['articles'].get(row['article'])
@@ -351,27 +376,29 @@ def calculate(baseline, slots, targets, billing_rows, classify, canonical_salesm
                 product, cat, category_flag = apple_metadata(row['description'], '', '', classify)
             if product == 'Non-Apple':
                 continue
-            depot, source, cross = home(row['bp'], row['source_slot'], row['source_depot'])
+            depot, source, cross = home(row['bp'], row['source_slot'], row['source_depot'], row['dealer'])
             flags = []
             if source != 'Master':
                 flags.append(source)
             if cross:
                 flags.append(f"Cross-site: {row['source_slot']}")
-                flag('Cross-site', f"{row['bp']}: {row['source_slot']}", True)
+                flag('Cross-site', f"{row['bp']}: {row['source_slot']}", True,
+                     f"{dealer_name(row['bp'], row['dealer'])}: transaksi {row['source_slot']}, home {depot}")
             if category_flag:
                 flags.append(category_flag)
-                flag(category_flag, row['article'])
+                flag(category_flag, row['article'], display=f"{dealer_name(row['bp'], row['dealer'])}: {row['description']}")
             item = dict(row)
             item.update(depot=depot, category=cat, product=product,
                         flags=flags, billed=row['so'] in baseline['billed_so'],
                         status='DO tersedia' if row['do'] else 'No DO belum tersedia')
             if product == 'Unmapped' or not cat:
-                flag('Unmapped article', row['article'])
+                flag('Unmapped article', row['article'], display=f"{dealer_name(row['bp'], row['dealer'])}: {row['description']}")
             processed.append(item)
     pending_amount = defaultdict(Decimal)
     detail = {'pending': [], 'billed': [], 'no_do': [], 'unmapped': []}
     unmapped_amount = Decimal(0)
     excluded_amount = Decimal(0)
+    no_do_amount = Decimal(0)
     for row in processed:
         out = dict(depot=row['depot'], source_slot=row['source_slot'], salesman=row['salesman'],
                    dealer=row['dealer'], bp=row['bp'], so=row['so_display'], normalized_so=row['so'],
@@ -381,14 +408,15 @@ def calculate(baseline, slots, targets, billing_rows, classify, canonical_salesm
         if row['billed']:
             detail['billed'].append(out)
             excluded_amount += row['nett']
+        elif not row['do']:
+            detail['no_do'].append(out)
+            no_do_amount += row['nett']
         elif row['product'] == 'Unmapped' or not row['category']:
             detail['unmapped'].append(out)
             unmapped_amount += row['nett']
         else:
             detail['pending'].append(out)
             pending_amount[(row['depot'], row['category'])] += row['nett']
-            if not row['do']:
-                detail['no_do'].append(out)
     summary = {}
     for depot in ('ALL', *DEPOTS):
         summary[depot] = {}
@@ -426,12 +454,19 @@ def calculate(baseline, slots, targets, billing_rows, classify, canonical_salesm
         flag('Billing Baseline tidak sinkron', f"Dashboard {dashboard_date}; Baseline {baseline['max_date']}")
     if difference:
         flag('Dashboard vs Baseline Actual difference', str(difference))
-    audit = dict(source='Dashboard (Billing.nett_amount No Tax)',
+    warning_items = []
+    for name, count in warnings.items():
+        title, explanation, unit = AUDIT_EXPLANATIONS.get(name, (name, '', 'kejadian'))
+        warning_items.append(dict(title=title, explanation=explanation,
+                                  count=count, unit=unit, dealers=examples.get(name, [])))
+    audit = dict(source='Dashboard — nilai tanpa pajak',
                  dashboard_date=dashboard_date.isoformat() if dashboard_date else '-',
                  baseline_date=baseline['max_date'].isoformat() if baseline['max_date'] else '-',
                  dashboard_actual=float(dashboard_total), baseline_actual=float(baseline_total),
                  difference=float(difference), unmapped=float(unmapped_amount),
+                 no_do=float(no_do_amount), no_do_so=len({r['normalized_so'] for r in detail['no_do']}),
                  excluded=float(excluded_amount), warnings=dict(warnings), examples=dict(examples),
+                 warning_items=warning_items,
                  reconciliation=reconciliation,
                  target_reference_differences=target_reference_differences)
     return dict(summary=summary, detail=detail, audit=audit)
