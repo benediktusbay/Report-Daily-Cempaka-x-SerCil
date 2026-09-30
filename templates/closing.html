@@ -1,103 +1,82 @@
-raise ValueError('Periode Closing tidak valid.')
-    if not so_streams:
-        raise ValueError('Upload minimal satu file SO/DO.')
-    normalize_owner = canonical_salesman or clean
-    owners = {key(normalize_owner(v)) for v in locked_salesmen}
-
-    def depot_of(value):
-        text = clean(value)
-        return SITE_CODES.get(text.upper(), canonical_depo(text))
-
-    allowed = {depot_of(v) for v in allowed_depos} & set(DEPOTS.values())
-
-    def scope(frame, slot_depot=None):
-        if frame.empty:
-            frame['depot'] = pd.Series(dtype=str)
-            return frame
-        # SO/DO: upload slot is authoritative, regardless of Plant/Site/Depot.
-        # Billing keeps its existing source-site mapping.
-        frame['depot'] = slot_depot if slot_depot is not None else frame['site'].map(depot_of)
-        frame = frame.loc[frame['depot'].isin(allowed)].copy()
-        frame = frame.loc[frame['salesman'].map(lambda v: key(normalize_owner(v))).isin(owners)].copy()
-        return frame.loc[apple_mask(frame)].copy()
-
-    billing = pd.DataFrame(list(rows_from_excel(
-        billing_stream, BILLING_COLUMNS, ('so', 'amount', 'group', 'site', 'date', 'salesman'),
-        'Billing Detail')), columns=[*BILLING_COLUMNS, '_has_brand', '_has_site'])
-    billing = scope(billing)
-    billing['category'] = billing['group'].map(classify)
-    billing = billing.loc[billing['category'].isin(CATEGORIES)].copy()
-    billing['normalized_so'] = billing['so'].map(normalize_so)
-    # Match all scoped Billing SOs in this upload, irrespective of billing date.
-    billing_so = set(billing.loc[billing['normalized_so'].ne(''), 'normalized_so'])
-    article_groups = {code(a): g for a, g in zip(billing['article_code'], billing['group']) if code(a)}
-    dates = dates_from_values(billing['date'])
-    actual_rows = billing.loc[dates.dt.strftime('%Y-%m').eq(month)].copy()
-    actual_rows['amount'] = [number(v, 'Billing Total Nett Amount No Tax', i + 2)
-                             for i, v in enumerate(actual_rows['amount'])]
-    actual = actual_rows.groupby(['depot', 'category'])['amount'].sum().to_dict()
-
-    frames = []
-    for slot, stream in so_streams.items():
-        if slot not in DEPOTS:
-            raise ValueError(f'Slot SO/DO tidak dikenal: {slot}.')
-        depot = DEPOTS[slot]
-        frame = pd.DataFrame(list(rows_from_excel(
-            stream, SO_COLUMNS, ('so', 'sales', 'discount', 'article', 'salesman'), f'SO/DO {depot}')),
-            columns=[*SO_COLUMNS, '_has_brand', '_has_site'])
-        frame = scope(frame, depot)
-        if frame.empty:
-            continue
-        # Retain existing monthly order-date behavior when dates are supplied.
-        if frame['date'].map(clean).ne('').any():
-            dates = dates_from_values(frame['date'])
-            frame = frame.loc[dates.dt.strftime('%Y-%m').eq(month)].copy()
-        if frame.empty:
-            continue
-        frame['group'] = [clean(g) or article_groups.get(code(a), '') or so_group_from_description(d)
-                          for g, a, d in zip(frame['group'], frame['article_code'], frame['article'])]
-        frame['category'] = frame['group'].map(classify)
-        unknown = ~frame['category'].isin(CATEGORIES)
-        if unknown.any():
-            examples = ', '.join(frame.loc[unknown, 'article'].map(clean).iloc[:3])
-            raise ValueError(f'SO/DO {depot}: kategori Apple tidak dapat ditentukan ({examples}). Tambahkan Item Group Desc.')
-        frame['normalized_so'] = frame['so'].map(normalize_so)
-        frame = frame.loc[frame['normalized_so'].ne('')].copy()
-        frame['is_billed'] = frame['normalized_so'].isin(billing_so)
-        frames.append(frame)
-    so = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(
-        columns=[*SO_COLUMNS, 'depot', 'category', 'normalized_so', 'is_billed'])
-    pending = so.loc[so['is_billed'].eq(False)].copy()
-    pending['sales'] = [number(v, 'SO/DO TTL Sales Price', i + 2) for i, v in enumerate(pending['sales'])]
-    pending['discount'] = [number(v, 'SO/DO TTL Discount', i + 2, True) for i, v in enumerate(pending['discount'])]
-    pending['nett'] = pending['sales'] + pending['discount']
-    pending_totals = pending.groupby(['depot', 'category'])['nett'].sum().to_dict()
-
-    target = {}
-    for row in targets:
-        depot = depot_of(row.depo)
-        if depot not in allowed or key(normalize_owner(row.salesman)) not in owners:
-            continue
-        for cat, field in (('Device', 'device_target'), ('Macbook', 'macbook_target'), ('ACC', 'acc_target')):
-            target[(depot, cat)] = target.get((depot, cat), 0.0) + float(getattr(row, field) or 0)
-    summary = {}
-    for depot in ('ALL', *DEPOTS.values()):
-        summary[depot] = {}
-        for cat in (*CATEGORIES, 'TOTAL'):
-            depots = tuple(DEPOTS.values()) if depot == 'ALL' else (depot,)
-            cats = CATEGORIES if cat == 'TOTAL' else (cat,)
-            billed = float(sum(actual.get((d, c), 0) for d in depots for c in cats))
-            goal = float(sum(target.get((d, c), 0) for d in depots for c in cats))
-            value = float(sum(pending_totals.get((d, c), 0) for d in depots for c in cats))
-            estimated = billed + value
-            summary[depot][cat] = dict(actual=billed, pending=value, estimated=estimated, target=goal,
-                                      pct=(estimated / goal * 100 if goal else 0), gap=estimated - goal)
-    details = []
-    for row in pending.itertuples(index=False):
-        do = normalize_so(row.do)
-        details.append(dict(depot=row.depot, category=row.category, normalized_so=row.normalized_so,
-                            so=clean(row.so), do=do or '-', dealer=clean(row.dealer), article=clean(row.article_code),
-                            description=clean(row.article), qty=clean(row.qty), sales=float(row.sales),
-                            discount=float(row.discount), nett=float(row.nett),
-                            note='' if do else 'No DO belum tersedia'))
-    return summary, details, len(so), len(pending)
+{% extends "base.html" %}
+{% block title %}Closing Achievement | Daily Sales Report{% endblock %}
+{% block head %}
+<style>
+.closing-hero{margin-bottom:20px}.closing-hero h1{margin:0 0 5px;font-size:28px}.closing-hero p{margin:0;color:#64748b}
+.closing-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 3px 14px rgba(15,23,42,.05);padding:18px;margin-bottom:18px}
+.closing-upload{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:end}.closing-field label{display:block;font-size:12px;font-weight:800;color:#52647e;margin-bottom:7px}.closing-field input{box-sizing:border-box;width:100%;border:1px solid #d1d5db;border-radius:9px;padding:9px;background:#fff;font:inherit;font-size:13px}.closing-action{display:flex;align-items:end;gap:12px;margin-top:14px}.closing-action button{border:0;border-radius:9px;background:#0b2545;color:#fff;padding:11px 16px;font-weight:800;cursor:pointer}.closing-action span{font-size:12px;color:#64748b}.closing-error{padding:12px 14px;background:#fff1f2;border:1px solid #fecdd3;color:#9f1239;border-radius:10px;margin-bottom:18px}
+.closing-filter{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px}.closing-filter button{border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#334155;padding:8px 13px;font-weight:800;cursor:pointer}.closing-filter button.active{background:#1769e8;border-color:#1769e8;color:#fff}
+.closing-table-wrap{overflow-x:auto}.closing-table{width:100%;min-width:850px;border-collapse:collapse}.closing-table th,.closing-table td{padding:13px 12px;border-bottom:1px solid #e5e7eb;text-align:right;white-space:nowrap;font-size:13px}.closing-table th:first-child,.closing-table td:first-child{text-align:left}.closing-table th{background:#f8fafc;color:#52647e;font-size:11px;text-transform:uppercase}.closing-table tr:last-child{font-weight:900;background:#f8fbff}.closing-estimated{font-size:15px;color:#1769e8;font-weight:900}.closing-pending{border:0;background:none;color:#1769e8;text-decoration:underline;text-underline-offset:3px;font:inherit;font-weight:800;cursor:pointer;padding:0}.closing-pending:hover{color:#0b2545}
+.closing-modal{position:fixed;inset:0;background:rgba(11,37,69,.56);display:none;place-items:center;z-index:100;padding:16px}.closing-modal.open{display:grid}.closing-dialog{background:#fff;border-radius:16px;width:min(1200px,100%);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 55px rgba(0,0,0,.25)}.closing-modal-head{padding:18px 20px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;gap:12px}.closing-modal-head h2{margin:0;font-size:20px}.closing-modal-head p{margin:4px 0 0;color:#64748b;font-size:13px}.closing-close{border:0;background:#f1f5f9;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:20px}.closing-stats{display:flex;flex-wrap:wrap;gap:18px;padding:14px 20px;border-bottom:1px solid #e5e7eb;font-size:13px}.closing-stats strong{color:#0b2545}.closing-modal-scroll{overflow:auto}.closing-detail{border-collapse:collapse;width:100%;min-width:1350px}.closing-detail th,.closing-detail td{padding:9px 10px;border-bottom:1px solid #e5e7eb;text-align:left;font-size:12px;white-space:nowrap}.closing-detail th{position:sticky;top:0;background:#f8fafc;color:#52647e}.closing-detail .num{text-align:right}.closing-empty{padding:24px;color:#64748b}
+@media(max-width:900px){.closing-upload{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.closing-upload{grid-template-columns:1fr}.closing-action{align-items:stretch;flex-direction:column}.closing-hero h1{font-size:24px}.closing-card{padding:14px}}
+</style>
+{% endblock %}
+{% block body %}
+<div class="closing-hero"><h1>Closing Achievement</h1><p>Estimasi akhir bulan dari Billing Detail dan SO/DO yang belum billing.</p></div>
+<form class="closing-card" method="post" enctype="multipart/form-data">
+  <div class="closing-upload">
+    <div class="closing-field"><label for="month">Periode Closing</label><input id="month" name="month" type="month" value="{{ month }}" required></div>
+    <div class="closing-field"><label for="billing">Billing Detail *</label><input id="billing" name="billing" type="file" accept=".xlsx" required></div>
+    <div class="closing-field"><label for="so_bc22">SO/DO BC22 — Cempaka</label><input id="so_bc22" name="so_bc22" type="file" accept=".xlsx"></div>
+    <div class="closing-field"><label for="so_bc13">SO/DO BC13 — Serang</label><input id="so_bc13" name="so_bc13" type="file" accept=".xlsx"></div>
+    <div class="closing-field"><label for="so_bc66">SO/DO BC66 — Cilegon</label><input id="so_bc66" name="so_bc66" type="file" accept=".xlsx"></div>
+  </div>
+  <div class="closing-action"><button type="submit">Hitung Closing</button><span>Billing Detail dan minimal satu SO/DO wajib diisi. File hanya diproses selama request. Jika ada kolom Depot/Site/Plant, nilainya harus sesuai slot BC22/BC13/BC66; depot lain dikecualikan.</span></div>
+</form>
+{% if error %}<div class="closing-error" role="alert">{{ error }}</div>{% endif %}
+{% if summary %}
+<div class="closing-filter" aria-label="Filter depot">
+  {% for depot in ['ALL','Cempaka','Serang','Cilegon'] %}<button type="button" data-depot="{{ depot }}" class="{% if loop.first %}active{% endif %}">{{ depot }}</button>{% endfor %}
+</div>
+<div class="closing-card closing-table-wrap"><table class="closing-table">
+<thead><tr><th>Category</th><th>Actual Billing</th><th>Pending</th><th>Estimated</th><th>Target</th><th>Est. Achievement %</th><th>GAP</th></tr></thead>
+<tbody>{% for cat, label in [('Device','Device'),('Macbook','MacBook'),('ACC','Accessories'),('TOTAL','TOTAL')] %}<tr data-category="{{ cat }}"><td>{{ label }}</td><td data-field="actual"></td><td><button type="button" class="closing-pending" data-pending="{{ cat }}" aria-label="Lihat Pending {{ label }}"></button></td><td class="closing-estimated" data-field="estimated"></td><td data-field="target"></td><td data-field="pct"></td><td data-field="gap"></td></tr>{% endfor %}</tbody>
+</table></div>
+<div id="closingModal" class="closing-modal" role="dialog" aria-modal="true" aria-labelledby="closingModalTitle">
+ <div class="closing-dialog"><div class="closing-modal-head"><div><h2 id="closingModalTitle">Pending SO Detail</h2><p id="closingModalScope"></p></div><button type="button" class="closing-close" id="closingClose" aria-label="Tutup">×</button></div>
+ <div class="closing-stats"><span>Total Pending Value: <strong id="pendingTotal"></strong></span><span>Jumlah SO Pending: <strong id="pendingSO"></strong></span><span>SO dengan DO belum tersedia: <strong id="pendingNoDO"></strong></span></div>
+ <div class="closing-modal-scroll"><table class="closing-detail"><thead><tr><th>SO Number</th><th>DO Number</th><th>Dealer</th><th>Article / Material</th><th>Description</th><th>Category</th><th>Qty</th><th>TTL Sales Price</th><th>TTL Discount</th><th>Nett No Tax</th><th>Note</th></tr></thead><tbody id="pendingRows"></tbody></table></div>
+ </div>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+{% if summary %}<script>
+const summary={{ summary|tojson }}, details={{ details|tojson }};
+let activeDepot='ALL';
+const labels={Device:'Device',Macbook:'MacBook',ACC:'Accessories',TOTAL:'TOTAL'};
+const rp=n=>(Number(n)<0?'-':'')+'Rp '+Math.abs(Number(n)||0).toLocaleString('id-ID',{maximumFractionDigits:0});
+const signed=n=>(Number(n)<0?'-':'+')+rp(Math.abs(Number(n)||0));
+function renderSummary(){
+ document.querySelectorAll('[data-category]').forEach(tr=>{
+  const row=summary[activeDepot][tr.dataset.category];
+  for(const field of ['actual','estimated','target']) tr.querySelector(`[data-field="${field}"]`).textContent=rp(row[field]);
+  tr.querySelector('[data-pending]').textContent=signed(row.pending);
+  tr.querySelector('[data-field="pct"]').textContent=row.pct.toLocaleString('id-ID',{maximumFractionDigits:1})+'%';
+  tr.querySelector('[data-field="gap"]').textContent=signed(row.gap);
+ });
+}
+document.querySelectorAll('[data-depot]').forEach(button=>button.addEventListener('click',()=>{
+ activeDepot=button.dataset.depot;document.querySelectorAll('[data-depot]').forEach(b=>b.classList.toggle('active',b===button));renderSummary();
+}));
+const modal=document.getElementById('closingModal');
+function closeModal(){modal.classList.remove('open');document.body.style.overflow=''}
+document.getElementById('closingClose').addEventListener('click',closeModal);
+modal.addEventListener('click',event=>{if(event.target===modal)closeModal()});
+document.addEventListener('keydown',event=>{if(event.key==='Escape')closeModal()});
+function cell(tr,value,cls=''){const td=document.createElement('td');td.textContent=value??'';td.className=cls;tr.appendChild(td)}
+document.querySelectorAll('[data-pending]').forEach(button=>button.addEventListener('click',()=>{
+ const category=button.dataset.pending;
+ const selected=details.filter(r=>(activeDepot==='ALL'||r.depot===activeDepot)&&(category==='TOTAL'||r.category===category));
+ document.getElementById('closingModalScope').textContent=`${labels[category]} • ${activeDepot}`;
+ document.getElementById('pendingTotal').textContent=rp(selected.reduce((sum,r)=>sum+r.nett,0));
+ document.getElementById('pendingSO').textContent=new Set(selected.map(r=>r.normalized_so)).size.toLocaleString('id-ID');
+ document.getElementById('pendingNoDO').textContent=new Set(selected.filter(r=>r.do==='-').map(r=>r.normalized_so)).size.toLocaleString('id-ID');
+ const body=document.getElementById('pendingRows');body.replaceChildren();
+ for(const row of selected){const tr=document.createElement('tr');for(const value of [row.so,row.do,row.dealer,row.article,row.description,labels[row.category],row.qty,rp(row.sales),signed(row.discount),rp(row.nett),row.note])cell(tr,value);body.appendChild(tr)}
+ if(!selected.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=11;td.className='closing-empty';td.textContent='Tidak ada SO pending untuk pilihan ini.';tr.appendChild(td);body.appendChild(tr)}
+ modal.classList.add('open');document.body.style.overflow='hidden';document.getElementById('closingClose').focus();
+}));
+renderSummary();
+</script>{% endif %}
+{% endblock %}
