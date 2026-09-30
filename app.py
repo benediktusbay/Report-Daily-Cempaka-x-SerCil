@@ -2305,7 +2305,10 @@ def closing():
                 summary, details, _, _ = prepare_closing(
                     io.BytesIO(billing_file.read()),
                     {slot: io.BytesIO(f.read()) for slot, f in so_files.items()},
-                    month, targets, classify, canonical_depo)
+                    month, targets, classify, canonical_depo,
+                    locked_salesmen=LOCKED_SALESMEN,
+                    allowed_depos=VIEWER_ALLOWED_DEPOS,
+                    canonical_salesman=canonical_salesman)
             except (ValueError, OSError, KeyError, TypeError, BadZipFile) as exc:
                 error = str(exc)
     return render_template('closing.html', month=month, summary=summary, details=details, error=error)
