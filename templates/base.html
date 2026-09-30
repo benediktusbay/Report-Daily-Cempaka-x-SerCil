@@ -337,6 +337,10 @@
         PJP
       </a>
 
+      <a class="{% if request.endpoint == 'closing' %}active{% endif %}" href="{{ url_for('closing') }}">
+        Closing
+      </a>
+
       {% if session.get('role') == 'admin' %}
 
         <a class="{% if request.endpoint == 'targets' %}active{% endif %}" href="{{ url_for('targets') }}">
