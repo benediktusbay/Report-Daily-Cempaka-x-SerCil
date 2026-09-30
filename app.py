@@ -6,6 +6,7 @@ import hashlib
 import io
 import json
 import secrets
+from zipfile import BadZipFile
 from decimal import Decimal, InvalidOperation
 from threading import Lock
 import urllib.error
@@ -23,6 +24,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
+from closing_feature import DEPOTS as CLOSING_DEPOTS, prepare_closing
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 app = Flask(__name__)
@@ -2279,6 +2281,34 @@ def pjp():
                            salesmen=LOCKED_SALESMEN, start=pjp_week_dates(month, week)[0], end=pjp_week_dates(month, week)[1],
                            planned=planned, completed=completed, compliance=(completed / planned * 100 if planned else 0), effective=effective,
                            recommendations=recommendations, carry_over=carry_over)
+
+
+@app.route('/closing', methods=['GET', 'POST'])
+def closing():
+    month = request.form.get('month', datetime.now().strftime('%Y-%m'))
+    if not re.fullmatch(r'\d{4}-(0[1-9]|1[0-2])', month):
+        month = datetime.now().strftime('%Y-%m')
+    summary = details = error = None
+    if request.method == 'POST':
+        billing_file = request.files.get('billing')
+        so_files = {slot: request.files[slot] for slot in CLOSING_DEPOTS
+                    if slot in request.files and request.files[slot].filename}
+        if not billing_file or not billing_file.filename:
+            error = 'Billing Detail wajib diupload.'
+        elif not so_files:
+            error = 'Upload minimal satu file SO/DO.'
+        elif any(not f.filename.lower().endswith('.xlsx') for f in [billing_file, *so_files.values()]):
+            error = 'Gunakan file Excel .xlsx.'
+        else:
+            try:
+                targets = MonthlyTarget.query.filter_by(month=month).all()
+                summary, details, _, _ = prepare_closing(
+                    io.BytesIO(billing_file.read()),
+                    {slot: io.BytesIO(f.read()) for slot, f in so_files.items()},
+                    month, targets, classify, canonical_depo)
+            except (ValueError, OSError, KeyError, TypeError, BadZipFile) as exc:
+                error = str(exc)
+    return render_template('closing.html', month=month, summary=summary, details=details, error=error)
 
 
 @app.route('/')
