@@ -865,6 +865,20 @@ def sku_from_article(article, item_group):
 
     # DEVICE: Mobile Phones + Tablet.
     if group in DEVICE_GROUPS:
+        # iPhone descriptions put the model before storage and the colour after it.
+        # Stop at storage so new colour names cannot become part of the SKU.
+        if group == 'mobile phones':
+            normalized = re.sub(r'\s+', ' ', re.sub(r'[/,_]+', ' ', s)).strip()
+            iphone = re.match(
+                r'^(IPHONE\s+.+?)\s+(\d+(?:\.\d+)?\s*(?:GB|TB))\b',
+                normalized,
+                flags=re.I,
+            )
+            if iphone:
+                model = iphone.group(1).upper()
+                storage = _normalize_storage_token(iphone.group(2))
+                return f'{model} {storage}'
+
         colour_codes = TABLET_COLOR_CODES if group == 'tablet' else set()
         base = _strip_colour_tokens(s, colour_codes)
         return base.upper() if base else None
