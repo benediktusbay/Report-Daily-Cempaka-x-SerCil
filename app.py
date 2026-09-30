@@ -24,7 +24,8 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from closing_feature import DEPOTS as CLOSING_DEPOTS, prepare_closing
+from closing_feature import SLOTS as CLOSING_SLOTS, parse_billing, parse_so, calculate
+import time
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 app = Flask(__name__)
@@ -2283,35 +2284,78 @@ def pjp():
                            recommendations=recommendations, carry_over=carry_over)
 
 
+_closing_cache = {}
+_closing_cache_lock = Lock()
+_CLOSING_CACHE_SECONDS = 2 * 60 * 60
+
+
+def _closing_state(key, month):
+    """Small bounded, worker-local cache; the cookie contains only an opaque key."""
+    now = time.monotonic()
+    with _closing_cache_lock:
+        for stale in [k for k, v in _closing_cache.items()
+                      if now - v['touched'] > _CLOSING_CACHE_SECONDS]:
+            _closing_cache.pop(stale, None)
+        state = _closing_cache.get(key)
+        if state is None or state['month'] != month:
+            state = dict(month=month, baseline=None, slots={}, result=None, touched=now)
+            _closing_cache[key] = state
+        state['touched'] = now
+        if len(_closing_cache) > 16:
+            candidates = (k for k in _closing_cache if k != key)
+            oldest = min(candidates, key=lambda k: _closing_cache[k]['touched'])
+            _closing_cache.pop(oldest, None)
+        return state
+
+
 @app.route('/closing', methods=['GET', 'POST'])
 def closing():
-    month = request.form.get('month', datetime.now().strftime('%Y-%m'))
+    key = session.setdefault('closing_cache_key', secrets.token_urlsafe(24))
+    month = request.form.get('month') or request.args.get('month') or datetime.now().strftime('%Y-%m')
     if not re.fullmatch(r'\d{4}-(0[1-9]|1[0-2])', month):
         month = datetime.now().strftime('%Y-%m')
-    summary = details = error = None
+    state = _closing_state(key, month)
+    error = None
     if request.method == 'POST':
-        billing_file = request.files.get('billing')
-        so_files = {slot: request.files[slot] for slot in CLOSING_DEPOTS
-                    if slot in request.files and request.files[slot].filename}
-        if not billing_file or not billing_file.filename:
-            error = 'Billing Detail wajib diupload.'
-        elif not so_files:
-            error = 'Upload minimal satu file SO/DO.'
-        elif any(not f.filename.lower().endswith('.xlsx') for f in [billing_file, *so_files.values()]):
+        incoming = {name: f for name, f in request.files.items() if f and f.filename}
+        if not incoming:
+            error = 'Pilih Billing Baseline atau file SO/DO untuk diupload.'
+        elif any(not f.filename.lower().endswith('.xlsx') for f in incoming.values()):
             error = 'Gunakan file Excel .xlsx.'
         else:
             try:
-                targets = MonthlyTarget.query.filter_by(month=month).all()
-                summary, details, _, _ = prepare_closing(
-                    io.BytesIO(billing_file.read()),
-                    {slot: io.BytesIO(f.read()) for slot, f in so_files.items()},
-                    month, targets, classify, canonical_depo,
-                    locked_salesmen=LOCKED_SALESMEN,
-                    allowed_depos=VIEWER_ALLOWED_DEPOS,
-                    canonical_salesman=canonical_salesman)
+                baseline = state['baseline']
+                slots = dict(state['slots'])
+                if 'billing' in incoming:
+                    parsed = parse_billing(io.BytesIO(incoming['billing'].read()), month,
+                                           classify, canonical_salesman, canonical_depo)
+                    baseline = dict(parsed=parsed, filename=secure_filename(incoming['billing'].filename),
+                                    uploaded_at=datetime.now(STOCK_TIMEZONE).strftime('%d/%m/%Y %H:%M'))
+                for slot in CLOSING_SLOTS:
+                    if slot in incoming:
+                        parsed = parse_so(io.BytesIO(incoming[slot].read()), slot, month, canonical_salesman)
+                        slots[slot] = dict(parsed=parsed, filename=secure_filename(incoming[slot].filename),
+                                           uploaded_at=datetime.now(STOCK_TIMEZONE).strftime('%d/%m/%Y %H:%M'))
+                result = None
+                if baseline and slots:
+                    start, end = month_range(month)
+                    targets = MonthlyTarget.query.filter_by(month=month).all()
+                    billing_rows = Billing.query.filter(
+                        Billing.billing_date >= start, Billing.billing_date <= end,
+                        db.func.lower(db.func.trim(Billing.salesman)).in_(
+                            tuple(name.lower() for name in ('Zefanya Septania Simorangkir',
+                                                             'Rafhyski Alhasan', 'Ikmah Novtianingrum')))
+                    ).with_entities(Billing.billing_date, Billing.salesman, Billing.sold_to_code,
+                                    Billing.article, Billing.item_group, Billing.nett_amount).all()
+                    result = calculate(baseline['parsed'], {k: v['parsed'] for k, v in slots.items()},
+                                       targets, billing_rows, classify, canonical_salesman, canonical_depo)
+                with _closing_cache_lock:
+                    state.update(baseline=baseline, slots=slots, result=result, touched=time.monotonic())
             except (ValueError, OSError, KeyError, TypeError, BadZipFile) as exc:
                 error = str(exc)
-    return render_template('closing.html', month=month, summary=summary, details=details, error=error)
+    status = {'billing': state['baseline'], **state['slots']}
+    return render_template('closing.html', month=month, result=state['result'],
+                           status=status, slots=CLOSING_SLOTS, error=error)
 
 
 @app.route('/')
