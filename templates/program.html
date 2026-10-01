@@ -56,6 +56,43 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 .program-ppn-toggle button[aria-pressed="true"]{background:#1769e8;color:#fff}
 .program-ppn-toggle button:focus-visible{outline:2px solid #1769e8;outline-offset:2px}
 @media(max-width:720px){.program-hero{display:flex;flex-wrap:wrap}.program-ppn-toggle{max-width:100%}}
+
+/* Loyalty only: preserve the desktop table and use cards below 769px. */
+.loyalty-mobile{display:none}
+.loyalty-mobile [hidden]{display:none!important}
+@media(max-width:768px){
+  .loyalty-desktop{display:none}
+  .loyalty-mobile{display:block;min-width:0;max-width:100%}
+  .loyalty-mobile-selector{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;padding:4px;background:#edf3fa;border:1px solid #dce5ef;border-radius:11px;margin-bottom:12px}
+  .loyalty-mobile-selector button{min-height:44px;min-width:0;padding:8px 4px;border:0;border-radius:8px;background:transparent;color:#334155;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
+  .loyalty-mobile-selector button[aria-pressed="true"]{background:#1769e8;color:#fff;box-shadow:0 2px 5px rgba(23,105,232,.15)}
+  .loyalty-mobile-selector button:focus-visible{outline:2px solid #0b3765;outline-offset:2px}
+  .loyalty-mobile-list{display:grid;gap:10px}
+  .loyalty-mobile-card{min-width:0;padding:13px;border:1px solid #e2e8f0;border-radius:13px;background:#fff;box-shadow:0 3px 12px rgba(15,23,42,.04)}
+  .loyalty-mobile-header{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:10px;min-width:0}
+  .loyalty-mobile-name{min-width:0;flex:1}
+  .loyalty-mobile-name .program-detail-trigger{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;text-decoration:none;font-size:13px;line-height:1.4;min-height:32px;max-width:100%;color:#172033}
+  .loyalty-mobile-header .category{flex:0 0 auto;font-size:9px;padding:4px 7px;margin-top:3px}
+  .loyalty-mobile-period{font-size:11px;font-weight:900;text-transform:uppercase;color:#0f274a;margin-bottom:9px}
+  .loyalty-mobile-metrics{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px 8px;min-width:0}
+  .loyalty-mobile-label{display:block;font-size:10px;color:#64748b;line-height:1.4;margin-bottom:4px}
+  .loyalty-mobile-value{display:block;font-size:clamp(11px,3.1vw,14px);font-weight:800;color:#172033;line-height:1.4;white-space:normal;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+  .loyalty-mobile .ppg-month-cell .loyalty-mobile-value{color:#172033}
+  .loyalty-mobile-percent{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:1px}
+  .loyalty-mobile-percent .loyalty-mobile-label{margin:0}
+  .loyalty-mobile-percent strong{font-size:17px;white-space:nowrap}
+  .loyalty-mobile .ppg-month-cell{min-width:0}
+  .loyalty-mobile .ppg-progress{height:9px;margin-top:8px}
+  .loyalty-mobile-gaps{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-top:12px;padding-top:10px;border-top:1px solid #edf2f7}
+  .loyalty-mobile-gaps.quarter{grid-template-columns:1fr}
+  .loyalty-mobile .loyalty-gap{display:block;white-space:normal;overflow-wrap:anywhere;font-size:clamp(11px,3.1vw,14px);line-height:1.4;font-variant-numeric:tabular-nums}
+  .loyalty-mobile-inactive{padding:12px 0;color:#94a3b8;font-size:12px}
+  .loyalty-mobile .empty{padding:20px;font-size:13px}
+}
+@media(max-width:359px){
+  .loyalty-mobile-metrics,.loyalty-mobile-gaps{grid-template-columns:1fr}
+  .loyalty-mobile-value,.loyalty-mobile .loyalty-gap{font-size:13px;white-space:normal}
+}
 </style>
 {% endblock %}
 
@@ -91,6 +128,60 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
   <td class="loyalty-gap {% if p.quarterly_gap > 0 %}positive{% elif p.quarterly_gap < 0 %}negative{% else %}zero{% endif %}" data-program-gap data-target="{{ p.quarterly_target }}" data-with-ppn="{{ p.quarterly_achievement }}" data-with-ppn-display="{% if p.quarterly_gap > 0 %}+{% endif %}{{ p.quarterly_gap|rupiah }}">{% if p.quarterly_gap > 0 %}+{% endif %}{{ p.quarterly_gap|rupiah }}</td>
 </tr>{% else %}<tr><td colspan="8" class="empty">Belum ada data Program Loyalty untuk filter ini.</td></tr>{% endfor %}
 </tbody></table></div></div>
+{% endmacro %}
+
+
+{% macro loyalty_mobile_gap(value, achievement, target) %}
+<strong class="loyalty-gap {% if value is none %}zero{% elif value > 0 %}positive{% elif value < 0 %}negative{% else %}zero{% endif %}"{% if value is not none %} data-program-gap data-target="{{ target }}" data-with-ppn="{{ achievement }}" data-with-ppn-display="{% if value > 0 %}+{% endif %}{{ value|rupiah }}"{% endif %}>{% if value is none %}—{% else %}{% if value > 0 %}+{% endif %}{{ value|rupiah }}{% endif %}</strong>
+{% endmacro %}
+{% macro loyalty_mobile_header(p, category) %}
+<div class="loyalty-mobile-header"><div class="loyalty-mobile-name"><button type="button" class="program-detail-trigger" data-program-group="{{ p.id }}" title="{{ p.dealer }}">{{ p.dealer }}</button><span class="ppg-bp">{{ p.bp }}</span></div><span class="category">{{ category }}</span></div>
+{% endmacro %}
+{% macro loyalty_mobile_metrics(target, achievement, pct, status, bar_width, target_label, achievement_label) %}
+<div class="ppg-month-cell {{ status }}" data-program-month-cell data-target="{{ target }}">
+  <div class="loyalty-mobile-metrics">
+    <div><span class="loyalty-mobile-label">{{ target_label }}</span><strong class="loyalty-mobile-value">{{ target|rupiah }}</strong></div>
+    <div><span class="loyalty-mobile-label">{{ achievement_label }}</span><strong class="loyalty-mobile-value" data-program-achievement data-with-ppn="{{ achievement }}" data-with-ppn-display="{{ achievement|rupiah }}">{{ achievement|rupiah }}</strong></div>
+    <div class="loyalty-mobile-percent"><span class="loyalty-mobile-label">Achievement %</span><strong data-program-pct data-with-ppn-display="{{ '%.1f'|format(pct) }}%">{{ '%.1f'|format(pct) }}%</strong></div>
+  </div>
+  <div class="ppg-progress"><span style="width:{{ bar_width }}%"></span></div>
+</div>
+{% endmacro %}
+{% macro loyalty_mobile_cards(rows, months) %}
+{% set context = namespace(key=months[-1].key if months else 'quarter') %}
+{% for item in months %}{% if item.key == month %}{% set context.key = item.key %}{% endif %}{% endfor %}
+<div class="loyalty-mobile" data-loyalty-mobile data-default-period="{{ context.key }}">
+  <div class="loyalty-mobile-selector" role="group" aria-label="Periode card Program Loyalty">
+    <button type="button" data-loyalty-period="quarter" aria-pressed="{{ 'true' if context.key == 'quarter' else 'false' }}">Q{{ loyalty_quarter }}</button>
+    {% for item in months %}<button type="button" data-loyalty-period="{{ item.key }}" aria-label="{{ item.label }}" aria-pressed="{{ 'true' if context.key == item.key else 'false' }}">{{ item.label.split(' ')[0][:3] }}</button>{% endfor %}
+  </div>
+  <div class="loyalty-mobile-list">
+  {% for p in rows %}<article class="loyalty-mobile-card" data-loyalty-card="{{ p.id }}" aria-label="{{ p.dealer }}">
+    {% for item in months %}{% set cell=p.months[loop.index0] %}
+    <section data-loyalty-period-panel="{{ item.key }}"{% if item.key != context.key %} hidden{% endif %}>
+      {{ loyalty_mobile_header(p, cell.category if cell else p.category) }}
+      <div class="loyalty-mobile-period">{{ item.label }}</div>
+      {% if cell %}
+      {{ loyalty_mobile_metrics(cell.target, cell.achievement, cell.pct, cell.status, cell.bar_width, 'Target / Bulan', 'Achievement') }}
+      <div class="loyalty-mobile-gaps">
+        <div><span class="loyalty-mobile-label">Gap Monthly</span>{{ loyalty_mobile_gap(cell.achievement - cell.target, cell.achievement, cell.target) }}</div>
+        <div><span class="loyalty-mobile-label">Gap Quarterly</span>{{ loyalty_mobile_gap(p.quarterly_gap, p.quarterly_achievement, p.quarterly_target) }}</div>
+      </div>
+      {% else %}
+      <div class="loyalty-mobile-inactive">Program tidak aktif pada bulan ini.</div>
+      <div class="loyalty-mobile-gaps"><div><span class="loyalty-mobile-label">Gap Monthly</span><strong class="loyalty-gap zero">—</strong></div><div><span class="loyalty-mobile-label">Gap Quarterly</span>{{ loyalty_mobile_gap(p.quarterly_gap, p.quarterly_achievement, p.quarterly_target) }}</div></div>
+      {% endif %}
+    </section>
+    {% endfor %}
+    <section data-loyalty-period-panel="quarter"{% if context.key != 'quarter' %} hidden{% endif %}>
+      {{ loyalty_mobile_header(p, p.category) }}
+      <div class="loyalty-mobile-period">Q{{ loyalty_quarter }} {{ loyalty_year }}</div>
+      {{ loyalty_mobile_metrics(p.quarterly_target, p.quarterly_achievement, p.quarterly_pct, 'green' if p.quarterly_pct >= 100 else 'blue' if p.quarterly_pct >= 80 else 'orange' if p.quarterly_pct >= 50 else 'red', [[p.quarterly_pct, 0]|max, 100]|min, 'Target Quarter', 'Achievement Q' ~ loyalty_quarter) }}
+      <div class="loyalty-mobile-gaps quarter"><div><span class="loyalty-mobile-label">Gap Quarterly</span>{{ loyalty_mobile_gap(p.quarterly_gap, p.quarterly_achievement, p.quarterly_target) }}</div></div>
+    </section>
+  </article>{% else %}<div class="card empty">Belum ada data Program Loyalty untuk filter ini.</div>{% endfor %}
+  </div>
+</div>
 {% endmacro %}
 
 <div class="panel{% if active_tab == 'loyalty' %} active{% endif %}" data-program-panel="loyalty">
@@ -146,7 +237,8 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
       </form></div>
     </details>
   </div></div>
-  {{ loyalty_quarter_table(program_loyalty, loyalty_months) }}
+  <div class="loyalty-desktop">{{ loyalty_quarter_table(program_loyalty, loyalty_months) }}</div>
+  {{ loyalty_mobile_cards(program_loyalty, loyalty_months) }}
   <div class="reward-note"><h3>Note Reward Program Loyalty</h3><div class="table-wrap"><table>
     <thead><tr><th>Category</th><th class="number">Target Monthly</th><th class="number">Target Quarterly</th><th class="center">Reward Monthly</th><th class="center">Reward Loyalty</th></tr></thead>
     <tbody>{% for reward in loyalty_reward_notes %}<tr><td><strong>{{ reward.category }}</strong></td><td class="number">{{ reward.target|rupiah }}</td><td class="number">{{ reward.quarterly_target|rupiah }}</td><td class="center">{{ '%.2f'|format(reward.reward_monthly * 100) }}%</td><td class="center">{% if reward.reward_loyalty is not none %}{{ '%.2f'|format(reward.reward_loyalty * 100) }}%{% else %}—{% endif %}</td></tr>{% endfor %}</tbody>
@@ -220,6 +312,22 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 {% endblock %}
 
 {% block scripts %}
+
+<script>
+(function(){
+  const mobile=document.querySelector('[data-loyalty-mobile]');
+  if(!mobile)return;
+  const buttons=mobile.querySelectorAll('[data-loyalty-period]');
+  const panels=mobile.querySelectorAll('[data-loyalty-period-panel]');
+  function selectPeriod(key){
+    buttons.forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.loyaltyPeriod===key)));
+    panels.forEach(panel=>panel.hidden=panel.dataset.loyaltyPeriodPanel!==key);
+  }
+  buttons.forEach(button=>button.addEventListener('click',()=>selectPeriod(button.dataset.loyaltyPeriod)));
+  selectPeriod(mobile.dataset.defaultPeriod);
+})();
+</script>
+
 <script>
 (function(){
   const toggle=document.querySelector('.program-ppn-toggle');
