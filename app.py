@@ -271,8 +271,8 @@ INCENTIVE_SCHEME = {
     },
 }
 
-# SKU penetration target per SC. Higher levels aggregate by number of SCs covered.
-INCENTIVE_SKU_TARGET_PER_SC = {'2-3': 13, '4-6': 6, '7-10': 5, '>10': 2}
+# SKU penetration targets use the recipient's total BO target at every level.
+INCENTIVE_SKU_PCTS = {'2-3': 0.50, '4-6': 0.25, '7-10': 0.19, '>10': 0.06}
 
 
 # Indonesia national public holidays for 2026.
@@ -1493,7 +1493,11 @@ def business_round(value):
     value = float(value or 0)
     floor_value = math.floor(value)
     fraction = value - floor_value
-    return floor_value + (1 if fraction >= 0.60 else 0)
+    # Treat tiny floating-point errors at the 0.60 boundary as equal.
+    round_up = fraction >= 0.60 or math.isclose(
+        fraction, 0.60, rel_tol=0.0, abs_tol=1e-12
+    )
+    return floor_value + (1 if round_up else 0)
 
 
 def weekly_targets(bo_target):
@@ -1718,8 +1722,8 @@ def build_incentive_metrics(month, member_salesmen):
 
     sc_count = len(member_salesmen)
     sku_targets = {
-        bucket: target * sc_count
-        for bucket, target in INCENTIVE_SKU_TARGET_PER_SC.items()
+        bucket: business_round(bo_target * pct)
+        for bucket, pct in INCENTIVE_SKU_PCTS.items()
     }
 
     return {
