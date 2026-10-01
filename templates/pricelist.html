@@ -31,6 +31,9 @@
 .price-admin-master{margin:0 0 16px;border:0;background:transparent;box-shadow:none}.price-admin-master>summary{display:flex;justify-content:flex-end;align-items:center;padding:0;border:0;background:transparent;box-shadow:none;color:#475569;font-size:14px;font-weight:800;line-height:1.25;cursor:pointer;list-style:none}.price-admin-master>summary::-webkit-details-marker{display:none}.price-admin-master>summary::before{content:'▶';display:inline-block;width:12px;font-size:9px}.price-admin-master[open]>summary::before{content:'▼'}.price-admin-master-body{margin-top:14px}
 @media(max-width:720px){.price-admin-tools{justify-content:flex-end;gap:10px}.price-admin-toggle:not([open]){flex:0 1 auto;width:auto}.price-admin-toggle>summary{font-size:11px}.price-admin-toggle>summary::before{width:10px;font-size:8px}}
 @media(max-width:720px){.price-admin-master>summary{font-size:11px}.price-admin-master>summary::before{width:10px;font-size:8px}}
+
+.price-manual-form[hidden]{display:none}.price-manual-launch{display:flex;justify-content:flex-end;margin-bottom:8px}.price-manual-launch button{background:transparent;border:1px solid #cbd5e1;color:#475569;min-height:30px;font-size:12px;padding:5px 10px;width:auto}.price-actions{width:62px}.price-actions button{border:1px solid #cbd5e1;background:#fff;border-radius:6px;padding:5px;cursor:pointer;font-size:12px}.price-edit input{width:100%;min-width:0;border:1px solid #cbd5e1;border-radius:5px;padding:6px;font:inherit}.price-edit .price-actions{white-space:normal}.price-edit .price-actions button{margin:2px}.price-row-error{display:block;white-space:normal;color:#b42318;font-weight:400;font-size:11px}.price-manual-form{padding:15px;margin-bottom:15px}.price-manual-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.price-manual-form .price-review-actions button{width:auto}.price-edit .price-delete{color:#b42318}
+@media(max-width:720px){.price-table-admin th:nth-child(1){width:32%}.price-table-admin th:nth-child(2),.price-table-admin th:nth-child(3){width:21%}.price-table-admin th:nth-child(4){width:16%}.price-table-admin th:nth-child(5){width:10%}.price-edit-label{display:none}.price-actions button{font-size:10px;padding:4px 2px}.price-edit td{white-space:normal}.price-edit input{padding:5px 2px;min-height:32px}.price-manual-grid{grid-template-columns:1fr}.price-table-admin td:first-child{white-space:normal;overflow-wrap:anywhere}}
 </style>
 {% endblock %}
 
@@ -38,6 +41,19 @@
 <div class="pricelist-head"><h1>Pricelist Apple</h1></div>
 
 {% if session.get('role') == 'admin' %}
+<div class="price-manual-launch"><button type="button" class="price-btn" id="priceManualAdd">+ Tambah Manual</button></div>
+<form id="priceManualForm" class="card price-manual-form" hidden>
+  <h2 style="font-size:18px;margin-top:0">Tambah produk manual</h2>
+  <div class="price-manual-grid">
+    <div class="price-field"><label for="manualCategory">Category</label><select id="manualCategory" name="category">{% for key,label in category_labels.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></div>
+    <div class="price-field"><label for="manualModel">Model</label><input id="manualModel" name="model" maxlength="500" required></div>
+    <div class="price-field"><label for="manualSrp">SRP Promo</label><input id="manualSrp" name="srp_promo" inputmode="numeric" required></div>
+    <div class="price-field"><label for="manualStp">STP Promo</label><input id="manualStp" name="stp_promo" inputmode="numeric" required></div>
+    <div class="price-field"><label for="manualPeriod">Period</label><input id="manualPeriod" name="period" placeholder="27 Sep–3 Oct" maxlength="100" required></div>
+  </div>
+  <div class="price-review-actions"><button type="submit" class="price-btn save">Simpan</button><button type="button" class="price-btn" id="priceManualCancel">Batal</button></div>
+  <div id="priceManualError" class="price-row-error" role="alert"></div>
+</form>
 <details class="price-admin-master" id="priceAdminUpload">
   <summary>Admin Upload</summary>
   <div class="price-admin-master-body">
@@ -82,15 +98,16 @@
 </div>
 
 <div class="card price-table-wrap">
-  <table class="price-table">
-    <thead><tr><th>Model</th><th>SRP Promo</th><th>STP Promo</th><th>Period</th></tr></thead>
+  <table class="price-table {% if session.get('role') == 'admin' %}price-table-admin{% endif %}">
+    <thead><tr><th>Model</th><th>SRP Promo</th><th>STP Promo</th><th>Period</th>{% if session.get('role') == 'admin' %}<th class="price-actions">AKSI</th>{% endif %}</tr></thead>
     <tbody id="priceTableBody"></tbody>
   </table>
 </div>
 
+<div class="price-progress" id="priceManualFeedback" role="status" aria-live="polite"></div>
 <script id="pricelistData" type="application/json">{
 {% for key,label in category_labels.items() %}
-  "{{ key }}":[{% for row in grouped[key] %}{"model":{{ row.model|tojson }},"srp_promo":{{ row.srp_promo or 0 }},"stp_promo":{{ row.stp_promo or 0 }},"period":{{ row.period|tojson }}}{% if not loop.last %},{% endif %}{% endfor %}]{% if not loop.last %},{% endif %}
+  "{{ key }}":[{% for row in grouped[key] %}{"id":{{ row.id|tojson }},"category":{{ row.category|tojson }},"model":{{ row.model|tojson }},"srp_promo":{{ row.srp_promo or 0 }},"stp_promo":{{ row.stp_promo or 0 }},"period":{{ row.period|tojson }}}{% if not loop.last %},{% endif %}{% endfor %}]{% if not loop.last %},{% endif %}
 {% endfor %}
 }</script>
 {% endblock %}
@@ -102,6 +119,7 @@
   const dataNode=document.getElementById('pricelistData');
   let data={iphone:[],mac:[],ipad:[],acc:[]};
   try{data=JSON.parse(dataNode.textContent||'{}');}catch(error){}
+  const isAdmin={{ (session.get('role') == 'admin')|tojson }};
   let active='iphone';
   const body=document.getElementById('priceTableBody');
   const count=document.getElementById('priceCount');
@@ -111,7 +129,7 @@
   function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
   function render(){
     const rows=visibleRows();count.textContent=rows.length+' produk';
-    body.innerHTML=rows.length?rows.map(row=>'<tr><td>'+esc(row.model)+'</td><td>'+money(row.srp_promo)+'</td><td>'+money(row.stp_promo)+'</td><td>'+esc(row.period)+'</td></tr>').join(''):'<tr><td colspan="4" class="price-empty">Belum ada pricelist untuk kategori ini.</td></tr>';
+    body.innerHTML=rows.length?rows.map(row=>'<tr data-id="'+row.id+'">'+normalCells(row)+'</tr>').join(''):'<tr><td colspan="'+(isAdmin?5:4)+'" class="price-empty">Belum ada pricelist untuk kategori ini.</td></tr>';
   }
   tabs.forEach(tab=>tab.addEventListener('click',function(){active=tab.dataset.category;tabs.forEach(x=>x.classList.toggle('active',x===tab));render();}));
   document.getElementById('priceCopy').addEventListener('click',async function(){
@@ -120,6 +138,62 @@
     try{await navigator.clipboard.writeText(text);this.textContent='Berhasil disalin';setTimeout(()=>this.textContent='Copy untuk WhatsApp',1600);}catch(error){alert('Browser belum mengizinkan copy otomatis.');}
   });
   render();
+
+
+  function normalCells(row){
+    return '<td>'+esc(row.model)+'</td><td>'+money(row.srp_promo)+'</td><td>'+money(row.stp_promo)+'</td><td>'+esc(row.period)+'</td>'+
+      (isAdmin?'<td class="price-actions"><button type="button" data-action="edit" aria-label="Edit '+esc(row.model)+'">✏<span class="price-edit-label"> Edit</span></button></td>':'');
+  }
+  if(isAdmin){
+    const form=document.getElementById('priceManualForm');
+    const addButton=document.getElementById('priceManualAdd');
+    let busy=false;
+    function feedback(message){const el=document.getElementById('priceManualFeedback');el.style.display='block';el.className='price-progress success';el.textContent=message;}
+    async function post(url,payload){
+      const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      let result;try{result=await response.json();}catch(error){throw new Error('Sesi berakhir atau server tidak merespons. Muat ulang dan login kembali.');}
+      if(!response.ok||!result.success)throw new Error(result.error||'Pricelist gagal disimpan.');
+      return result;
+    }
+    function fields(container){const values={};container.querySelectorAll('[name]').forEach(el=>values[el.name]=el.value.trim());return values;}
+    function setBusy(value){busy=value;document.querySelectorAll('#priceTableBody button,#priceTableBody input,#priceManualForm button,#priceManualForm input,#priceManualForm select,#priceManualAdd,.price-tab').forEach(el=>el.disabled=value);}
+    body.addEventListener('click',async function(event){
+      const button=event.target.closest('button[data-action]');if(!button||busy)return;
+      const tr=button.closest('tr'),id=Number(tr.dataset.id),row=visibleRows().find(x=>x.id===id);if(!row)return;
+      const action=button.dataset.action;
+      if(action==='edit'){
+        if(tr.classList.contains('price-edit'))return;
+        tr.classList.add('price-edit');
+        tr.innerHTML=['model','srp_promo','stp_promo','period'].map(key=>'<td><input name="'+key+'" aria-label="'+esc({model:'Model',srp_promo:'SRP Promo',stp_promo:'STP Promo',period:'Period'}[key])+'" '+(key.includes('promo')?'inputmode="numeric" ':'maxlength="'+(key==='model'?500:100)+'" ')+'value="'+esc(key.includes('promo')?Number(row[key]).toLocaleString('id-ID'):row[key])+'"></td>').join('')+
+          '<td class="price-actions"><button type="button" data-action="save">Simpan</button><button type="button" data-action="cancel">Batal</button><button type="button" class="price-delete" data-action="delete">Hapus</button><span class="price-row-error" role="alert"></span></td>';
+        tr.querySelector('input').focus();return;
+      }
+      if(action==='cancel'){tr.classList.remove('price-edit');tr.innerHTML=normalCells(row);return;}
+      if(action==='delete'&&!window.confirm('Hapus produk ini dari Pricelist?'))return;
+      const category=active;
+      setBusy(true);
+      try{
+        const url=action==='delete'?{{ url_for('pricelist_manual_delete',item_id=0)|tojson }}:{{ url_for('pricelist_manual_save',item_id=0)|tojson }};
+        const result=await post(url.replace(/0$/,String(id)),action==='delete'?{}:fields(tr));
+        if(action==='delete'){data[category]=data[category].filter(x=>x.id!==id);tr.remove();if(!data[category].length)render();feedback('Produk berhasil dihapus');}
+        else{data[category][data[category].findIndex(x=>x.id===id)]=result.item;tr.classList.remove('price-edit');tr.innerHTML=normalCells(result.item);feedback('Pricelist berhasil diperbarui'+(result.warnings.length?' — '+result.warnings.join('; '):''));}
+        count.textContent=visibleRows().length+' produk';
+      }catch(error){tr.querySelector('.price-row-error').textContent=error.message;}
+      finally{setBusy(false);}
+    });
+    addButton.addEventListener('click',()=>{form.reset();form.elements.category.value=active;form.hidden=false;document.getElementById('priceManualError').textContent='';form.elements.model.focus();});
+    document.getElementById('priceManualCancel').addEventListener('click',()=>{form.hidden=true;form.reset();});
+    form.addEventListener('submit',async event=>{
+      event.preventDefault();if(busy)return;const payload=fields(form);setBusy(true);
+      try{
+        const result=await post({{ url_for('pricelist_manual_save')|tojson }},payload);
+        data[result.item.category].push(result.item);
+        if(active===result.item.category){const empty=body.querySelector('.price-empty');if(empty)body.innerHTML='';body.insertAdjacentHTML('beforeend','<tr data-id="'+result.item.id+'">'+normalCells(result.item)+'</tr>');count.textContent=visibleRows().length+' produk';}
+        form.hidden=true;form.reset();feedback('Produk berhasil ditambahkan'+(result.warnings.length?' — '+result.warnings.join('; '):''));
+      }catch(error){document.getElementById('priceManualError').textContent=error.message;}
+      finally{setBusy(false);}
+    });
+  }
 
   const uploadButton=document.getElementById('priceUploadButton');
   if(!uploadButton)return;
