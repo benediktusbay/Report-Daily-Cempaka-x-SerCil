@@ -3662,6 +3662,46 @@ PRICELIST_CATEGORIES = {
 }
 
 
+def pricelist_price(value):
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        number = float(value)
+    elif isinstance(value, str) and re.fullmatch(r'[0-9][0-9.,\s]*', value.strip()):
+        number = float(re.sub(r'[^0-9]', '', value))
+    else:
+        return None
+    return int(number) if math.isfinite(number) and number > 0 and number.is_integer() else None
+
+
+def validate_pricelist_row(raw):
+    if not isinstance(raw, dict):
+        return None
+    month_pattern = r'(?:Jan|Feb|Mar|Apr|May|Mei|Jun|Jul|Aug|Agu|Sep|Sept|Oct|Okt|Nov|Dec|Des)'
+    period_patterns = (
+        rf'\d{{1,2}}\s*[-–—]\s*\d{{1,2}}\s*{month_pattern}',
+        rf'\d{{1,2}}\s*{month_pattern}\s*[-–—]\s*\d{{1,2}}(?:\s*{month_pattern})?',
+        rf'{month_pattern}\s*\d{{1,2}}\s*[-–—]\s*\d{{1,2}}(?:\s*{month_pattern})?',
+    )
+    model = normalize_text(raw.get('model'))
+    period = normalize_text(raw.get('period'))
+    srp_promo = pricelist_price(raw.get('srp_promo'))
+    stp_promo = pricelist_price(raw.get('stp_promo'))
+    period_valid = any(re.fullmatch(pattern, period, re.IGNORECASE) for pattern in period_patterns)
+    period_days = [int(day) for day in re.findall(r'\d{1,2}', period)]
+    model_has_price = any(
+        re.fullmatch(r'\d[\d.,]*', token) and len(re.sub(r'\D', '', token)) >= 7
+        for token in model.split()
+    )
+    if (not model or not period or len(model) > 500 or len(period) > 100
+            or model_has_price or not period_valid or len(period_days) != 2
+            or any(day < 1 or day > 31 for day in period_days)
+            or srp_promo is None or stp_promo is None):
+        return None
+    return {'model': model, 'period': period,
+            'srp_promo': srp_promo, 'stp_promo': stp_promo}
+
+
 @app.route('/pricelist')
 def pricelist():
     if 'user_id' not in session:
@@ -3682,6 +3722,82 @@ def pricelist():
     )
 
 
+def pricelist_manual_admin_required(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        user = db.session.get(User, session['user_id']) if session.get('user_id') else None
+        if not user or user.role != 'admin':
+            return jsonify(success=False, error='Akses hanya untuk Admin.'), 403
+        return fn(*args, **kwargs)
+    return wrapper
+
+
+def pricelist_item_json(item):
+    return {key: getattr(item, key) for key in
+            ('id', 'category', 'model', 'srp_promo', 'stp_promo', 'period')}
+
+
+@app.route('/pricelist/manual/add', methods=['POST'])
+@app.route('/pricelist/manual/edit/<int:item_id>', methods=['POST'])
+@pricelist_manual_admin_required
+def pricelist_manual_save(item_id=None):
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify(success=False, error='Data harus berupa objek JSON.'), 400
+    item = db.session.get(PricelistItem, item_id) if item_id is not None else None
+    if item_id is not None and item is None:
+        return jsonify(success=False, error='Produk tidak ditemukan. Muat ulang Pricelist.'), 404
+    category = item.category if item else normalize_text(payload.get('category')).lower()
+    if category not in PRICELIST_CATEGORIES:
+        return jsonify(success=False, error='Kategori pricelist tidak valid.'), 400
+    row = validate_pricelist_row(payload)
+    if row is None:
+        return jsonify(success=False, error='Model dan Period wajib valid; harga harus bilangan bulat positif. Gunakan period seperti 27 Sep–3 Oct.'), 422
+    existing = PricelistItem.query.filter_by(category=category).all()
+    if any(other.id != item_id and normalize_text(other.model).casefold() == row['model'].casefold()
+           for other in existing):
+        return jsonify(success=False, error='Model sudah ada pada kategori ini. Edit produk tersebut.'), 409
+    warnings = []
+    if row['stp_promo'] > row['srp_promo']:
+        warnings.append('STP Promo lebih tinggi dari SRP Promo; periksa sumber')
+    high = {'iphone': 60000000, 'ipad': 90000000, 'mac': 150000000, 'acc': 30000000}[category]
+    if max(row['srp_promo'], row['stp_promo']) > high:
+        warnings.append('Harga di atas kisaran umum kategori')
+    if item and item.stp_promo and abs(row['stp_promo'] - item.stp_promo) / item.stp_promo > 0.30:
+        warnings.append('Harga berubah lebih dari 30% dari data lama')
+    try:
+        if item is None:
+            item = PricelistItem(category=category,
+                                sort_order=max((x.sort_order or 0 for x in existing), default=-1) + 1)
+            db.session.add(item)
+        for key, value in row.items():
+            setattr(item, key, value)
+        item.updated_at = datetime.utcnow()
+        item.updated_by = session.get('username')
+        db.session.commit()
+        return jsonify(success=True, item=pricelist_item_json(item), warnings=warnings)
+    except Exception:
+        db.session.rollback()
+        app.logger.exception('Manual Pricelist gagal disimpan')
+        return jsonify(success=False, error='Produk gagal disimpan. Data lama tetap aman; coba muat ulang jika ada perubahan bersamaan.'), 500
+
+
+@app.route('/pricelist/manual/delete/<int:item_id>', methods=['POST'])
+@pricelist_manual_admin_required
+def pricelist_manual_delete(item_id):
+    item = db.session.get(PricelistItem, item_id)
+    if item is None:
+        return jsonify(success=False, error='Produk tidak ditemukan. Muat ulang Pricelist.'), 404
+    try:
+        db.session.delete(item)
+        db.session.commit()
+        return jsonify(success=True, id=item_id)
+    except Exception:
+        db.session.rollback()
+        app.logger.exception('Manual Pricelist gagal dihapus')
+        return jsonify(success=False, error='Produk gagal dihapus; coba kembali.'), 500
+
+
 @app.route('/pricelist/upload-image', methods=['POST'])
 @admin_required
 def upload_pricelist_image():
@@ -3699,50 +3815,20 @@ def upload_pricelist_image():
         return jsonify({'ok': False, 'message': 'Format gambar harus JPG/JPEG.'}), 400
     if not isinstance(rows, list) or not rows:
         return jsonify({'ok': False, 'message': 'Tidak ada baris pricelist yang berhasil dibaca.'}), 400
-    def price(value):
-        if isinstance(value, bool):
-            return None
-        if isinstance(value, (int, float)):
-            number = float(value)
-        elif isinstance(value, str) and re.fullmatch(r'[0-9][0-9.,\s]*', value.strip()):
-            number = float(re.sub(r'[^0-9]', '', value))
-        else:
-            return None
-        return int(number) if math.isfinite(number) and number > 0 and number.is_integer() else None
-
     cleaned = {}
     invalid = []
     conflicts = []
     duplicate = 0
-    month_pattern = r'(?:Jan|Feb|Mar|Apr|May|Mei|Jun|Jul|Aug|Agu|Sep|Sept|Oct|Okt|Nov|Dec|Des)'
-    period_patterns = (
-        rf'\d{{1,2}}\s*[-–—]\s*\d{{1,2}}\s*{month_pattern}',
-        rf'\d{{1,2}}\s*{month_pattern}\s*[-–—]\s*\d{{1,2}}(?:\s*{month_pattern})?',
-        rf'{month_pattern}\s*\d{{1,2}}\s*[-–—]\s*\d{{1,2}}(?:\s*{month_pattern})?',
-    )
     for index, raw in enumerate(rows, 1):
         if not isinstance(raw, dict):
             invalid.append(index)
             continue
-        model = normalize_text(raw.get('model'))
-        period = normalize_text(raw.get('period'))
-        srp_promo = price(raw.get('srp_promo'))
-        stp_promo = price(raw.get('stp_promo'))
-        period_valid = any(re.fullmatch(pattern, period, re.IGNORECASE) for pattern in period_patterns)
-        period_days = [int(day) for day in re.findall(r'\d{1,2}', period)]
-        model_has_price = any(
-            re.fullmatch(r'\d[\d.,]*', token) and len(re.sub(r'\D', '', token)) >= 7
-            for token in model.split()
-        )
-        if (not model or not period or len(model) > 500 or len(period) > 100
-                or model_has_price or not period_valid or len(period_days) != 2
-                or any(day < 1 or day > 31 for day in period_days)
-                or srp_promo is None or stp_promo is None):
+        item = validate_pricelist_row(raw)
+        if item is None:
             invalid.append(index)
             continue
+        model = item['model']
         key = model.casefold()
-        item = {'model': model, 'period': period,
-                'srp_promo': srp_promo, 'stp_promo': stp_promo}
         if key in cleaned:
             duplicate += 1
             old = cleaned[key]
