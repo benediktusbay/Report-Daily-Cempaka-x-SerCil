@@ -1043,6 +1043,13 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   .heat-cell .sku-link{height:34px;font-size:14px}
 }
 
+/* Distribution Quality + Speed Distribution dalam satu baris */
+.heat-pair{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:14px;align-items:start}
+.heat-pair .heat-quality thead th:first-child{width:46%}
+.heat-pair .heat-speed thead th:first-child{width:30%}
+@media(max-width:1100px){.heat-pair{grid-template-columns:1fr;gap:0}}
+@media(max-width:768px){.heat-pair .heat-quality thead th:first-child,.heat-pair .heat-speed thead th:first-child{width:72px}}
+
 /* Dealer Achievement Detail: tombol muat bertahap */
 .dealer-load-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px}
 .dealer-load-count{font-size:12px;font-weight:700;color:#64748b}
@@ -1333,47 +1340,6 @@ document.addEventListener('click',function(event){
 {% macro heat_name(name) -%}
 <span class="heat-name-full">{{ name }}</span><span class="heat-name-short" aria-hidden="true">{{ name.split(' ')[0] }}</span>
 {%- endmacro %}
-<div class="section">
-  <div class="section-title">
-    <h2>Distribution Quality</h2>
-  </div>
-
-  <div class="card table-card heat-card"><div class="table-wrap">
-    {% if table %}
-    <table class="heat-table heat-quality">
-      <thead>
-        <tr>
-          <th scope="col">Salesman</th>
-          <th scope="col">BO</th>
-          <th scope="col">QVO</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in table %}
-        {% set bo_due = (r.bo_target * timegone_pct / 100) if r.bo_target else none %}
-        {% set qvo_due = (r.qvo_target * timegone_pct / 100) if r.qvo_target else none %}
-        {% set bo_cls = heat_class(r.bo, bo_due) %}
-        {% set qvo_cls = heat_class(r.qvo, qvo_due) %}
-        <tr>
-          <th scope="row">{{ heat_name(r.salesman) }}</th>
-          <td class="heat-cell {{ bo_cls }}">{{ r.bo }}{{ heat_status(bo_cls) }}</td>
-          <td class="heat-cell {{ qvo_cls }}">{{ r.qvo }}{{ heat_status(qvo_cls) }}</td>
-        </tr>
-        {% endfor %}
-        {% set bo_total_cls = heat_class(cards.bo, (cards.bo_target * timegone_pct / 100) if cards.bo_target else none) %}
-        {% set qvo_total_cls = heat_class(cards.qvo, (cards.qvo_target * timegone_pct / 100) if cards.qvo_target else none) %}
-        <tr class="heat-total">
-          <th scope="row">Total</th>
-          <td class="heat-cell {{ bo_total_cls }}">{{ cards.bo }}{{ heat_status(bo_total_cls) }}</td>
-          <td class="heat-cell {{ qvo_total_cls }}">{{ cards.qvo }}{{ heat_status(qvo_total_cls) }}</td>
-        </tr>
-      </tbody>
-    </table>
-    {% else %}
-    <div class="empty">Belum ada data BO/QVO untuk periode ini.</div>
-    {% endif %}
-  </div></div>
-</div>
 
 
 {% macro no_purchase_row(d) %}<div class="dealer-action-row" data-no-purchase-card-row data-salesman="{{ d.salesman|e }}" data-depo="{{ d.depo|e }}"><span><b>{{ d.dealer }}</b><small>{{ d.bp }} · {{ d.depo }}</small></span><span>{{ d.salesman }}</span><strong>{{ d.target|rupiah_short }}</strong></div>{% endmacro %}
@@ -1482,6 +1448,49 @@ document.addEventListener('click',function(event){
 
 </script>
 
+<div class="heat-pair">
+<div class="section">
+  <div class="section-title">
+    <h2>Distribution Quality</h2>
+  </div>
+
+  <div class="card table-card heat-card"><div class="table-wrap">
+    {% if table %}
+    <table class="heat-table heat-quality">
+      <thead>
+        <tr>
+          <th scope="col">Salesman</th>
+          <th scope="col">BO</th>
+          <th scope="col">QVO</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in table %}
+        {% set bo_due = (r.bo_target * timegone_pct / 100) if r.bo_target else none %}
+        {% set qvo_due = (r.qvo_target * timegone_pct / 100) if r.qvo_target else none %}
+        {% set bo_cls = heat_class(r.bo, bo_due) %}
+        {% set qvo_cls = heat_class(r.qvo, qvo_due) %}
+        <tr>
+          <th scope="row">{{ heat_name(r.salesman) }}</th>
+          <td class="heat-cell {{ bo_cls }}">{{ r.bo }}{{ heat_status(bo_cls) }}</td>
+          <td class="heat-cell {{ qvo_cls }}">{{ r.qvo }}{{ heat_status(qvo_cls) }}</td>
+        </tr>
+        {% endfor %}
+        {% set bo_total_cls = heat_class(cards.bo, (cards.bo_target * timegone_pct / 100) if cards.bo_target else none) %}
+        {% set qvo_total_cls = heat_class(cards.qvo, (cards.qvo_target * timegone_pct / 100) if cards.qvo_target else none) %}
+        <tr class="heat-total">
+          <th scope="row">Total</th>
+          <td class="heat-cell {{ bo_total_cls }}">{{ cards.bo }}{{ heat_status(bo_total_cls) }}</td>
+          <td class="heat-cell {{ qvo_total_cls }}">{{ cards.qvo }}{{ heat_status(qvo_total_cls) }}</td>
+        </tr>
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">Belum ada data BO/QVO untuk periode ini.</div>
+    {% endif %}
+  </div></div>
+</div>
+
 <div class="section">
   <div class="section-title">
     <h2>Speed Distribution</h2>
@@ -1521,6 +1530,7 @@ document.addEventListener('click',function(event){
     <div class="empty">Belum ada data Speed Distribution.</div>
     {% endif %}
   </div></div>
+</div>
 </div>
 
 <div class="section">
