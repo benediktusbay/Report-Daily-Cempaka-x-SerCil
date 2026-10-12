@@ -1046,7 +1046,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 }
 
 /* Distribution Quality + Speed Distribution dalam satu baris */
-.heat-pair{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:14px;align-items:stretch}
+.heat-pair{display:grid;grid-template-columns:minmax(0,45fr) minmax(0,55fr);gap:14px;align-items:stretch}
 .heat-pair>.section{display:flex;flex-direction:column}
 .heat-pair>.section>.heat-card{flex:1}
 @media(max-width:1100px){.heat-pair{grid-template-columns:1fr;gap:0}}
@@ -1441,6 +1441,40 @@ document.addEventListener('click',function(event){
 </div>
 </div>
 
+<div class="section">
+  <div class="section-title">
+    <h2>SKU Penetration</h2>
+  </div>
+
+  <div class="card table-card heat-card"><div class="table-wrap">
+    {% if sku_rows %}
+    <table class="heat-table heat-sku">
+      <thead>
+        <tr>
+          <th scope="col">Salesman</th>
+          {% for bucket, label in [('1','SKU 1'),('2-3','SKU 2–3'),('4-6','SKU 4–6'),('7-10','SKU 7–10'),('>10','SKU >10')] %}
+          <th scope="col">{{ label }}{% if bucket in sku_targets %}<span class="heat-sub">target {{ sku_targets[bucket] }}</span>{% endif %}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in sku_rows %}
+        <tr>
+          <th scope="row">{{ heat_name(r.salesman) }}</th>
+          {% for bucket in ['1','2-3','4-6','7-10','>10'] %}
+          {% set cls = heat_class(r[bucket], sku_targets[bucket] if bucket in sku_targets else none) %}
+          <td class="heat-cell {{ cls }}"><button type="button" class="sku-link" data-salesman="{{ r.salesman|e }}" data-bucket="{{ bucket }}">{{ r[bucket] }}{{ heat_status(cls) }}</button></td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">Belum ada data SKU Penetration.</div>
+    {% endif %}
+  </div></div>
+</div>
+
 {% macro no_purchase_row(d) %}<div class="dealer-action-row" data-no-purchase-card-row data-salesman="{{ d.salesman|e }}" data-depo="{{ d.depo|e }}"><span><b>{{ d.dealer }}</b><small>{{ d.bp }} · {{ d.depo }}</small></span><span>{{ d.salesman }}</span><strong>{{ d.target|rupiah_short }}</strong></div>{% endmacro %}
 <div class="dealer-actions">
   <div class="card dealer-action-card" id="noPurchaseCard">
@@ -1548,39 +1582,6 @@ document.addEventListener('click',function(event){
 </script>
 
 
-<div class="section">
-  <div class="section-title">
-    <h2>SKU Penetration</h2>
-  </div>
-
-  <div class="card table-card heat-card"><div class="table-wrap">
-    {% if sku_rows %}
-    <table class="heat-table heat-sku">
-      <thead>
-        <tr>
-          <th scope="col">Salesman</th>
-          {% for bucket, label in [('1','SKU 1'),('2-3','SKU 2–3'),('4-6','SKU 4–6'),('7-10','SKU 7–10'),('>10','SKU >10')] %}
-          <th scope="col">{{ label }}{% if bucket in sku_targets %}<span class="heat-sub">target {{ sku_targets[bucket] }}</span>{% endif %}</th>
-          {% endfor %}
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in sku_rows %}
-        <tr>
-          <th scope="row">{{ heat_name(r.salesman) }}</th>
-          {% for bucket in ['1','2-3','4-6','7-10','>10'] %}
-          {% set cls = heat_class(r[bucket], sku_targets[bucket] if bucket in sku_targets else none) %}
-          <td class="heat-cell {{ cls }}"><button type="button" class="sku-link" data-salesman="{{ r.salesman|e }}" data-bucket="{{ bucket }}">{{ r[bucket] }}{{ heat_status(cls) }}</button></td>
-          {% endfor %}
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <div class="empty">Belum ada data SKU Penetration.</div>
-    {% endif %}
-  </div></div>
-</div>
 
 <div class="section">
   <div class="section-title">
