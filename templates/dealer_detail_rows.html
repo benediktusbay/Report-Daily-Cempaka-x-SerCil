@@ -1,0 +1,86 @@
+{# Baris Dealer Achievement Detail. Dipakai oleh dashboard.html (render awal)
+   dan endpoint /dashboard/dealers (tombol "Muat lagi"), jadi markup-nya sama persis. #}
+
+{% macro dealer_card(d) %}
+      <div class="mobile-kpi-card dealer-mobile-card dealer-detail-row" data-salesman="{{ d.salesman|e }}">
+        <div class="dealer-row-top">
+          <div>
+            <div class="dealer-bp">{{ d.bp }}</div>
+            <div class="dealer-name">{{ d.dealer }}</div>
+            <div class="dealer-meta">{{ d.salesman }} · {{ d.depo }}</div>
+          </div>
+
+          <div>
+            {% if d.is_target %}
+            <span class="badge badge-target">Target</span>
+            {% else %}
+            <span class="badge badge-nontarget">Target: Not yet</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="mobile-section-label">Achievement</div>
+        <div class="mobile-grid-3">
+          <div class="mobile-metric"><div class="mobile-metric-label">Device</div><button type="button" class="mobile-metric-value dealer-device-link" data-bp="{{ d.bp|e }}" data-dealer="{{ d.dealer|e }}" data-items='{{ d.device_items|tojson }}'>{{ d.device|rupiah_short }}</button></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">MacBook</div><div class="mobile-metric-value">{{ d.macbook|rupiah_short }}</div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">ACC</div><div class="mobile-metric-value">{{ d.acc|rupiah_short }}</div></div>
+        </div>
+
+        <button type="button" class="sales-total dealer-total-link"
+          data-bp="{{ d.bp|e }}" data-dealer="{{ d.dealer|e }}" data-salesman="{{ d.salesman|e }}" data-depo="{{ d.depo|e }}"
+          data-device-target="{{ d.device_target }}" data-device-ach="{{ d.device }}"
+          data-macbook-target="{{ d.macbook_target }}" data-macbook-ach="{{ d.macbook }}"
+          data-acc-target="{{ d.acc_target }}" data-acc-ach="{{ d.acc }}">
+          <span>Total Sales</span>
+          <strong>{{ d.total|rupiah_short }}</strong>
+        </button>
+
+        <div class="mobile-grid-3" style="margin-top:8px">
+          <div class="mobile-metric">
+            <div class="mobile-metric-label">SKU</div>
+            <button type="button"
+                    class="sku-link dealer-sku-popup-btn"
+                    data-skus='{{ d.sku_list|tojson }}'>
+              {{ d.sku }}
+            </button>
+          </div>
+          <div class="mobile-metric"><div class="mobile-metric-label">BO</div><div class="mobile-metric-value">{% if d.bo %}1{% else %}0{% endif %}</div></div>
+          <div class="mobile-metric"><div class="mobile-metric-label">QVO</div><div class="mobile-metric-value">{% if d.qvo %}1{% else %}0{% endif %}</div></div>
+        </div>
+      </div>
+{% endmacro %}
+
+{% macro dealer_row(d) %}
+        <tr class="dealer-detail-row" data-salesman="{{ d.salesman|e }}">
+          <td>{{ d.depo }}</td>
+          <td>{{ d.salesman }}</td>
+          <td>{{ d.bp }}</td>
+          <td><strong>{{ d.dealer }}</strong></td>
+
+          <td class="center">
+            {% if d.is_target %}
+            <span class="badge badge-target">Target</span>
+            {% else %}
+            <span class="badge badge-nontarget">Target: Not yet</span>
+            {% endif %}
+          </td>
+
+          <td class="number"><button type="button" class="dealer-device-link" data-bp="{{ d.bp|e }}" data-dealer="{{ d.dealer|e }}" data-items='{{ d.device_items|tojson }}'>{{ d.device|rupiah_short }}</button></td>
+          <td class="number">{{ d.macbook|rupiah_short }}</td>
+          <td class="number">{{ d.acc|rupiah_short }}</td>
+          <td class="number"><button type="button" class="dealer-total-link"
+            data-bp="{{ d.bp|e }}" data-dealer="{{ d.dealer|e }}" data-salesman="{{ d.salesman|e }}" data-depo="{{ d.depo|e }}"
+            data-device-target="{{ d.device_target }}" data-device-ach="{{ d.device }}"
+            data-macbook-target="{{ d.macbook_target }}" data-macbook-ach="{{ d.macbook }}"
+            data-acc-target="{{ d.acc_target }}" data-acc-ach="{{ d.acc }}"><strong>{{ d.total|rupiah_short }}</strong></button></td>
+          <td class="center">
+            <button type="button"
+                    class="sku-link dealer-sku-popup-btn"
+                    data-skus='{{ d.sku_list|tojson }}'>
+              {{ d.sku }}
+            </button>
+          </td>
+          <td class="center">{% if d.bo %}1{% else %}0{% endif %}</td>
+          <td class="center">{% if d.qvo %}1{% else %}0{% endif %}</td>
+        </tr>
+{% endmacro %}
