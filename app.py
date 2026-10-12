@@ -20,7 +20,7 @@ from types import SimpleNamespace
 
 import pandas as pd
 from openpyxl import load_workbook
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, g, has_request_context
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, g, has_request_context, get_template_attribute
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -2362,8 +2362,118 @@ def closing():
                            status=status, slots=CLOSING_SLOTS, error=error)
 
 
+# ---------------------------------------------------------------------------
+# Dealer Achievement Detail: dimuat bertahap.
+# Halaman dashboard hanya merender DEALER_PAGE_SIZE dealer pertama. Daftar
+# lengkap hasil hitungan halaman itu disimpan sementara di memori (per token)
+# supaya tombol "Muat lagi" tidak perlu menghitung ulang / query ulang ke DB.
+# Jika token sudah kedaluwarsa (mis. setelah restart), endpoint menghitung
+# ulang dengan filter yang sama.
+# ---------------------------------------------------------------------------
+DEALER_PAGE_SIZE = 20
+DEALER_CACHE_TTL_SECONDS = 30 * 60
+DEALER_CACHE_MAX_ENTRIES = 24
+_dealer_detail_cache = {}
+_dealer_detail_cache_lock = Lock()
+
+
+def _dealer_cache_owner():
+    return (session.get('role') or 'viewer', session.get('user_id'))
+
+
+def _store_dealer_detail(rows):
+    token = secrets.token_urlsafe(16)
+    now = time.time()
+    with _dealer_detail_cache_lock:
+        for key in [k for k, v in _dealer_detail_cache.items() if v['expires'] < now]:
+            _dealer_detail_cache.pop(key, None)
+        while len(_dealer_detail_cache) >= DEALER_CACHE_MAX_ENTRIES:
+            oldest = min(_dealer_detail_cache, key=lambda k: _dealer_detail_cache[k]['expires'])
+            _dealer_detail_cache.pop(oldest, None)
+        _dealer_detail_cache[token] = {
+            'rows': rows,
+            'owner': _dealer_cache_owner(),
+            'expires': now + DEALER_CACHE_TTL_SECONDS,
+        }
+    return token
+
+
+def _load_dealer_detail(token):
+    if not token:
+        return None
+    with _dealer_detail_cache_lock:
+        entry = _dealer_detail_cache.get(token)
+        if not entry or entry['expires'] < time.time() or entry['owner'] != _dealer_cache_owner():
+            return None
+        return entry['rows']
+
+
+def _dealer_rows_for_tab(rows, tab):
+    if not tab or tab == '__ALL__':
+        return rows
+    return [d for d in rows if d['salesman'] == tab]
+
+
 @app.route('/')
 def dashboard():
+    context = _dashboard_context()
+    dealer_detail = context['dealer_detail']
+    mobile_salesman = context['table'][0]['salesman'] if context['table'] else '__ALL__'
+    mobile_rows = _dealer_rows_for_tab(dealer_detail, mobile_salesman)
+    context.update(
+        dealer_token=_store_dealer_detail(dealer_detail),
+        dealer_page_size=DEALER_PAGE_SIZE,
+        dealer_desktop_rows=dealer_detail[:DEALER_PAGE_SIZE],
+        dealer_desktop_total=len(dealer_detail),
+        dealer_mobile_salesman=mobile_salesman,
+        dealer_mobile_rows=mobile_rows[:DEALER_PAGE_SIZE],
+        dealer_mobile_total=len(mobile_rows),
+    )
+    return render_template('dashboard.html', **context)
+
+
+@app.route('/dashboard/dealers')
+def dashboard_dealers():
+    token = request.args.get('token', '')
+    rows = _load_dealer_detail(token)
+    if rows is None:
+        # Token kedaluwarsa: hitung ulang dengan filter dashboard yang sama
+        # (month, depo, salesman ikut dikirim di query string).
+        rows = _dashboard_context()['dealer_detail']
+        token = _store_dealer_detail(rows)
+
+    tab = request.args.get('tab', '__ALL__')
+    selected = _dealer_rows_for_tab(rows, tab)
+    total = len(selected)
+
+    if request.args.get('format') == 'data':
+        # Dipakai fitur Download JPG: seluruh dealer untuk salesman terpilih.
+        return jsonify(token=token, total=total, rows=selected)
+
+    try:
+        offset = max(0, int(request.args.get('offset', 0)))
+    except (TypeError, ValueError):
+        offset = 0
+    try:
+        limit = int(request.args.get('limit', DEALER_PAGE_SIZE))
+    except (TypeError, ValueError):
+        limit = DEALER_PAGE_SIZE
+    limit = min(max(1, limit), 100)
+
+    page = selected[offset:offset + limit]
+    view = 'mobile' if request.args.get('view') == 'mobile' else 'desktop'
+    macro = get_template_attribute(
+        '_dealer_detail_rows.html', 'dealer_card' if view == 'mobile' else 'dealer_row'
+    )
+    html = ''.join(str(macro(d)) for d in page)
+    return jsonify(
+        token=token, view=view, tab=tab, html=html,
+        offset=offset, shown=offset + len(page), total=total,
+        has_more=offset + len(page) < total,
+    )
+
+
+def _dashboard_context():
     # Public Viewer mode:
     # anyone with the dashboard URL may view reports without logging in.
     # Admin-only routes still require a real authenticated admin session.
@@ -2865,8 +2975,8 @@ def dashboard():
         for d in all_depos
     }
 
-    return render_template(
-        'dashboard.html', month=month,
+    return dict(
+        month=month,
         depo_filter=(depo_filters[0] if len(depo_filters) == 1 else ''),
         depo_filters=depo_filters, salesman_filters=salesman_filters,
         depos=depos, salesmen=salesmen,
