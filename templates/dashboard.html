@@ -1015,6 +1015,8 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 /* Heatmap: Distribution Quality, Speed Distribution, SKU Penetration */
 .heat-table{min-width:0;width:100%;table-layout:fixed;border-collapse:separate;border-spacing:6px}
 .heat-table th,.heat-table td{border-bottom:0;padding:10px 8px}
+.heat-table th{background:transparent}
+.heat-table thead th{height:52px;padding-top:8px;padding-bottom:8px}
 .heat-table thead th{text-align:center;vertical-align:bottom;font-size:11px;font-weight:900;color:#52647e}
 .heat-table thead th:first-child{width:240px;text-align:left}
 .heat-table tbody th{text-align:left;font-size:13px;font-weight:800;color:#172033;text-transform:none;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1044,11 +1046,10 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 }
 
 /* Distribution Quality + Speed Distribution dalam satu baris */
-.heat-pair{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:14px;align-items:start}
-.heat-pair .heat-quality thead th:first-child{width:46%}
-.heat-pair .heat-speed thead th:first-child{width:30%}
+.heat-pair{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:14px;align-items:stretch}
+.heat-pair>.section{display:flex;flex-direction:column}
+.heat-pair>.section>.heat-card{flex:1}
 @media(max-width:1100px){.heat-pair{grid-template-columns:1fr;gap:0}}
-@media(max-width:768px){.heat-pair .heat-quality thead th:first-child,.heat-pair .heat-speed thead th:first-child{width:72px}}
 
 /* Dealer Achievement Detail: tombol muat bertahap */
 .dealer-load-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px}
@@ -1330,7 +1331,7 @@ document.addEventListener('click',function(event){
   dialog.showModal();
 });
 </script>
-{#- Heatmap: hijau = sesuai laju target (>= Time Gone), merah = di bawah, abu = belum ada target/data. -#}
+{#- Heatmap: hijau = target tercapai, merah = belum tercapai, abu = belum ada target/data. -#}
 {% macro heat_class(actual, due) -%}
 {%- if due is none -%}heat-neutral{%- elif actual >= due -%}heat-good{%- else -%}heat-bad{%- endif -%}
 {%- endmacro %}
@@ -1341,6 +1342,104 @@ document.addEventListener('click',function(event){
 <span class="heat-name-full">{{ name }}</span><span class="heat-name-short" aria-hidden="true">{{ name.split(' ')[0] }}</span>
 {%- endmacro %}
 
+
+<div class="heat-pair">
+<div class="section">
+  <div class="section-title">
+    <h2>Distribution Quality</h2>
+  </div>
+
+  <div class="card table-card heat-card"><div class="table-wrap">
+    {% if table %}
+    <table class="heat-table heat-quality">
+      <thead>
+        <tr>
+          <th scope="col">Salesman</th>
+          <th scope="col">BO</th>
+          <th scope="col">QVO</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in table %}
+        {% set bo_due = r.bo_target if r.bo_target else none %}
+        {% set qvo_due = r.qvo_target if r.qvo_target else none %}
+        {% set bo_cls = heat_class(r.bo, bo_due) %}
+        {% set qvo_cls = heat_class(r.qvo, qvo_due) %}
+        <tr>
+          <th scope="row">{{ heat_name(r.salesman) }}</th>
+          <td class="heat-cell {{ bo_cls }}">{{ r.bo }}{{ heat_status(bo_cls) }}</td>
+          <td class="heat-cell {{ qvo_cls }}">{{ r.qvo }}{{ heat_status(qvo_cls) }}</td>
+        </tr>
+        {% endfor %}
+        {% set bo_total_cls = heat_class(cards.bo, cards.bo_target if cards.bo_target else none) %}
+        {% set qvo_total_cls = heat_class(cards.qvo, cards.qvo_target if cards.qvo_target else none) %}
+        <tr class="heat-total">
+          <th scope="row">Total</th>
+          <td class="heat-cell {{ bo_total_cls }}">{{ cards.bo }}{{ heat_status(bo_total_cls) }}</td>
+          <td class="heat-cell {{ qvo_total_cls }}">{{ cards.qvo }}{{ heat_status(qvo_total_cls) }}</td>
+        </tr>
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">Belum ada data BO/QVO untuk periode ini.</div>
+    {% endif %}
+  </div></div>
+</div>
+
+<div class="section">
+  <div class="section-title">
+    <h2>Speed Distribution</h2>
+  </div>
+
+  <div class="card table-card heat-card"><div class="table-wrap">
+    {% if speed_rows %}
+    <table class="heat-table heat-speed">
+      <thead>
+        <tr>
+          <th scope="col">Salesman</th>
+          {% for w in [1,2,3,4] %}
+          {% set week_targets = speed_rows|map(attribute='weeks.' ~ w ~ '.target')|unique|list %}
+          <th scope="col">W{{ w }}{% if week_targets|length == 1 %}<span class="heat-sub">target {{ week_targets[0] }}</span>{% endif %}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in speed_rows %}
+        <tr>
+          <th scope="row">{{ heat_name(r.salesman) }}</th>
+          {% for w in [1,2,3,4] %}
+          {% set x = r.weeks[w] %}
+          {% set week_targets = speed_rows|map(attribute='weeks.' ~ w ~ '.target')|unique|list %}
+          {% if x.actual is none %}
+          <td class="heat-cell heat-neutral">—<span class="sr-only"> (belum berjalan)</span></td>
+          {% else %}
+          {% set cls = 'heat-good' if x.actual >= x.target else 'heat-bad' %}
+          <td class="heat-cell {{ cls }}">{{ x.actual }}{% if week_targets|length != 1 %}<span class="heat-sub">/ {{ x.target }}</span>{% endif %}{{ heat_status(cls) }}</td>
+          {% endif %}
+          {% endfor %}
+        </tr>
+        {% endfor %}
+        <tr class="heat-total">
+          <th scope="row">Total</th>
+          {% for w in [1,2,3,4] %}
+          {% set week_actuals = speed_rows|map(attribute='weeks.' ~ w ~ '.actual')|reject('none')|list %}
+          {% set week_target_total = speed_rows|map(attribute='weeks.' ~ w ~ '.target')|sum %}
+          {% if not week_actuals %}
+          <td class="heat-cell heat-neutral">—<span class="sr-only"> (belum berjalan)</span></td>
+          {% else %}
+          {% set cls = 'heat-good' if week_actuals|sum >= week_target_total else 'heat-bad' %}
+          <td class="heat-cell {{ cls }}">{{ week_actuals|sum }}{{ heat_status(cls) }}</td>
+          {% endif %}
+          {% endfor %}
+        </tr>
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">Belum ada data Speed Distribution.</div>
+    {% endif %}
+  </div></div>
+</div>
+</div>
 
 {% macro no_purchase_row(d) %}<div class="dealer-action-row" data-no-purchase-card-row data-salesman="{{ d.salesman|e }}" data-depo="{{ d.depo|e }}"><span><b>{{ d.dealer }}</b><small>{{ d.bp }} · {{ d.depo }}</small></span><span>{{ d.salesman }}</span><strong>{{ d.target|rupiah_short }}</strong></div>{% endmacro %}
 <div class="dealer-actions">
@@ -1448,90 +1547,6 @@ document.addEventListener('click',function(event){
 
 </script>
 
-<div class="heat-pair">
-<div class="section">
-  <div class="section-title">
-    <h2>Distribution Quality</h2>
-  </div>
-
-  <div class="card table-card heat-card"><div class="table-wrap">
-    {% if table %}
-    <table class="heat-table heat-quality">
-      <thead>
-        <tr>
-          <th scope="col">Salesman</th>
-          <th scope="col">BO</th>
-          <th scope="col">QVO</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in table %}
-        {% set bo_due = (r.bo_target * timegone_pct / 100) if r.bo_target else none %}
-        {% set qvo_due = (r.qvo_target * timegone_pct / 100) if r.qvo_target else none %}
-        {% set bo_cls = heat_class(r.bo, bo_due) %}
-        {% set qvo_cls = heat_class(r.qvo, qvo_due) %}
-        <tr>
-          <th scope="row">{{ heat_name(r.salesman) }}</th>
-          <td class="heat-cell {{ bo_cls }}">{{ r.bo }}{{ heat_status(bo_cls) }}</td>
-          <td class="heat-cell {{ qvo_cls }}">{{ r.qvo }}{{ heat_status(qvo_cls) }}</td>
-        </tr>
-        {% endfor %}
-        {% set bo_total_cls = heat_class(cards.bo, (cards.bo_target * timegone_pct / 100) if cards.bo_target else none) %}
-        {% set qvo_total_cls = heat_class(cards.qvo, (cards.qvo_target * timegone_pct / 100) if cards.qvo_target else none) %}
-        <tr class="heat-total">
-          <th scope="row">Total</th>
-          <td class="heat-cell {{ bo_total_cls }}">{{ cards.bo }}{{ heat_status(bo_total_cls) }}</td>
-          <td class="heat-cell {{ qvo_total_cls }}">{{ cards.qvo }}{{ heat_status(qvo_total_cls) }}</td>
-        </tr>
-      </tbody>
-    </table>
-    {% else %}
-    <div class="empty">Belum ada data BO/QVO untuk periode ini.</div>
-    {% endif %}
-  </div></div>
-</div>
-
-<div class="section">
-  <div class="section-title">
-    <h2>Speed Distribution</h2>
-  </div>
-
-  <div class="card table-card heat-card"><div class="table-wrap">
-    {% if speed_rows %}
-    <table class="heat-table heat-speed">
-      <thead>
-        <tr>
-          <th scope="col">Salesman</th>
-          {% for w in [1,2,3,4] %}
-          {% set week_targets = speed_rows|map(attribute='weeks.' ~ w ~ '.target')|unique|list %}
-          <th scope="col">W{{ w }}{% if week_targets|length == 1 %}<span class="heat-sub">target {{ week_targets[0] }}</span>{% endif %}</th>
-          {% endfor %}
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in speed_rows %}
-        <tr>
-          <th scope="row">{{ heat_name(r.salesman) }}</th>
-          {% for w in [1,2,3,4] %}
-          {% set x = r.weeks[w] %}
-          {% set week_targets = speed_rows|map(attribute='weeks.' ~ w ~ '.target')|unique|list %}
-          {% if x.actual is none %}
-          <td class="heat-cell heat-neutral">—<span class="sr-only"> (belum berjalan)</span></td>
-          {% else %}
-          {% set cls = 'heat-good' if x.actual >= x.target else 'heat-bad' %}
-          <td class="heat-cell {{ cls }}">{{ x.actual }}{% if week_targets|length != 1 %}<span class="heat-sub">/ {{ x.target }}</span>{% endif %}{{ heat_status(cls) }}</td>
-          {% endif %}
-          {% endfor %}
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <div class="empty">Belum ada data Speed Distribution.</div>
-    {% endif %}
-  </div></div>
-</div>
-</div>
 
 <div class="section">
   <div class="section-title">
@@ -1554,7 +1569,7 @@ document.addEventListener('click',function(event){
         <tr>
           <th scope="row">{{ heat_name(r.salesman) }}</th>
           {% for bucket in ['1','2-3','4-6','7-10','>10'] %}
-          {% set cls = heat_class(r[bucket], (sku_targets[bucket] * timegone_pct / 100) if bucket in sku_targets else none) %}
+          {% set cls = heat_class(r[bucket], sku_targets[bucket] if bucket in sku_targets else none) %}
           <td class="heat-cell {{ cls }}"><button type="button" class="sku-link" data-salesman="{{ r.salesman|e }}" data-bucket="{{ bucket }}">{{ r[bucket] }}{{ heat_status(cls) }}</button></td>
           {% endfor %}
         </tr>
