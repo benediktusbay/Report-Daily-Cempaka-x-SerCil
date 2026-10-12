@@ -77,6 +77,7 @@ WEEK_PCTS = {1: 0.75, 2: 0.90, 3: 1.00, 4: 1.00}
 WEEK_END_DAY = {1: 7, 2: 14, 3: 21, 4: 31}
 WEEK_START_DAY = {1: 1, 2: 8, 3: 15, 4: 22}
 SKU_TARGETS = {'2-3': 13, '4-6': 6, '7-10': 5, '>10': 2}
+BO_TARGET_PER_SALESMAN = 25
 
 # Public Viewer is intentionally limited to these depots.
 # Admin continues to see every depot available in Monthly Target / Billing.
@@ -2800,7 +2801,9 @@ def _dashboard_context():
         t = salesman_target.get(salesman, {'device':0,'macbook':0,'acc':0,'bo':0,'qvo':0,'dealers':0})
         total = a['device'] + a['macbook'] + a['acc']
         target_total = t['device'] + t['macbook'] + t['acc']
-        bo_target = t['bo'] if monthly_targets else (t['bo'] or 25)
+        # Target BO dikunci 25 per salesman (tidak lagi dijumlah dari Target Master),
+        # sehingga target mingguan Speed Distribution sama: 19 / 23 / 25 / 25.
+        bo_target = BO_TARGET_PER_SALESMAN
         current_week = min(4, max(1, ((max([r.billing_date.day for r,owner in bo_billing if owner == salesman], default=1)-1)//7)+1))
         current_speed_target = weekly_targets(bo_target)[current_week]
         device_pct = a['device']/t['device']*100 if t['device'] else 0
