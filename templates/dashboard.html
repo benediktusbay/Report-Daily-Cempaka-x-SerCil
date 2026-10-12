@@ -1012,10 +1012,49 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 .qvo-basis-toggle button:focus-visible{outline:2px solid #1769e8;outline-offset:2px}
 .qvo-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
 @media(max-width:768px){.qvo-potential-card .dealer-action-header{flex-wrap:wrap}.qvo-header-actions{width:100%;justify-content:space-between}.qvo-basis-toggle button{font-size:10px;padding:6px 8px}}
+/* Heatmap: Distribution Quality, Speed Distribution, SKU Penetration */
+.heat-table{min-width:0;width:100%;table-layout:fixed;border-collapse:separate;border-spacing:6px}
+.heat-table th,.heat-table td{border-bottom:0;padding:10px 8px}
+.heat-table thead th{text-align:center;vertical-align:bottom;font-size:11px;font-weight:900;color:#52647e}
+.heat-table thead th:first-child{width:240px;text-align:left}
+.heat-table tbody th{text-align:left;font-size:13px;font-weight:800;color:#172033;text-transform:none;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.heat-sub{display:block;margin-top:3px;font-size:10px;font-weight:700;color:#94a3b8;text-transform:none;letter-spacing:0}
+.heat-cell{height:46px;text-align:center;border-radius:9px;font-size:16px;font-weight:900;font-variant-numeric:tabular-nums}
+.heat-cell .heat-sub{color:inherit;opacity:.75}
+.heat-good{background:#e7f8ed;color:#15803d}
+.heat-bad{background:#ffe9eb;color:#b91c1c}
+.heat-neutral{background:#f1f5f9;color:#64748b}
+.heat-total th{font-weight:900}
+.heat-total .heat-cell{box-shadow:inset 0 0 0 2px currentColor}
+.heat-sku .heat-cell{padding:4px}
+.heat-cell .sku-link{width:100%;min-width:0;height:38px;border:0;border-radius:7px;background:transparent;color:inherit;font:inherit;font-weight:900}
+.heat-cell .sku-link:hover{background:rgba(255,255,255,.65);text-decoration:underline}
+.heat-name-short{display:none}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(max-width:768px){
+  .heat-table{border-spacing:4px}
+  .heat-table thead th{padding:6px 2px;font-size:10px}
+  .heat-table thead th:first-child{width:72px}
+  .heat-table tbody th{padding:8px 2px;font-size:12px}
+  .heat-name-full{display:none}
+  .heat-name-short{display:inline}
+  .heat-cell{height:40px;padding:8px 2px;font-size:14px}
+  .heat-sub{font-size:9px}
+  .heat-cell .sku-link{height:34px;font-size:14px}
+}
+
+/* Dealer Achievement Detail: tombol muat bertahap */
+.dealer-load-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px}
+.dealer-load-count{font-size:12px;font-weight:700;color:#64748b}
+.dealer-load-more{min-height:40px;border:1px solid #cbd5e1;border-radius:9px;padding:9px 14px;background:#fff;color:#0b2545;font-size:12px;font-weight:900;cursor:pointer}
+.dealer-load-more:hover{background:#eff6ff;border-color:#93c5fd}
+.dealer-load-more:disabled{opacity:.65;cursor:wait}
+.dealer-load-more[hidden]{display:none}
 </style>
 {% endblock %}
 
 {% block body %}
+{% from '_dealer_detail_rows.html' import dealer_card, dealer_row %}
 {% set projection_fields = [('gap_vs_timegone','Gap vs Time Gone'),('target_daily','Target Daily'),('est_closing','Est Closing'),('est_closing_pct','Est Closing %')] %}
 {% macro projection_money(value, show_plus=false) %}
   {% if value is none %}—{% else %}
@@ -1284,96 +1323,49 @@ document.addEventListener('click',function(event){
   dialog.showModal();
 });
 </script>
+{#- Heatmap: hijau = sesuai laju target (>= Time Gone), merah = di bawah, abu = belum ada target/data. -#}
+{% macro heat_class(actual, due) -%}
+{%- if due is none -%}heat-neutral{%- elif actual >= due -%}heat-good{%- else -%}heat-bad{%- endif -%}
+{%- endmacro %}
+{% macro heat_status(cls) -%}
+{%- if cls == 'heat-good' %}<span class="sr-only"> (sesuai target)</span>{% elif cls == 'heat-bad' %}<span class="sr-only"> (di bawah target)</span>{% endif -%}
+{%- endmacro %}
+{% macro heat_name(name) -%}
+<span class="heat-name-full">{{ name }}</span><span class="heat-name-short" aria-hidden="true">{{ name.split(' ')[0] }}</span>
+{%- endmacro %}
 <div class="section">
   <div class="section-title">
     <h2>Distribution Quality</h2>
-      </div>
-
-  
-  <div class="mobile-only">
-    {% if table %}
-    <div class="mobile-swipe-hint">Geser ke samping <span>→</span></div>
-    <div class="mobile-card-list mobile-swipe">
-      {% for r in table %}
-      {% set qvo_pct = (r.qvo / r.qvo_target * 100) if r.qvo_target else 0 %}
-      <div class="mobile-kpi-card mobile-salesman-kpi quality-mobile-shell" data-salesman="{{ r.salesman|e }}">
-        <div class="mobile-card-head"><div><div class="mobile-card-title">{{ r.salesman }}</div><div class="mobile-card-sub">Outlet Performance</div></div></div>
-        <div class="mobile-quality-grid">
-          <div class="mobile-quality-card bo">
-            <div><div class="mobile-quality-top"><div class="mobile-quality-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10h18l-1.5-5h-15L3 10Z"></path><path d="M5 10v9h14v-9"></path><path d="M9 19v-5h6v5"></path></svg></div><div class="mobile-quality-copy"><span>BO</span><strong>{{ r.bo }}</strong></div></div><div class="mobile-quality-rate">{{ r.bo_pct|percent_id }}% · Target {{ r.bo_target }}</div></div>
-            <div class="mobile-quality-progress"><i style="width:{{ 100 if r.bo_pct > 100 else r.bo_pct }}%"></i></div>
-          </div>
-          <div class="mobile-quality-card qvo">
-            <div><div class="mobile-quality-top"><div class="mobile-quality-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="9" r="5"></circle><path d="M9 14l-2 7 5-3 5 3-2-7"></path><path d="m12 6 .8 1.6 1.7.2-1.2 1.2.3 1.7-1.6-.8-1.6.8.3-1.7-1.2-1.2 1.7-.2L12 6Z"></path></svg></div><div class="mobile-quality-copy"><span>QVO</span><strong>{{ r.qvo }}</strong></div></div><div class="mobile-quality-rate">{{ qvo_pct|percent_id }}% · Target {{ r.qvo_target }}</div></div>
-            <div class="mobile-quality-progress"><i style="width:{{ 100 if qvo_pct > 100 else qvo_pct }}%"></i></div>
-          </div>
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-    {% endif %}
   </div>
 
-<div class="card table-card desktop-table"><div class="table-wrap">
+  <div class="card table-card heat-card"><div class="table-wrap">
     {% if table %}
-    <table class="quality-table">
-      <colgroup>
-        <col class="quality-salesman-col">
-        <col class="quality-metric-col" span="3">
-        <col class="quality-metric-col" span="3">
-        <col class="quality-status-col">
-      </colgroup>
+    <table class="heat-table heat-quality">
       <thead>
         <tr>
-          <th rowspan="2">Salesman</th>
-          <th colspan="3" class="group-head">BO</th>
-          <th colspan="3" class="group-head">QVO</th>
-          <th rowspan="2" class="center">Status</th>
-        </tr>
-        <tr>
-          <th class="sub-head">Target</th>
-          <th class="sub-head">Achievement</th>
-          <th class="sub-head">%</th>
-          <th class="sub-head">Target</th>
-          <th class="sub-head">Achievement</th>
-          <th class="sub-head">%</th>
+          <th scope="col">Salesman</th>
+          <th scope="col">BO</th>
+          <th scope="col">QVO</th>
         </tr>
       </thead>
-
       <tbody>
         {% for r in table %}
-        {% set qvo_pct = (r.qvo / r.qvo_target * 100) if r.qvo_target else 0 %}
+        {% set bo_due = (r.bo_target * timegone_pct / 100) if r.bo_target else none %}
+        {% set qvo_due = (r.qvo_target * timegone_pct / 100) if r.qvo_target else none %}
+        {% set bo_cls = heat_class(r.bo, bo_due) %}
+        {% set qvo_cls = heat_class(r.qvo, qvo_due) %}
         <tr>
-          <td><strong>{{ r.salesman }}</strong></td>
-
-          <td class="center">{{ r.bo_target }}</td>
-          <td class="center">{{ r.bo }}</td>
-          <td class="center {% if r.bo_pct < timegone_pct %}under-time{% endif %}">{{ r.bo_pct|percent_id }}%</td>
-
-          <td class="center">{{ r.qvo_target }}</td>
-          <td class="center">{{ r.qvo }}</td>
-          <td class="center {% if qvo_pct < timegone_pct %}under-time{% endif %}">{{ qvo_pct|percent_id }}%</td>
-
-          <td class="center">
-            {% if r.health == 'Green' %}<span class="good">On Track</span>
-            {% elif r.health == 'Amber' %}<span class="warn">Watch</span>
-            {% else %}<span class="bad">Need Push</span>{% endif %}
-          </td>
+          <th scope="row">{{ heat_name(r.salesman) }}</th>
+          <td class="heat-cell {{ bo_cls }}">{{ r.bo }}{{ heat_status(bo_cls) }}</td>
+          <td class="heat-cell {{ qvo_cls }}">{{ r.qvo }}{{ heat_status(qvo_cls) }}</td>
         </tr>
         {% endfor %}
-
-        <tr class="grand-total">
-          <td>GRAND TOTAL</td>
-
-          <td class="center">{{ cards.bo_target }}</td>
-          <td class="center">{{ cards.bo }}</td>
-          <td class="center {% if cards.bo_rate < timegone_pct %}under-time{% endif %}">{{ cards.bo_rate|percent_id }}%</td>
-
-          <td class="center">{{ cards.qvo_target }}</td>
-          <td class="center">{{ cards.qvo }}</td>
-          <td class="center {% if cards.qvo_rate < timegone_pct %}under-time{% endif %}">{{ cards.qvo_rate|percent_id }}%</td>
-
-          <td></td>
+        {% set bo_total_cls = heat_class(cards.bo, (cards.bo_target * timegone_pct / 100) if cards.bo_target else none) %}
+        {% set qvo_total_cls = heat_class(cards.qvo, (cards.qvo_target * timegone_pct / 100) if cards.qvo_target else none) %}
+        <tr class="heat-total">
+          <th scope="row">Total</th>
+          <td class="heat-cell {{ bo_total_cls }}">{{ cards.bo }}{{ heat_status(bo_total_cls) }}</td>
+          <td class="heat-cell {{ qvo_total_cls }}">{{ cards.qvo }}{{ heat_status(qvo_total_cls) }}</td>
         </tr>
       </tbody>
     </table>
@@ -1493,65 +1485,33 @@ document.addEventListener('click',function(event){
 <div class="section">
   <div class="section-title">
     <h2>Speed Distribution</h2>
-    <p>Target: W1 75% · W2 90% · W3–W4 100%</p>
   </div>
 
-  
-  <div class="mobile-only">
+  <div class="card table-card heat-card"><div class="table-wrap">
     {% if speed_rows %}
-    <div class="mobile-swipe-hint">Geser ke samping <span>→</span></div>
-    <div class="mobile-card-list mobile-swipe">
-      {% for r in speed_rows %}
-      <div class="mobile-kpi-card mobile-salesman-kpi" data-salesman="{{ r.salesman|e }}">
-        <div class="mobile-card-title">{{ r.salesman }}</div>
-        {% for w in [1,2,3,4] %}
-        {% set x = r.weeks[w] %}
-        <div class="mobile-section-label">Week {{ w }}</div>
-        <div class="mobile-grid-3">
-          <div class="mobile-metric"><div class="mobile-metric-label">Target</div><div class="mobile-metric-value">{{ x.target }}</div></div>
-          <div class="mobile-metric"><div class="mobile-metric-label">Achievement</div><div class="mobile-metric-value">{% if x.actual is none %}—{% else %}{{ x.actual }}{% endif %}</div></div>
-          <div class="mobile-metric"><div class="mobile-metric-label">%</div><div class="mobile-metric-value">{% if x.pct is none %}—{% else %}{{ x.pct|percent_id }}%{% endif %}</div></div>
-        </div>
-        {% endfor %}
-      </div>
-      {% endfor %}
-    </div>
-    {% endif %}
-  </div>
-
-<div class="card table-card desktop-table"><div class="table-wrap">
-    {% if speed_rows %}
-    <table class="speed-distribution-table">
-      <colgroup>
-        <col class="salesman-col">
-        <col span="12">
-      </colgroup>
+    <table class="heat-table heat-speed">
       <thead>
         <tr>
-          <th rowspan="2">Salesman</th>
-          <th colspan="3" class="group-head">Week 1</th>
-          <th colspan="3" class="group-head">Week 2</th>
-          <th colspan="3" class="group-head">Week 3</th>
-          <th colspan="3" class="group-head">Week 4</th>
-        </tr>
-        <tr>
-          {% for i in range(4) %}
-          <th class="sub-head">Target</th>
-          <th class="sub-head">Achievement</th>
-          <th class="sub-head">%</th>
+          <th scope="col">Salesman</th>
+          {% for w in [1,2,3,4] %}
+          {% set week_targets = speed_rows|map(attribute='weeks.' ~ w ~ '.target')|unique|list %}
+          <th scope="col">W{{ w }}{% if week_targets|length == 1 %}<span class="heat-sub">target {{ week_targets[0] }}</span>{% endif %}</th>
           {% endfor %}
         </tr>
       </thead>
-
       <tbody>
         {% for r in speed_rows %}
         <tr>
-          <td><strong>{{ r.salesman }}</strong></td>
+          <th scope="row">{{ heat_name(r.salesman) }}</th>
           {% for w in [1,2,3,4] %}
           {% set x = r.weeks[w] %}
-          <td class="center">{{ x.target }}</td>
-          <td class="center">{% if x.actual is none %}—{% else %}{{ x.actual }}{% endif %}</td>
-          <td class="center">{% if x.pct is none %}—{% else %}{{ x.pct|percent_id }}%{% endif %}</td>
+          {% set week_targets = speed_rows|map(attribute='weeks.' ~ w ~ '.target')|unique|list %}
+          {% if x.actual is none %}
+          <td class="heat-cell heat-neutral">—<span class="sr-only"> (belum berjalan)</span></td>
+          {% else %}
+          {% set cls = 'heat-good' if x.actual >= x.target else 'heat-bad' %}
+          <td class="heat-cell {{ cls }}">{{ x.actual }}{% if week_targets|length != 1 %}<span class="heat-sub">/ {{ x.target }}</span>{% endif %}{{ heat_status(cls) }}</td>
+          {% endif %}
           {% endfor %}
         </tr>
         {% endfor %}
@@ -1566,60 +1526,27 @@ document.addEventListener('click',function(event){
 <div class="section">
   <div class="section-title">
     <h2>SKU Penetration</h2>
-    
-    <div class="sku-target">
-      <span>Target BO Overall: 25</span>
-      <span>SKU 2–3: 13</span>
-      <span>SKU 4–6: 6</span>
-      <span>SKU 7–10: 5</span>
-      <span>SKU &gt;10: 2</span>
-    </div>
   </div>
 
-  
-  <div class="mobile-only">
+  <div class="card table-card heat-card"><div class="table-wrap">
     {% if sku_rows %}
-    <div class="mobile-swipe-hint">Geser ke samping <span>→</span></div>
-    <div class="mobile-card-list mobile-swipe">
-      {% for r in sku_rows %}
-      <div class="mobile-kpi-card mobile-salesman-kpi" data-salesman="{{ r.salesman|e }}">
-        <div class="mobile-card-title" style="margin-bottom:10px">{{ r.salesman }}</div>
-        <div class="mobile-grid-2">
-          <div class="mobile-metric"><div class="mobile-metric-label">SKU 1</div><button type="button" class="sku-link" data-salesman="{{ r.salesman|e }}" data-bucket="1">{{ r['1'] }}</button></div>
-          <div class="mobile-metric"><div class="mobile-metric-label">SKU 2–3</div><button type="button" class="sku-link" data-salesman="{{ r.salesman|e }}" data-bucket="2-3">{{ r['2-3'] }}</button></div>
-          <div class="mobile-metric"><div class="mobile-metric-label">SKU 4–6</div><button type="button" class="sku-link" data-salesman="{{ r.salesman|e }}" data-bucket="4-6">{{ r['4-6'] }}</button></div>
-          <div class="mobile-metric"><div class="mobile-metric-label">SKU 7–10</div><button type="button" class="sku-link" data-salesman="{{ r.salesman|e }}" data-bucket="7-10">{{ r['7-10'] }}</button></div>
-          <div class="mobile-metric"><div class="mobile-metric-label">SKU &gt;10</div><button type="button" class="sku-link" data-salesman="{{ r.salesman|e }}" data-bucket=">10">{{ r['>10'] }}</button></div>
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-    {% endif %}
-  </div>
-
-<div class="card table-card desktop-table"><div class="table-wrap">
-    {% if sku_rows %}
-    <table style="min-width:760px">
+    <table class="heat-table heat-sku">
       <thead>
         <tr>
-          <th>Salesman</th>
-          <th class="center">SKU 1</th>
-          <th class="center">SKU 2–3</th>
-          <th class="center">SKU 4–6</th>
-          <th class="center">SKU 7–10</th>
-          <th class="center">SKU &gt;10</th>
+          <th scope="col">Salesman</th>
+          {% for bucket, label in [('1','SKU 1'),('2-3','SKU 2–3'),('4-6','SKU 4–6'),('7-10','SKU 7–10'),('>10','SKU >10')] %}
+          <th scope="col">{{ label }}{% if bucket in sku_targets %}<span class="heat-sub">target {{ sku_targets[bucket] }}</span>{% endif %}</th>
+          {% endfor %}
         </tr>
       </thead>
-
       <tbody>
         {% for r in sku_rows %}
         <tr>
-          <td><strong>{{ r.salesman }}</strong></td>
-          <td class="center"><button type="button" class="sku-link" data-salesman="{{ r.salesman|e }}" data-bucket="1">{{ r['1'] }}</button></td>
-          <td class="center"><button type="button" class="sku-link" data-salesman="{{ r.salesman|e }}" data-bucket="2-3">{{ r['2-3'] }}</button></td>
-          <td class="center"><button type="button" class="sku-link" data-salesman="{{ r.salesman|e }}" data-bucket="4-6">{{ r['4-6'] }}</button></td>
-          <td class="center"><button type="button" class="sku-link" data-salesman="{{ r.salesman|e }}" data-bucket="7-10">{{ r['7-10'] }}</button></td>
-          <td class="center"><button type="button" class="sku-link" data-salesman="{{ r.salesman|e }}" data-bucket=">10">{{ r['>10'] }}</button></td>
+          <th scope="row">{{ heat_name(r.salesman) }}</th>
+          {% for bucket in ['1','2-3','4-6','7-10','>10'] %}
+          {% set cls = heat_class(r[bucket], (sku_targets[bucket] * timegone_pct / 100) if bucket in sku_targets else none) %}
+          <td class="heat-cell {{ cls }}"><button type="button" class="sku-link" data-salesman="{{ r.salesman|e }}" data-bucket="{{ bucket }}">{{ r[bucket] }}{{ heat_status(cls) }}</button></td>
+          {% endfor %}
         </tr>
         {% endfor %}
       </tbody>
@@ -1648,62 +1575,19 @@ document.addEventListener('click',function(event){
 
   
   <div class="mobile-only">
-    {% if dealer_detail %}
-    <div class="mobile-card-list">
-      {% for d in dealer_detail %}
-      <div class="mobile-kpi-card dealer-mobile-card dealer-detail-row" data-salesman="{{ d.salesman|e }}">
-        <div class="dealer-row-top">
-          <div>
-            <div class="dealer-bp">{{ d.bp }}</div>
-            <div class="dealer-name">{{ d.dealer }}</div>
-            <div class="dealer-meta">{{ d.salesman }} · {{ d.depo }}</div>
-          </div>
-
-          <div>
-            {% if d.is_target %}
-            <span class="badge badge-target">Target</span>
-            {% else %}
-            <span class="badge badge-nontarget">Target: Not yet</span>
-            {% endif %}
-          </div>
-        </div>
-
-        <div class="mobile-section-label">Achievement</div>
-        <div class="mobile-grid-3">
-          <div class="mobile-metric"><div class="mobile-metric-label">Device</div><button type="button" class="mobile-metric-value dealer-device-link" data-bp="{{ d.bp|e }}" data-dealer="{{ d.dealer|e }}" data-items='{{ d.device_items|tojson }}'>{{ d.device|rupiah_short }}</button></div>
-          <div class="mobile-metric"><div class="mobile-metric-label">MacBook</div><div class="mobile-metric-value">{{ d.macbook|rupiah_short }}</div></div>
-          <div class="mobile-metric"><div class="mobile-metric-label">ACC</div><div class="mobile-metric-value">{{ d.acc|rupiah_short }}</div></div>
-        </div>
-
-        <button type="button" class="sales-total dealer-total-link"
-          data-bp="{{ d.bp|e }}" data-dealer="{{ d.dealer|e }}" data-salesman="{{ d.salesman|e }}" data-depo="{{ d.depo|e }}"
-          data-device-target="{{ d.device_target }}" data-device-ach="{{ d.device }}"
-          data-macbook-target="{{ d.macbook_target }}" data-macbook-ach="{{ d.macbook }}"
-          data-acc-target="{{ d.acc_target }}" data-acc-ach="{{ d.acc }}">
-          <span>Total Sales</span>
-          <strong>{{ d.total|rupiah_short }}</strong>
-        </button>
-
-        <div class="mobile-grid-3" style="margin-top:8px">
-          <div class="mobile-metric">
-            <div class="mobile-metric-label">SKU</div>
-            <button type="button"
-                    class="sku-link dealer-sku-popup-btn"
-                    data-skus='{{ d.sku_list|tojson }}'>
-              {{ d.sku }}
-            </button>
-          </div>
-          <div class="mobile-metric"><div class="mobile-metric-label">BO</div><div class="mobile-metric-value">{% if d.bo %}1{% else %}0{% endif %}</div></div>
-          <div class="mobile-metric"><div class="mobile-metric-label">QVO</div><div class="mobile-metric-value">{% if d.qvo %}1{% else %}0{% endif %}</div></div>
-        </div>
-      </div>
-      {% endfor %}
+    {% if dealer_desktop_rows %}
+    <div class="mobile-card-list" id="dealerMobileList" data-salesman="{{ dealer_mobile_salesman|e }}">
+      {% for d in dealer_mobile_rows %}{{ dealer_card(d) }}{% endfor %}
+    </div>
+    <div class="dealer-load-footer" id="dealerMobileFooter">
+      <span class="dealer-load-count" id="dealerMobileCount">Menampilkan {{ dealer_mobile_rows|length }} dari {{ dealer_mobile_total }} dealer</span>
+      <button type="button" class="dealer-load-more" id="dealerMobileMore"{% if dealer_mobile_rows|length >= dealer_mobile_total %} hidden{% endif %}>Muat {{ [dealer_page_size, dealer_mobile_total - dealer_mobile_rows|length]|min }} lagi</button>
     </div>
     {% endif %}
   </div>
 
 <div class="card table-card desktop-table"><div class="table-wrap">
-    {% if dealer_detail %}
+    {% if dealer_desktop_rows %}
     <table>
       <thead>
         <tr>
@@ -1722,47 +1606,21 @@ document.addEventListener('click',function(event){
         </tr>
       </thead>
 
-      <tbody>
-        {% for d in dealer_detail %}
-        <tr class="dealer-detail-row" data-salesman="{{ d.salesman|e }}">
-          <td>{{ d.depo }}</td>
-          <td>{{ d.salesman }}</td>
-          <td>{{ d.bp }}</td>
-          <td><strong>{{ d.dealer }}</strong></td>
-
-          <td class="center">
-            {% if d.is_target %}
-            <span class="badge badge-target">Target</span>
-            {% else %}
-            <span class="badge badge-nontarget">Target: Not yet</span>
-            {% endif %}
-          </td>
-
-          <td class="number"><button type="button" class="dealer-device-link" data-bp="{{ d.bp|e }}" data-dealer="{{ d.dealer|e }}" data-items='{{ d.device_items|tojson }}'>{{ d.device|rupiah_short }}</button></td>
-          <td class="number">{{ d.macbook|rupiah_short }}</td>
-          <td class="number">{{ d.acc|rupiah_short }}</td>
-          <td class="number"><button type="button" class="dealer-total-link"
-            data-bp="{{ d.bp|e }}" data-dealer="{{ d.dealer|e }}" data-salesman="{{ d.salesman|e }}" data-depo="{{ d.depo|e }}"
-            data-device-target="{{ d.device_target }}" data-device-ach="{{ d.device }}"
-            data-macbook-target="{{ d.macbook_target }}" data-macbook-ach="{{ d.macbook }}"
-            data-acc-target="{{ d.acc_target }}" data-acc-ach="{{ d.acc }}"><strong>{{ d.total|rupiah_short }}</strong></button></td>
-          <td class="center">
-            <button type="button"
-                    class="sku-link dealer-sku-popup-btn"
-                    data-skus='{{ d.sku_list|tojson }}'>
-              {{ d.sku }}
-            </button>
-          </td>
-          <td class="center">{% if d.bo %}1{% else %}0{% endif %}</td>
-          <td class="center">{% if d.qvo %}1{% else %}0{% endif %}</td>
-        </tr>
-        {% endfor %}
+      <tbody id="dealerTableBody">
+        {% for d in dealer_desktop_rows %}{{ dealer_row(d) }}{% endfor %}
       </tbody>
     </table>
     {% else %}
     <div class="empty">Belum ada dealer detail untuk periode ini.</div>
     {% endif %}
   </div></div>
+  {% if dealer_desktop_rows %}
+  <div class="dealer-load-footer desktop-table" id="dealerDesktopFooter">
+    <span class="dealer-load-count" id="dealerDesktopCount">Menampilkan {{ dealer_desktop_rows|length }} dari {{ dealer_desktop_total }} dealer</span>
+    <button type="button" class="dealer-load-more" id="dealerDesktopMore"{% if dealer_desktop_rows|length >= dealer_desktop_total %} hidden{% endif %}>Muat {{ [dealer_page_size, dealer_desktop_total - dealer_desktop_rows|length]|min }} lagi</button>
+  </div>
+  {% endif %}
+  <script id="dealer-load-config" type="application/json">{{ {'token': dealer_token, 'pageSize': dealer_page_size, 'url': url_for('dashboard_dealers'), 'desktopTotal': dealer_desktop_total, 'desktopShown': dealer_desktop_rows|length, 'mobileSalesman': dealer_mobile_salesman, 'mobileTotal': dealer_mobile_total, 'mobileShown': dealer_mobile_rows|length}|tojson }}</script>
 </div>
 
 
@@ -2005,10 +1863,15 @@ document.addEventListener('click',function(event){
     dealerModal.setAttribute('aria-hidden','true');
   }
 
-  document.querySelectorAll('.dealer-total-link,.kpi-card-exact,.sales-exact-link').forEach(function(btn){
+  document.querySelectorAll('.kpi-card-exact,.sales-exact-link').forEach(function(btn){
     btn.addEventListener('click',function(){
       openDealerSalesModal(btn);
     });
+  });
+  // Baris dealer bisa ditambahkan belakangan ("Muat lagi"), jadi pakai event delegation.
+  document.addEventListener('click',function(e){
+    const btn=e.target.closest('.dealer-total-link');
+    if(btn) openDealerSalesModal(btn);
   });
 
   function openQualityModal(card){
@@ -2056,7 +1919,7 @@ document.addEventListener('click',function(event){
     deviceModal.style.display='block';deviceModal.setAttribute('aria-hidden','false');
   }
   function closeDeviceModal(){deviceModal.style.display='none';deviceModal.setAttribute('aria-hidden','true');}
-  document.querySelectorAll('.dealer-device-link').forEach(function(btn){btn.addEventListener('click',function(){openDeviceModal(btn);});});
+  document.addEventListener('click',function(e){const btn=e.target.closest('.dealer-device-link');if(btn) openDeviceModal(btn);});
   deviceCloseBtn.addEventListener('click',closeDeviceModal);
   deviceModal.addEventListener('click',function(e){if(e.target===deviceModal) closeDeviceModal();});
 
@@ -2212,13 +2075,84 @@ document.addEventListener('click',function(event){
   updateMultiSalesmanSummary();
 
   const dealerTabs=document.querySelectorAll('.dealer-salesman-tab');
-  const dealerRows=document.querySelectorAll('.dealer-detail-row');
   const dealerDownloadJpg=document.getElementById('dealerDownloadJpg');
+  let dealerConfig={};
+  try{dealerConfig=JSON.parse(document.getElementById('dealer-load-config')?.textContent||'{}');}catch(e){dealerConfig={};}
+  const dealerPageSize=Number(dealerConfig.pageSize)||20;
+  const dealerViews={
+    desktop:{
+      list:document.getElementById('dealerTableBody'),
+      count:document.getElementById('dealerDesktopCount'),
+      more:document.getElementById('dealerDesktopMore'),
+      tab:'__ALL__',shown:Number(dealerConfig.desktopShown)||0,total:Number(dealerConfig.desktopTotal)||0,request:0
+    },
+    mobile:{
+      list:document.getElementById('dealerMobileList'),
+      count:document.getElementById('dealerMobileCount'),
+      more:document.getElementById('dealerMobileMore'),
+      tab:dealerConfig.mobileSalesman||'__ALL__',shown:Number(dealerConfig.mobileShown)||0,total:Number(dealerConfig.mobileTotal)||0,request:0
+    }
+  };
+
+  function dealerRequestUrl(params){
+    // Bawa filter dashboard yang aktif (month, depo, salesman) supaya endpoint
+    // bisa menghitung ulang dengan scope yang sama jika token kedaluwarsa.
+    const url=new URL(dealerConfig.url||'/dashboard/dealers',window.location.href);
+    new URLSearchParams(window.location.search).forEach(function(value,key){url.searchParams.append(key,value);});
+    url.searchParams.set('token',dealerConfig.token||'');
+    Object.keys(params).forEach(function(key){url.searchParams.set(key,params[key]);});
+    return url.toString();
+  }
+  window.dashboardDealerRequestUrl=dealerRequestUrl;
+  window.dashboardDealerConfig=dealerConfig;
+
+  function renderDealerFooter(state){
+    if(state.count) state.count.textContent='Menampilkan '+state.shown+' dari '+state.total+' dealer';
+    if(state.more){
+      const remaining=Math.max(state.total-state.shown,0);
+      state.more.hidden=remaining<=0;
+      state.more.disabled=false;
+      state.more.textContent='Muat '+Math.min(dealerPageSize,remaining)+' lagi';
+    }
+  }
+
+  async function loadDealerPage(viewName,tab,reset){
+    const state=dealerViews[viewName];
+    if(!state||!state.list) return;
+    const requestId=++state.request;
+    const offset=reset?0:state.shown;
+    if(state.more){state.more.disabled=true;state.more.textContent='Memuat...';}
+    if(reset && state.count) state.count.textContent='Memuat dealer...';
+    try{
+      const response=await fetch(dealerRequestUrl({view:viewName,tab:tab,offset:offset,limit:dealerPageSize}),{headers:{'Accept':'application/json'}});
+      if(!response.ok) throw new Error('HTTP '+response.status);
+      const data=await response.json();
+      if(requestId!==state.request) return;
+      if(data.token) dealerConfig.token=data.token;
+      state.tab=tab;
+      if(reset) state.list.innerHTML=data.html;
+      else state.list.insertAdjacentHTML('beforeend',data.html);
+      state.shown=data.shown;
+      state.total=data.total;
+      if(viewName==='mobile') state.list.dataset.salesman=tab;
+      renderDealerFooter(state);
+    }catch(error){
+      if(requestId!==state.request) return;
+      if(state.count) state.count.textContent='Dealer belum berhasil dimuat. Coba lagi.';
+      if(state.more){state.more.hidden=false;state.more.disabled=false;state.more.textContent='Coba lagi';}
+    }
+  }
+
+  dealerViews.desktop.more?.addEventListener('click',function(){
+    const state=dealerViews.desktop;
+    loadDealerPage('desktop',state.tab,state.more.textContent==='Coba lagi'&&state.shown===0);
+  });
+  dealerViews.mobile.more?.addEventListener('click',function(){
+    const state=dealerViews.mobile;
+    loadDealerPage('mobile',state.tab,state.more.textContent==='Coba lagi'&&state.shown===0);
+  });
 
   function filterDealerDetail(salesman){
-    dealerRows.forEach(function(row){
-      row.style.display=(salesman==='__ALL__' || row.dataset.salesman===salesman)?'':'none';
-    });
     dealerTabs.forEach(function(tab){
       tab.classList.toggle('active',tab.dataset.salesmanFilter===salesman);
     });
@@ -2226,6 +2160,7 @@ document.addEventListener('click',function(event){
       dealerDownloadJpg.dataset.salesman=salesman==='__ALL__'?'':salesman;
       dealerDownloadJpg.classList.toggle('visible',salesman!=='__ALL__');
     }
+    if(dealerViews.desktop.tab!==salesman) loadDealerPage('desktop',salesman,true);
   }
 
   dealerTabs.forEach(function(tab){
@@ -2237,15 +2172,16 @@ document.addEventListener('click',function(event){
   const mobileDealerSelector=document.getElementById('mobileSalesmanFocus');
   const mobileDealerQuery=window.matchMedia('(max-width:768px)');
   function syncMobileDealerDetail(){
-    if(mobileDealerQuery.matches && mobileDealerSelector){
-      filterDealerDetail(mobileDealerSelector.value);
+    // Daftar dealer versi HP mengikuti Salesman Dashboard yang dipilih.
+    if(mobileDealerQuery.matches && mobileDealerSelector && mobileDealerSelector.value
+       && dealerViews.mobile.tab!==mobileDealerSelector.value){
+      loadDealerPage('mobile',mobileDealerSelector.value,true);
     }
   }
   mobileDealerSelector?.addEventListener('change',syncMobileDealerDetail);
   if(mobileDealerQuery.addEventListener){
     mobileDealerQuery.addEventListener('change',function(event){
       if(event.matches)syncMobileDealerDetail();
-      else filterDealerDetail('__ALL__');
     });
   }
   syncMobileDealerDetail();
@@ -2421,8 +2357,9 @@ document.addEventListener('click',function(event){
     popup.setAttribute('aria-hidden','true');
   }
 
-  document.querySelectorAll('.dealer-sku-popup-btn').forEach(function(btn){
-    btn.addEventListener('click', function(){ openPopup(btn); });
+  document.addEventListener('click', function(e){
+    const btn = e.target.closest('.dealer-sku-popup-btn');
+    if(btn) openPopup(btn);
   });
 
   close?.addEventListener('click', closePopup);
@@ -2436,15 +2373,21 @@ document.addEventListener('click',function(event){
 </script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script id="dealer-share-data" type="application/json">{{ dealer_detail|tojson }}</script>
 <script>
 (function(){
   const button=document.getElementById('dealerDownloadJpg');
-  const dataNode=document.getElementById('dealer-share-data');
-  if(!button || !dataNode) return;
+  if(!button) return;
 
-  let dealers=[];
-  try{ dealers=JSON.parse(dataNode.textContent||'[]'); }catch(e){ dealers=[]; }
+  // Data dealer diambil saat tombol diklik (tidak lagi ditanam di halaman).
+  async function fetchDealerRows(salesman){
+    const buildUrl=window.dashboardDealerRequestUrl;
+    if(typeof buildUrl!=='function') return [];
+    const response=await fetch(buildUrl({format:'data',tab:salesman}),{headers:{'Accept':'application/json'}});
+    if(!response.ok) throw new Error('HTTP '+response.status);
+    const data=await response.json();
+    if(data.token && window.dashboardDealerConfig) window.dashboardDealerConfig.token=data.token;
+    return Array.isArray(data.rows)?data.rows:[];
+  }
   const reportDate={{ (latest_in_scope.strftime('%d %b %Y') if latest_in_scope else '-')|tojson }};
 
   function esc(value){
@@ -2506,7 +2449,18 @@ document.addEventListener('click',function(event){
       alert('Pembuat gambar belum termuat. Muat ulang halaman lalu coba kembali.');
       return;
     }
-    const rows=dealers.filter(function(d){return d.salesman===salesman;});
+    let rows=[];
+    button.disabled=true;
+    button.textContent='Memuat data...';
+    try{
+      rows=(await fetchDealerRows(salesman)).filter(function(d){return d.salesman===salesman;});
+    }catch(error){
+      button.disabled=false;button.textContent='⬇ Download JPG';
+      alert('Data dealer belum berhasil dimuat. Silakan coba kembali.');
+      return;
+    }
+    button.disabled=false;
+    button.textContent='⬇ Download JPG';
     rows.sort(function(a,b){return dealerTargetTotal(b)-dealerTargetTotal(a);});
     if(!rows.length){alert('Dealer untuk salesman ini belum tersedia.');return;}
 
