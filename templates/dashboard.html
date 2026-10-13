@@ -1061,6 +1061,10 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 .heat-pair>.section>.heat-card{flex:1}
 @media(max-width:1100px){.heat-pair{grid-template-columns:1fr;gap:0}}
 
+/* Dealer Achievement Detail: semua kolom rata kiri (header & isi) */
+.dealer-detail-table th,.dealer-detail-table td{text-align:left!important}
+.dealer-detail-table .sku-link{justify-content:center}
+
 /* Dealer Achievement Detail: tombol muat bertahap */
 .dealer-load-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px}
 .dealer-load-count{font-size:12px;font-weight:700;color:#64748b}
@@ -1625,7 +1629,7 @@ document.addEventListener('click',function(event){
 
 <div class="card table-card desktop-table"><div class="table-wrap">
     {% if dealer_desktop_rows %}
-    <table>
+    <table class="dealer-detail-table">
       <thead>
         <tr>
           <th>Depo</th>
