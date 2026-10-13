@@ -97,7 +97,7 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 .ppg-table td.ppg-month-cell{box-shadow:inset 0 0 0 3px #fff;border-radius:0}
 .ppg-table td.ppg-month-cell.green{background:#e7f8ed}
 .ppg-table td.ppg-month-cell.red{background:#ffe9eb}
-.ppg-table td.ppg-month-cell.future{background:#f1f5f9;text-align:center}
+.ppg-table td.ppg-month-cell.future{background:#f1f5f9}
 .ppg-month-cell.green .ppg-month-top span,.ppg-month-cell.green strong{color:#15803d}
 .ppg-month-cell.red .ppg-month-top span,.ppg-month-cell.red strong{color:#b91c1c}
 .ppg-table .ppg-month-cell .ppg-progress{display:none}
@@ -108,8 +108,12 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 .loyalty-mobile .ppg-month-cell.green .ppg-progress span{background:#16a34a}
 .loyalty-mobile .ppg-month-cell.red .ppg-progress span{background:#dc2626}
 /* Sel bulan: hanya nominal, rata tengah. Persen tetap ada di pop-up detail dan versi HP. */
-.ppg-table td.ppg-month-cell{text-align:center;vertical-align:middle}
-.ppg-table td.ppg-month-cell .ppg-month-top{justify-content:center;white-space:nowrap}
+.ppg-table td.ppg-month-cell{text-align:left;vertical-align:middle;padding-left:14px}
+.ppg-table td.ppg-month-cell .ppg-month-top{justify-content:flex-start;white-space:nowrap}
+.ppg-table td.ppg-month-cell.future{text-align:left}
+/* Header rata tengah (kecuali Dealer & No), isi tetap rata kiri */
+.loyalty-quarter-table thead th:nth-child(n+2){text-align:center}
+.ppg-table:not(.loyalty-quarter-table) thead th:nth-child(n+3){text-align:center}
 .ppg-table td.ppg-month-cell .ppg-month-top span{font-size:14px;font-weight:900;font-variant-numeric:tabular-nums}
 .ppg-table td.ppg-month-cell .ppg-month-top strong[data-program-pct]{display:none}
 </style>
