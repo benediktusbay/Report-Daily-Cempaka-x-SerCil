@@ -2998,6 +2998,13 @@ def _dashboard_context():
         for d in all_depos
     }
 
+    # Urutan Dealer Achievement Detail untuk monitoring: BO + QVO dulu, lalu
+    # BO saja, QVO saja, lalu belum BO/QVO; di dalam kelompok, Total Sales terbesar.
+    dealer_detail.sort(key=lambda d: (
+        0 if d['bo'] and d['qvo'] else 1 if d['bo'] else 2 if d['qvo'] else 3,
+        -d['total'], d['dealer'],
+    ))
+
     return dict(
         month=month,
         depo_filter=(depo_filters[0] if len(depo_filters) == 1 else ''),
