@@ -148,7 +148,7 @@
 
 <div class="card price-table-wrap">
   <table class="price-table {% if session.get('role') == 'admin' %}price-table-admin{% endif %}">
-    <thead><tr><th>Model</th><th>SRP Promo</th><th>STP Promo</th><th>Period</th>{% if session.get('role') == 'admin' %}<th class="price-actions">AKSI</th>{% endif %}</tr></thead>
+    <thead><tr><th>Model</th><th>STP Promo</th><th>SRP Promo</th><th>Period</th>{% if session.get('role') == 'admin' %}<th class="price-actions">AKSI</th>{% endif %}</tr></thead>
     <tbody id="priceTableBody"></tbody>
   </table>
 </div>
@@ -222,7 +222,7 @@
 
 
   function normalCells(row){
-    return '<td>'+esc(row.model)+'</td><td>'+money(row.srp_promo)+'</td><td>'+money(row.stp_promo)+'</td><td>'+(isNormalPrice(row.period)?'<span class="price-normal-badge">'+NORMAL_PRICE+'</span>':esc(row.period))+'</td>'+
+    return '<td>'+esc(row.model)+'</td><td>'+money(row.stp_promo)+'</td><td>'+money(row.srp_promo)+'</td><td>'+(isNormalPrice(row.period)?'<span class="price-normal-badge">'+NORMAL_PRICE+'</span>':esc(row.period))+'</td>'+
       (isAdmin?'<td class="price-actions"><button type="button" data-action="edit" aria-label="Edit '+esc(row.model)+'">✏<span class="price-edit-label"> Edit</span></button></td>':'');
   }
   if(isAdmin){
@@ -245,7 +245,7 @@
       if(action==='edit'){
         if(tr.classList.contains('price-edit'))return;
         tr.classList.add('price-edit');
-        tr.innerHTML=['model','srp_promo','stp_promo','period'].map(key=>'<td><input name="'+key+'" aria-label="'+esc({model:'Model',srp_promo:'SRP Promo',stp_promo:'STP Promo',period:'Period'}[key])+'" '+(key.includes('promo')?'inputmode="numeric" ':'maxlength="'+(key==='model'?500:100)+'" ')+'value="'+esc(key.includes('promo')?Number(row[key]).toLocaleString('id-ID'):row[key])+'"></td>').join('')+
+        tr.innerHTML=['model','stp_promo','srp_promo','period'].map(key=>'<td><input name="'+key+'" aria-label="'+esc({model:'Model',srp_promo:'SRP Promo',stp_promo:'STP Promo',period:'Period'}[key])+'" '+(key.includes('promo')?'inputmode="numeric" ':'maxlength="'+(key==='model'?500:100)+'" ')+'value="'+esc(key.includes('promo')?Number(row[key]).toLocaleString('id-ID'):row[key])+'"></td>').join('')+
           '<td class="price-actions"><button type="button" data-action="save">Simpan</button><button type="button" data-action="cancel">Batal</button><button type="button" class="price-delete" data-action="delete">Hapus</button><span class="price-row-error" role="alert"></span></td>';
         tr.querySelector('input').focus();return;
       }
