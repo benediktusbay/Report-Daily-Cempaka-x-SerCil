@@ -3819,6 +3819,9 @@ def pricelist_price(value):
     return int(number) if math.isfinite(number) and number > 0 and number.is_integer() else None
 
 
+PRICELIST_NORMAL_PRICE = 'Harga Normal'
+
+
 def validate_pricelist_row(raw):
     if not isinstance(raw, dict):
         return None
@@ -3832,6 +3835,14 @@ def validate_pricelist_row(raw):
     period = normalize_text(raw.get('period'))
     srp_promo = pricelist_price(raw.get('srp_promo'))
     stp_promo = pricelist_price(raw.get('stp_promo'))
+    # Tipe baru yang belum ada promo: Period = "Harga Normal" (tanpa tanggal).
+    if period.casefold() == PRICELIST_NORMAL_PRICE.casefold():
+        if (not model or len(model) > 500 or srp_promo is None or stp_promo is None
+                or any(re.fullmatch(r'\d[\d.,]*', token) and len(re.sub(r'\D', '', token)) >= 7
+                       for token in model.split())):
+            return None
+        return {'model': model, 'period': PRICELIST_NORMAL_PRICE,
+                'srp_promo': srp_promo, 'stp_promo': stp_promo}
     period_valid = any(re.fullmatch(pattern, period, re.IGNORECASE) for pattern in period_patterns)
     period_days = [int(day) for day in re.findall(r'\d{1,2}', period)]
     model_has_price = any(
@@ -3869,7 +3880,7 @@ def pricelist():
         periods = []
         for item in items:
             period = normalize_text(item.period)
-            if period and period not in periods:
+            if period and period.casefold() != PRICELIST_NORMAL_PRICE.casefold() and period not in periods:
                 periods.append(period)
         stamps = [item.updated_at for item in items if item.updated_at]
         if latest_uploads[key] and latest_uploads[key].uploaded_at:
