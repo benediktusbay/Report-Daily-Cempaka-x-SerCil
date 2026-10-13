@@ -53,6 +53,12 @@
 .price-meta b{color:#0b2545;margin-right:4px}
 .price-meta[hidden]{display:none}
 .price-excel-help{margin:0 0 10px;color:#475569;font-size:12px;line-height:1.5}
+/* Produk Harga Normal (tipe baru, belum ada promo) */
+.price-table tr.price-normal td{background:#fff8e6}
+.price-table tr.price-normal td:first-child{box-shadow:inset 4px 0 0 #f59e0b}
+.price-normal-badge{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:#fde7b0;color:#8a4b00;font-size:12px;font-weight:800;white-space:nowrap}
+.price-normal-legend{display:inline-flex;align-items:center;gap:8px;margin-left:auto;color:#475569}
+.price-normal-legend i{width:14px;height:14px;border-radius:4px;background:#fff8e6;box-shadow:inset 3px 0 0 #f59e0b;border:1px solid #f3d9a4}
 </style>
 {% endblock %}
 
@@ -75,7 +81,7 @@
     <div class="price-field"><label for="manualModel">Model</label><input id="manualModel" name="model" maxlength="500" required></div>
     <div class="price-field"><label for="manualSrp">SRP Promo</label><input id="manualSrp" name="srp_promo" inputmode="numeric" required></div>
     <div class="price-field"><label for="manualStp">STP Promo</label><input id="manualStp" name="stp_promo" inputmode="numeric" required></div>
-    <div class="price-field"><label for="manualPeriod">Period</label><input id="manualPeriod" name="period" placeholder="27 Sep–3 Oct" maxlength="100" required></div>
+    <div class="price-field"><label for="manualPeriod">Period</label><input id="manualPeriod" name="period" placeholder="27 Sep–3 Oct atau Harga Normal" maxlength="100" required></div>
   </div>
   <div class="price-review-actions"><button type="submit" class="price-btn save">Simpan</button><button type="button" class="price-btn" id="priceManualCancel">Batal</button></div>
   <div id="priceManualError" class="price-row-error" role="alert"></div>
@@ -87,7 +93,7 @@
 <details class="price-paste price-admin-toggle" id="priceExcelSection">
   <summary>Upload Excel</summary>
   <div class="price-paste-body">
-  <p class="price-excel-help">File .xlsx / .xls / .csv dengan kolom <b>Model</b>, harga <b>SRP Promo</b> (atau <b>SRP</b>) dan <b>STP Promo</b> (atau <b>STP</b>), serta <b>Period</b>. Kalau file tidak punya kolom Period, isi Period di bawah. Kategori diambil dari kolom <b>Kategori</b> atau nama sheet (mengandung iPhone / Mac / iPad / ACC); kalau tidak ada, pakai Kategori default.</p>
+  <p class="price-excel-help">File .xlsx / .xls / .csv dengan kolom <b>Model</b>, harga <b>SRP Promo</b> (atau <b>SRP</b>) dan <b>STP Promo</b> (atau <b>STP</b>), serta <b>Period</b>. Baris tanpa harga promo (kolom Promo tidak ada / kosong) otomatis jadi <b>Harga Normal</b> memakai SRP &amp; STP. Kalau baris promo tidak punya kolom Period, isi Period di bawah. Kategori diambil dari kolom <b>Kategori</b> atau nama sheet (mengandung iPhone / Mac / iPad / ACC); kalau tidak ada, pakai Kategori default.</p>
   <div class="price-paste-actions">
     <div class="price-field"><label for="priceExcelFile">File Excel</label><input id="priceExcelFile" type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"></div>
     <div class="price-field"><label for="priceExcelPeriod">Period (jika tidak ada di file)</label><input id="priceExcelPeriod" placeholder="4-10 Oct" maxlength="100"></div>
@@ -181,7 +187,10 @@
   const count=document.getElementById('priceCount');
   const tabs=document.querySelectorAll('.price-tab');
   function money(value){return 'Rp '+Math.round(Number(value)||0).toLocaleString('id-ID');}
-  function visibleRows(){return data[active]||[];}
+  const NORMAL_PRICE='Harga Normal';
+  function isNormalPrice(period){return String(period||'').trim().toLowerCase().replace(/\s+/g,' ')==='harga normal';}
+  // Produk "Harga Normal" (tipe baru, belum ada promo) tampil paling atas.
+  function visibleRows(){const rows=data[active]||[];return rows.filter(r=>isNormalPrice(r.period)).concat(rows.filter(r=>!isNormalPrice(r.period)));}
   function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
   let meta={};
   try{meta=JSON.parse(document.getElementById('pricelistMeta').textContent||'{}');}catch(error){}
@@ -192,25 +201,28 @@
     const parts=[];
     if(info.periods&&info.periods.length)parts.push('<span><b>Berlaku</b> '+info.periods.map(esc).join(' · ')+'</span>');
     if(info.updated)parts.push('<span><b>Diupdate</b> '+esc(info.updated)+'</span>');
+    if((data[active]||[]).some(r=>isNormalPrice(r.period)))parts.push('<span class="price-normal-legend"><i aria-hidden="true"></i>Harga Normal (belum ada promo)</span>');
     metaNode.innerHTML=parts.join('');
     metaNode.hidden=!parts.length;
   }
   function render(){
     renderMeta();
     const rows=visibleRows();count.textContent=rows.length+' produk';
-    body.innerHTML=rows.length?rows.map(row=>'<tr data-id="'+row.id+'">'+normalCells(row)+'</tr>').join(''):'<tr><td colspan="'+(isAdmin?5:4)+'" class="price-empty">Belum ada pricelist untuk kategori ini.</td></tr>';
+    body.innerHTML=rows.length?rows.map(row=>'<tr data-id="'+row.id+'"'+(isNormalPrice(row.period)?' class="price-normal"':'')+'>'+normalCells(row)+'</tr>').join(''):'<tr><td colspan="'+(isAdmin?5:4)+'" class="price-empty">Belum ada pricelist untuk kategori ini.</td></tr>';
   }
   tabs.forEach(tab=>tab.addEventListener('click',function(){active=tab.dataset.category;tabs.forEach(x=>x.classList.toggle('active',x===tab));render();}));
   document.getElementById('priceCopy').addEventListener('click',async function(){
     const label={iphone:'IPHONE',mac:'MAC/MACBOOK',ipad:'IPAD',acc:'ACC'}[active];
-    const text=['*PRICELIST APPLE - '+label+'*',...visibleRows().map(row=>row.model+' | SRP Promo '+money(row.srp_promo)+' | STP Promo '+money(row.stp_promo)+' | '+row.period)].join('\n');
+    const text=['*PRICELIST APPLE - '+label+'*',...visibleRows().map(row=>isNormalPrice(row.period)
+      ?row.model+' | SRP '+money(row.srp_promo)+' | STP '+money(row.stp_promo)+' | '+NORMAL_PRICE
+      :row.model+' | SRP Promo '+money(row.srp_promo)+' | STP Promo '+money(row.stp_promo)+' | '+row.period)].join('\n');
     try{await navigator.clipboard.writeText(text);this.textContent='Berhasil disalin';setTimeout(()=>this.textContent='Copy untuk WhatsApp',1600);}catch(error){alert('Browser belum mengizinkan copy otomatis.');}
   });
   render();
 
 
   function normalCells(row){
-    return '<td>'+esc(row.model)+'</td><td>'+money(row.srp_promo)+'</td><td>'+money(row.stp_promo)+'</td><td>'+esc(row.period)+'</td>'+
+    return '<td>'+esc(row.model)+'</td><td>'+money(row.srp_promo)+'</td><td>'+money(row.stp_promo)+'</td><td>'+(isNormalPrice(row.period)?'<span class="price-normal-badge">'+NORMAL_PRICE+'</span>':esc(row.period))+'</td>'+
       (isAdmin?'<td class="price-actions"><button type="button" data-action="edit" aria-label="Edit '+esc(row.model)+'">✏<span class="price-edit-label"> Edit</span></button></td>':'');
   }
   if(isAdmin){
@@ -464,6 +476,7 @@
   const MONTHS={jan:'Jan',feb:'Feb',fcb:'Feb',mar:'Mar',apr:'Apr',may:'May',mei:'May',jun:'Jun',jul:'Jul',jui:'Jul',aug:'Aug',agu:'Aug',sep:'Sep',sept:'Sep',scp:'Sep',oct:'Oct','0ct':'Oct',okt:'Oct',nov:'Nov','n0v':'Nov',dec:'Dec',dcc:'Dec',des:'Dec'};
   const MONTH_TOKEN='Jan|Feb|Fcb|Mar|Apr|May|Mei|Jun|Jul|Jui|Aug|Agu|Sep|Sept|Scp|Oct|0ct|Okt|Nov|N0v|Dec|Dcc|Des';
   function normalizePeriod(value){
+    if(isNormalPrice(value))return NORMAL_PRICE;
     return String(value||'').replace(/\b(Jan|Feb|Fcb|Mar|Apr|May|Mei|Jun|Jul|Jui|Aug|Agu|Sep|Sept|Scp|Oct|0ct|Okt|Nov|N0v|Dec|Dcc|Des)\b/gi,m=>MONTHS[m.toLowerCase()]||m)
       .replace(/\s*[-–—]\s*/g,'-').replace(/\s+/g,' ').trim();
   }
@@ -858,7 +871,7 @@
     if((paste? !String(row.model||'').trim():!modelPlausible(row.model,row._category))||modelHasPrice(row.model))errors.push('Model belum valid');
     if(row.srp_promo==null||row.srp_promo<=0)errors.push('SRP Promo belum valid');
     if(row.stp_promo==null||row.stp_promo<=0)errors.push('STP Promo belum valid');
-    if(!extractPeriod(row.period))errors.push('Period belum valid');
+    if(!isNormalPrice(row.period)&&!extractPeriod(row.period))errors.push('Period belum valid');
     if(row.srp_promo!=null&&row.stp_promo!=null&&row.stp_promo>row.srp_promo)warnings.push('STP Promo lebih tinggi dari SRP Promo; periksa sumber');
     if(row.srp!=null&&((row.srp_promo!=null&&row.srp<row.srp_promo)||(row.stp_promo!=null&&row.srp<row.stp_promo)))warnings.push('SRP lebih kecil dari harga promo; periksa sumber');
     const high={iphone:60000000,ipad:90000000,mac:150000000,acc:30000000}[row._category]||100000000;
@@ -1050,26 +1063,34 @@
       }
     }
     if(headerIndex<0)return {rows,blank,errors:['Sheet "'+sheetName+'": header Model, SRP/SRP Promo, STP/STP Promo tidak ditemukan.'],skipped:true};
-    // File tanpa kolom "Promo": SRP dipakai sebagai SRP Promo, STP sebagai STP Promo.
-    if(columns.srp_promo===undefined)columns.srp_promo=columns.srp;
-    if(columns.stp_promo===undefined)columns.stp_promo=columns.stp;
+    // Tanpa harga promo (kolom Promo tidak ada / kosong di baris itu): SRP & STP dipakai
+    // sebagai harga dan Period diisi "Harga Normal" (tipe baru yang belum ada promo).
+    const hasPromoCols=columns.srp_promo!==undefined||columns.stp_promo!==undefined;
     const missingPeriod=columns.period===undefined;
+    let promoRowsWithoutPeriod=0;
     const sheetCategory=excelCategoryKey(sheetName);
     for(let i=headerIndex+1;i<matrix.length;i++){
       const cells=(matrix[i]||[]).map(excelCellText);
       const get=key=>columns[key]===undefined?'':(cells[columns[key]]||'');
       if(cells.every(value=>!value)){blank++;continue;}
-      if(!get('model')&&!get('srp_promo')&&!get('stp_promo')){blank++;continue;}
+      if(!get('model')&&!get('srp_promo')&&!get('stp_promo')&&!get('srp')&&!get('stp')){blank++;continue;}
       const category=excelCategoryKey(get('category'))||sheetCategory||fallback;
+      const promo=hasPromoCols&&(get('srp_promo')||get('stp_promo'));
+      const srpPromoRaw=promo?get('srp_promo'):get('srp');
+      const stpPromoRaw=promo?get('stp_promo'):get('stp');
+      let period;
+      if(!promo)period=NORMAL_PRICE;
+      else if(missingPeriod){period=periodFallback;if(!periodFallback)promoRowsWithoutPeriod++;}
+      else period=get('period');
       rows.push({
         _category:category,_sourceType:'paste',_meta:{},
-        model:get('model'),srp:parseRupiah(get('srp')),srp_promo:parseRupiah(get('srp_promo')),
-        stp_promo:parseRupiah(get('stp_promo')),support:parseRupiah(get('support')||'0',true),
-        period:normalizePeriod(missingPeriod?periodFallback:get('period')),
-        _raw:{srp:get('srp'),srp_promo:get('srp_promo'),stp_promo:get('stp_promo'),support:get('support')}
+        model:get('model'),srp:parseRupiah(get('srp')),srp_promo:parseRupiah(srpPromoRaw),
+        stp_promo:parseRupiah(stpPromoRaw),support:parseRupiah(get('support')||'0',true),
+        period:normalizePeriod(period),
+        _raw:{srp:get('srp'),srp_promo:srpPromoRaw,stp_promo:stpPromoRaw,support:get('support')}
       });
     }
-    return {rows,blank,errors,skipped:false,missingPeriod};
+    return {rows,blank,errors,skipped:false,missingPeriod:promoRowsWithoutPeriod>0};
   }
   if(excelSection){
     excelSection.addEventListener('toggle',function(){
