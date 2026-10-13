@@ -1061,6 +1061,9 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 .heat-pair>.section>.heat-card{flex:1}
 @media(max-width:1100px){.heat-pair{grid-template-columns:1fr;gap:0}}
 
+/* Nilai KPI tidak boleh menabrak garis kolom Target: ukurannya dikecilkan otomatis (lihat script fitKpiValues) */
+.kpi-main .kpi-value{min-width:0;overflow:hidden}
+
 /* Dealer Achievement Detail: semua kolom rata kiri (header & isi) */
 .dealer-detail-table th,.dealer-detail-table td{text-align:left!important}
 .dealer-detail-table .sku-link{justify-content:center}
@@ -1741,6 +1744,28 @@ document.addEventListener('click',function(event){
 {% endblock %}
 
 {% block scripts %}
+<script>
+(function(){
+  // Kecilkan angka KPI secukupnya supaya tidak menabrak garis kolom Target,
+  // dan samakan ukurannya di keempat kartu agar tetap seragam.
+  function fitKpiValues(){
+    const values=Array.from(document.querySelectorAll('.kpi-main .kpi-value'));
+    if(!values.length) return;
+    values.forEach(el=>{el.style.fontSize='';});
+    let smallest=Infinity;
+    values.forEach(function(el){
+      let size=parseFloat(getComputedStyle(el).fontSize)||24;
+      while(el.scrollWidth>el.clientWidth+1 && size>14){size-=1;el.style.fontSize=size+'px';}
+      smallest=Math.min(smallest,size);
+    });
+    values.forEach(el=>{el.style.fontSize=smallest+'px';});
+  }
+  let timer;
+  window.addEventListener('resize',function(){clearTimeout(timer);timer=setTimeout(fitKpiValues,120);});
+  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fitKpiValues);
+  fitKpiValues();
+})();
+</script>
 <script>
 (function(){
   const card=document.getElementById('qvoPotentialCard');
