@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Program | Daily Sales Report{% endblock %}
+{% block title %}Program · Daily Monitoring{% endblock %}
 
 {% block head %}
 <style>
@@ -93,6 +93,20 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
   .loyalty-mobile-metrics,.loyalty-mobile-gaps{grid-template-columns:1fr}
   .loyalty-mobile-value,.loyalty-mobile .loyalty-gap{font-size:13px;white-space:normal}
 }
+/* Heatmap pencapaian per bulan (sama dengan dashboard): hijau = tercapai, merah = belum, abu = bulan belum berjalan */
+.ppg-table td.ppg-month-cell{box-shadow:inset 0 0 0 3px #fff;border-radius:0}
+.ppg-table td.ppg-month-cell.green{background:#e7f8ed}
+.ppg-table td.ppg-month-cell.red{background:#ffe9eb}
+.ppg-table td.ppg-month-cell.future{background:#f1f5f9;text-align:center}
+.ppg-month-cell.green .ppg-month-top span,.ppg-month-cell.green strong{color:#15803d}
+.ppg-month-cell.red .ppg-month-top span,.ppg-month-cell.red strong{color:#b91c1c}
+.ppg-table .ppg-month-cell .ppg-progress{display:none}
+.ppg-future{font-weight:900;color:#64748b}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.loyalty-mobile .ppg-month-cell.green strong[data-program-pct]{color:#15803d}
+.loyalty-mobile .ppg-month-cell.red strong[data-program-pct]{color:#b91c1c}
+.loyalty-mobile .ppg-month-cell.green .ppg-progress span{background:#16a34a}
+.loyalty-mobile .ppg-month-cell.red .ppg-progress span{background:#dc2626}
 </style>
 {% endblock %}
 
@@ -123,7 +137,7 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 {% for p in rows %}<tr>
   <td><button type="button" class="program-detail-trigger ppg-dealer-name" data-program-group="{{ p.id }}">{{ p.dealer }}</button><span class="ppg-bp">{{ p.bp }}</span></td>
   <td><span class="category">{{ p.category }}</span></td><td class="ppg-target">{{ p.target|rupiah }}</td>
-  {% for cell in p.months %}<td class="ppg-month-cell{% if cell %} {{ cell.status }}{% endif %}"{% if cell %} data-program-month-cell data-target="{{ cell.target }}"{% endif %}>{% if cell %}<div class="ppg-month-top" title="{{ cell.category }}"><span data-program-achievement data-with-ppn="{{ cell.achievement }}" data-with-ppn-display="{{ cell.achievement|rupiah }}">{{ cell.achievement|rupiah }}</span><strong data-program-pct data-with-ppn-display="{{ '%.1f'|format(cell.pct) }}%">{{ '%.1f'|format(cell.pct) }}%</strong></div><div class="ppg-progress"><span style="width:{{ cell.bar_width }}%"></span></div>{% else %}<span class="ppg-not-active">—</span>{% endif %}</td>{% endfor %}
+  {% for cell in p.months %}{% set future = months[loop.index0].key > current_month_key %}<td class="ppg-month-cell{% if cell and future %} future{% elif cell %} {{ cell.status }}{% endif %}"{% if cell and not future %} data-program-month-cell data-target="{{ cell.target }}"{% endif %}>{% if cell and future %}<span class="ppg-future">—</span><span class="sr-only"> (bulan belum berjalan)</span>{% elif cell %}<div class="ppg-month-top" title="{{ cell.category }}"><span data-program-achievement data-with-ppn="{{ cell.achievement }}" data-with-ppn-display="{{ cell.achievement|rupiah }}">{{ cell.achievement|rupiah }}</span><strong data-program-pct data-with-ppn-display="{{ '%.1f'|format(cell.pct) }}%">{{ '%.1f'|format(cell.pct) }}%</strong></div><div class="ppg-progress"><span style="width:{{ cell.bar_width }}%"></span></div>{% else %}<span class="ppg-not-active">—</span>{% endif %}</td>{% endfor %}
   <td class="loyalty-gap {% if p.monthly_gap is none %}zero{% elif p.monthly_gap > 0 %}positive{% elif p.monthly_gap < 0 %}negative{% else %}zero{% endif %}"{% if p.monthly_gap is not none %} data-program-gap data-target="{{ p.achievement - p.monthly_gap }}" data-with-ppn="{{ p.achievement }}" data-with-ppn-display="{% if p.monthly_gap > 0 %}+{% endif %}{{ p.monthly_gap|rupiah }}"{% endif %}>{% if p.monthly_gap is none %}—{% elif p.monthly_gap > 0 %}+{% endif %}{% if p.monthly_gap is not none %}{{ p.monthly_gap|rupiah }}{% endif %}</td>
   <td class="loyalty-gap {% if p.quarterly_gap > 0 %}positive{% elif p.quarterly_gap < 0 %}negative{% else %}zero{% endif %}" data-program-gap data-target="{{ p.quarterly_target }}" data-with-ppn="{{ p.quarterly_achievement }}" data-with-ppn-display="{% if p.quarterly_gap > 0 %}+{% endif %}{{ p.quarterly_gap|rupiah }}">{% if p.quarterly_gap > 0 %}+{% endif %}{{ p.quarterly_gap|rupiah }}</td>
 </tr>{% else %}<tr><td colspan="8" class="empty">Belum ada data Program Loyalty untuk filter ini.</td></tr>{% endfor %}
@@ -161,7 +175,10 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
     <section data-loyalty-period-panel="{{ item.key }}"{% if item.key != context.key %} hidden{% endif %}>
       {{ loyalty_mobile_header(p, cell.category if cell else p.category) }}
       <div class="loyalty-mobile-period">{{ item.label }}</div>
-      {% if cell %}
+      {% if cell and item.key > current_month_key %}
+      <div class="loyalty-mobile-inactive">Bulan ini belum berjalan.</div>
+      <div class="loyalty-mobile-gaps"><div><span class="loyalty-mobile-label">Gap Monthly</span><strong class="loyalty-gap zero">—</strong></div><div><span class="loyalty-mobile-label">Gap Quarterly</span>{{ loyalty_mobile_gap(p.quarterly_gap, p.quarterly_achievement, p.quarterly_target) }}</div></div>
+      {% elif cell %}
       {{ loyalty_mobile_metrics(cell.target, cell.achievement, cell.pct, cell.status, cell.bar_width, 'Target / Bulan', 'Achievement') }}
       <div class="loyalty-mobile-gaps">
         <div><span class="loyalty-mobile-label">Gap Monthly</span>{{ loyalty_mobile_gap(cell.achievement - cell.target, cell.achievement, cell.target) }}</div>
@@ -176,7 +193,7 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
     <section data-loyalty-period-panel="quarter"{% if context.key != 'quarter' %} hidden{% endif %}>
       {{ loyalty_mobile_header(p, p.category) }}
       <div class="loyalty-mobile-period">Q{{ loyalty_quarter }} {{ loyalty_year }}</div>
-      {{ loyalty_mobile_metrics(p.quarterly_target, p.quarterly_achievement, p.quarterly_pct, 'green' if p.quarterly_pct >= 100 else 'blue' if p.quarterly_pct >= 80 else 'orange' if p.quarterly_pct >= 50 else 'red', [[p.quarterly_pct, 0]|max, 100]|min, 'Target Quarter', 'Achievement Q' ~ loyalty_quarter) }}
+      {{ loyalty_mobile_metrics(p.quarterly_target, p.quarterly_achievement, p.quarterly_pct, 'green' if p.quarterly_pct >= 100 else 'red', [[p.quarterly_pct, 0]|max, 100]|min, 'Target Quarter', 'Achievement Q' ~ loyalty_quarter) }}
       <div class="loyalty-mobile-gaps quarter"><div><span class="loyalty-mobile-label">Gap Quarterly</span>{{ loyalty_mobile_gap(p.quarterly_gap, p.quarterly_achievement, p.quarterly_target) }}</div></div>
     </section>
   </article>{% else %}<div class="card empty">Belum ada data Program Loyalty untuk filter ini.</div>{% endfor %}
@@ -302,7 +319,7 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
         <td>{{ row.number }}</td><td><span class="ppg-dealer-name">{{ row.participant.dealer_name }}</span><span class="ppg-bp">{{ row.participant.bp_code }}</span></td>
         <td><span class="ppg-badge{% if row.participant.program_type == 'PAA + PPG' %} combo{% elif row.participant.program_type == 'PAA' %} paa{% endif %}">{{ row.participant.program_type }}</span></td>
         <td class="ppg-target">{{ row.target|rupiah }}</td>
-        {% for cell in row.months %}<td class="ppg-month-cell{% if cell %} {{ cell.status }}{% endif %}"{% if cell %} data-program-month-cell data-target="{{ row.target }}"{% endif %}>{% if cell %}<div class="ppg-month-top"><span data-program-achievement data-with-ppn="{{ cell.achievement }}" data-with-ppn-display="{{ cell.achievement|rupiah }}">{{ cell.achievement|rupiah }}</span><strong data-program-pct data-with-ppn-display="{{ '%.0f'|format(cell.pct) }}%">{{ '%.0f'|format(cell.pct) }}%</strong></div><div class="ppg-progress"><span style="width:{{ cell.bar_width }}%"></span></div>{% else %}<span class="ppg-not-active">—</span>{% endif %}</td>{% endfor %}
+        {% for cell in row.months %}{% set future = ppg_months[loop.index0].key > current_month_key %}<td class="ppg-month-cell{% if cell and future %} future{% elif cell %} {{ cell.status }}{% endif %}"{% if cell and not future %} data-program-month-cell data-target="{{ row.target }}"{% endif %}>{% if cell and future %}<span class="ppg-future">—</span><span class="sr-only"> (bulan belum berjalan)</span>{% elif cell %}<div class="ppg-month-top"><span data-program-achievement data-with-ppn="{{ cell.achievement }}" data-with-ppn-display="{{ cell.achievement|rupiah }}">{{ cell.achievement|rupiah }}</span><strong data-program-pct data-with-ppn-display="{{ '%.0f'|format(cell.pct) }}%">{{ '%.0f'|format(cell.pct) }}%</strong></div><div class="ppg-progress"><span style="width:{{ cell.bar_width }}%"></span></div>{% else %}<span class="ppg-not-active">—</span>{% endif %}</td>{% endfor %}
       </tr>{% endfor %}
     {% else %}<tr><td colspan="7" class="empty">Belum ada peserta Program PPG untuk filter ini.</td></tr>{% endfor %}
   </tbody></table></div></div>
@@ -351,7 +368,7 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
         :percent.dataset.withPpnDisplay;
       bar.style.width=Math.min(Math.max(pct,0),100)+'%';
       cell.classList.remove('green','blue','orange','red');
-      cell.classList.add(pct>=100?'green':pct>=80?'blue':pct>=50?'orange':'red');
+      cell.classList.add(pct>=100?'green':'red');
     });
     gaps.forEach(function(gap){
       const withPpn=Number(gap.dataset.withPpn);
@@ -380,7 +397,7 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
   });});
   const detailData=JSON.parse(document.getElementById('programDetailData').textContent);
   const detailDialog=document.getElementById('programGroupDialog');
-  const money=function(value){return 'Rp'+Number(value||0).toLocaleString('id-ID',{maximumFractionDigits:0});};
+  const money=function(value){return 'Rp '+Number(value||0).toLocaleString('id-ID',{maximumFractionDigits:0});};
   const percent=function(value){return Number(value||0).toLocaleString('id-ID',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';};
   const selectedAchievement=function(value){return window.programPpnBasis==='non_ppn'?Number(value||0)/1.11:Number(value||0);};
   const selectedPercent=function(achievement,target,withPpnPct){return window.programPpnBasis==='non_ppn'

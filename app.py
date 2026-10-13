@@ -76,7 +76,6 @@ def qvo_display_row(row, basis):
 WEEK_PCTS = {1: 0.75, 2: 0.90, 3: 1.00, 4: 1.00}
 WEEK_END_DAY = {1: 7, 2: 14, 3: 21, 4: 31}
 WEEK_START_DAY = {1: 1, 2: 8, 3: 15, 4: 22}
-SKU_TARGETS = {'2-3': 13, '4-6': 6, '7-10': 5, '>10': 2}
 BO_TARGET_PER_SALESMAN = 25
 
 # Public Viewer is intentionally limited to these depots.
@@ -1146,10 +1145,10 @@ def send_stock_otp(recipient, code):
         'Messages': [{
             'From': {
                 'Email': sender,
-                'Name': normalize_text(os.environ.get('OTP_SENDER_NAME')) or 'Stock Apple',
+                'Name': normalize_text(os.environ.get('OTP_SENDER_NAME')) or 'Daily Monitoring Dashboard',
             },
             'To': [{'Email': recipient}],
-            'Subject': 'Kode OTP Stock Apple',
+            'Subject': 'Kode OTP Stock · Daily Monitoring Dashboard',
             'TextPart': (
                 f'Kode OTP Anda: {code}\n\n'
                 'Kode berlaku selama 10 menit. Jangan berikan kode ini kepada siapa pun.'
@@ -1200,14 +1199,14 @@ def rupiah_short(x):
     amount = abs(n)
     if amount >= 1_000_000_000:
         txt = f'{amount/1_000_000_000:.2f}'.rstrip('0').rstrip('.').replace('.', ',')
-        return f'{prefix}Rp{txt} M'
+        return f'{prefix}Rp {txt} M'
     if amount >= 1_000_000:
         txt = f'{amount/1_000_000:.1f}'.rstrip('0').rstrip('.').replace('.', ',')
-        return f'{prefix}Rp{txt} Jt'
+        return f'{prefix}Rp {txt} Jt'
     if amount >= 1_000:
         txt = f'{amount/1_000:.1f}'.rstrip('0').rstrip('.').replace('.', ',')
-        return f'{prefix}Rp{txt} Rb'
-    return f'{prefix}Rp{amount:,.0f}'.replace(',', '.')
+        return f'{prefix}Rp {txt} Rb'
+    return f'{prefix}Rp {amount:,.0f}'.replace(',', '.')
 
 
 def percent_id(value):
@@ -1222,6 +1221,13 @@ def date_id(value):
 
 
 app.jinja_env.filters['rupiah'] = rupiah
+
+
+@app.context_processor
+def inject_current_month():
+    # Dipakai template untuk menandai bulan/periode yang belum berjalan (abu-abu).
+    return {'current_month_key': datetime.now(STOCK_TIMEZONE).strftime('%Y-%m')}
+
 app.jinja_env.filters['rupiah_short'] = rupiah_short
 app.jinja_env.filters['percent_id'] = percent_id
 app.jinja_env.filters['date_id'] = date_id
@@ -1483,6 +1489,15 @@ def scoped_dealer_totals(dealers):
     return grouped
 
 
+def dashboard_sku_targets():
+    """Target SKU Penetration per salesman di dashboard = rumus Incentive
+    (persentase dari target BO 25 + pembulatan perusahaan): 12 / 6 / 5 / 1."""
+    return {
+        bucket: business_round(BO_TARGET_PER_SALESMAN * pct)
+        for bucket, pct in INCENTIVE_SKU_PCTS.items()
+    }
+
+
 def business_round(value):
     """
     Company rounding rule:
@@ -1615,10 +1630,11 @@ def build_incentive_metrics(month, member_salesmen):
         revenue_target['ACC'] += float(t.acc_target or 0)
         bo_target += int(t.bo_target or 0)
 
-    # Defensive fallback: if a target file has no BO rows, preserve the SC monthly
-    # default used by the dashboard.
-    if not bo_target and not monthly_targets:
-        bo_target = 25 * len(member_salesmen)
+    # Target BO dikunci 25 per salesman (sama dengan dashboard). Kelebihan baris
+    # BO di Target Master diabaikan. Untuk level yang membawahi beberapa SC,
+    # target = 25 x jumlah SC yang punya target di bulan ini.
+    salesmen_with_target = {canonical_salesman(t.salesman) for t in target_rows}
+    bo_target = BO_TARGET_PER_SALESMAN * (len(salesmen_with_target) or len(member_salesmen))
 
     billing_rows = incentive_billing_for_month(month)
 
@@ -2145,7 +2161,7 @@ def pjp_recommendations(month, salesman):
         if row.last_order_date: reason.append(f'Last order {(current_end - row.last_order_date).days} days ago')
         if row.active_months: reason.append(f'Active {row.active_months}/6 months')
         if inactivity: reason.append('No order this month')
-        if row.qvo_gap and row.current_revenue: reason.append(f'Rp{row.qvo_gap:,.0f} to QVO')
+        if row.qvo_gap and row.current_revenue: reason.append(f'Rp {row.qvo_gap:,.0f} to QVO'.replace(',', '.'))
         result.append({'row': row, 'score': score, 'reason': ' • '.join(reason) or 'No recent order history',
                        'suggested_day': row.preferred_weekday, 'suggested_activity': 'Call' if inactivity else 'Visit', 'unresolved': row.bp_code in unresolved})
     return sorted(result, key=lambda x: (-x['score'], x['row'].dealer_name))[:10]
@@ -2812,8 +2828,9 @@ def _dashboard_context():
         bo_pct = a['bo']/bo_target*100 if bo_target else 0
         sales_pct = total/target_total*100 if target_total else 0
         bins = a['sku_bins']
-        sku_score = min(bins['2-3'],13)+min(bins['4-6'],6)+min(bins['7-10'],5)+min(bins['>10'],2)
-        sku_pct = sku_score/26*100
+        sku_target_map = dashboard_sku_targets()
+        sku_score = sum(min(bins[b], t) for b, t in sku_target_map.items())
+        sku_pct = sku_score/sum(sku_target_map.values())*100 if sum(sku_target_map.values()) else 0
         health = 'Green' if a['bo'] >= current_speed_target else ('Amber' if a['bo'] >= max(1, math.ceil(current_speed_target*0.9)) else 'Red')
         table.append({
             'salesman':salesman,'device':a['device'],'macbook':a['macbook'],'acc':a['acc'],'total':total,
@@ -2987,7 +3004,7 @@ def _dashboard_context():
         filter_depo_salesmen=filter_depo_salesmen,
         cards=cards, table=table, leaderboard=leaderboard,
         speed_rows=speed_rows, sku_rows=sku_rows, sku_detail=sku_detail, dealer_detail=dealer_detail,
-        sku_targets=SKU_TARGETS, uploads=uploads, target_uploads=target_uploads,
+        sku_targets=dashboard_sku_targets(), uploads=uploads, target_uploads=target_uploads,
         qvo_threshold=qvo_display_amount(QVO_THRESHOLD, 'with_ppn'),
         qvo_basis=qvo_basis, qvo_basis_requested=qvo_basis_requested,
         latest_in_scope=latest_in_scope,
@@ -3275,8 +3292,8 @@ def build_ppg_paa_report(year, quarter, selected_depo=''):
                     continue
                 amount = monthly_sales.get((p.bp_code, month['key']), 0.0)
                 pct = amount / target * 100 if target else 0.0
-                status = ('green' if pct >= 100 else 'blue' if pct >= 80
-                          else 'orange' if pct >= 50 else 'red')
+                # Heatmap: hijau = target tercapai, merah = belum.
+                status = 'green' if pct >= 100 else 'red'
                 cells.append(dict(achievement=amount, pct=pct,
                                   bar_width=min(max(pct, 0), 100), status=status))
             rows.append(dict(number=rank, participant=p, target=target, months=cells))
@@ -3396,8 +3413,8 @@ def program():
             cell_target = LOYALTY_TARGETS[period.category]
             amount = sum(monthly_by_bp.get((member.bp, item['key']), 0) for member in members)
             pct = amount / cell_target * 100 if cell_target else 0
-            status = ('green' if pct >= 100 else 'blue' if pct >= 80
-                      else 'orange' if pct >= 50 else 'red')
+            # Heatmap: hijau = target tercapai, merah = belum.
+            status = 'green' if pct >= 100 else 'red'
             cells.append(dict(achievement=amount, pct=pct, target=cell_target,
                               category=period.category, status=status,
                               bar_width=min(max(pct, 0), 100)))
@@ -3829,9 +3846,27 @@ def pricelist():
         key: PricelistUploadLog.query.filter_by(category=key).order_by(PricelistUploadLog.uploaded_at.desc()).first()
         for key in PRICELIST_CATEGORIES
     }
+    # Info periode berlaku + waktu update terakhir per kategori (ditampilkan di atas tabel).
+    month_short = ('Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des')
+    category_meta = {}
+    for key in PRICELIST_CATEGORIES:
+        items = grouped[key]
+        periods = []
+        for item in items:
+            period = normalize_text(item.period)
+            if period and period not in periods:
+                periods.append(period)
+        stamps = [item.updated_at for item in items if item.updated_at]
+        if latest_uploads[key] and latest_uploads[key].uploaded_at:
+            stamps.append(latest_uploads[key].uploaded_at)
+        updated = None
+        if stamps:
+            local = max(stamps).replace(tzinfo=dt.timezone.utc).astimezone(STOCK_TIMEZONE)
+            updated = f"{local.day} {month_short[local.month - 1]} {local.year}, {local:%H.%M} WIB"
+        category_meta[key] = {'periods': periods, 'updated': updated}
     return render_template(
         'pricelist.html', grouped=grouped, category_labels=PRICELIST_CATEGORIES,
-        latest_uploads=latest_uploads,
+        latest_uploads=latest_uploads, category_meta=category_meta,
     )
 
 

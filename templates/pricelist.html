@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Pricelist Apple | Daily Sales Report{% endblock %}
+{% block title %}Pricelist · Daily Monitoring{% endblock %}
 
 {% block head %}
 <style>
@@ -48,12 +48,16 @@
   .price-header-actions{width:100%;gap:8px}
   .price-header-actions .price-btn{flex:1;min-width:0;min-height:44px;padding:9px 7px;font-size:12px}
 }
+/* Periode berlaku + waktu update per kategori */
+.price-meta{display:flex;flex-wrap:wrap;gap:6px 18px;margin:0 0 10px;padding:10px 14px;border:1px solid #dbe4f0;border-radius:11px;background:#f8fbff;color:#334155;font-size:13px}
+.price-meta b{color:#0b2545;margin-right:4px}
+.price-meta[hidden]{display:none}
 </style>
 {% endblock %}
 
 {% block body %}
 <div class="pricelist-head">
-  <h1>Pricelist Apple</h1>
+  <h1>Pricelist</h1>
   {% if session.get('role') == 'admin' %}
   <div class="price-header-actions">
     <button type="button" class="price-btn price-header-upload" id="priceAdminUploadToggle" aria-controls="priceAdminUpload" aria-expanded="false">Admin Upload <span aria-hidden="true">▾</span></button>
@@ -118,6 +122,9 @@
   <div class="price-tab-actions"><span class="price-count" id="priceCount"></span><button type="button" class="price-btn copy" id="priceCopy">Copy untuk WhatsApp</button></div>
 </div>
 
+<div class="price-meta" id="priceMeta" aria-live="polite"></div>
+<script id="pricelistMeta" type="application/json">{{ category_meta|tojson }}</script>
+
 <div class="card price-table-wrap">
   <table class="price-table {% if session.get('role') == 'admin' %}price-table-admin{% endif %}">
     <thead><tr><th>Model</th><th>SRP Promo</th><th>STP Promo</th><th>Period</th>{% if session.get('role') == 'admin' %}<th class="price-actions">AKSI</th>{% endif %}</tr></thead>
@@ -158,10 +165,23 @@
   const body=document.getElementById('priceTableBody');
   const count=document.getElementById('priceCount');
   const tabs=document.querySelectorAll('.price-tab');
-  function money(value){return 'Rp'+Math.round(Number(value)||0).toLocaleString('id-ID');}
+  function money(value){return 'Rp '+Math.round(Number(value)||0).toLocaleString('id-ID');}
   function visibleRows(){return data[active]||[];}
   function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
+  let meta={};
+  try{meta=JSON.parse(document.getElementById('pricelistMeta').textContent||'{}');}catch(error){}
+  const metaNode=document.getElementById('priceMeta');
+  function renderMeta(){
+    if(!metaNode)return;
+    const info=meta[active]||{};
+    const parts=[];
+    if(info.periods&&info.periods.length)parts.push('<span><b>Berlaku</b> '+info.periods.map(esc).join(' · ')+'</span>');
+    if(info.updated)parts.push('<span><b>Diupdate</b> '+esc(info.updated)+'</span>');
+    metaNode.innerHTML=parts.join('');
+    metaNode.hidden=!parts.length;
+  }
   function render(){
+    renderMeta();
     const rows=visibleRows();count.textContent=rows.length+' produk';
     body.innerHTML=rows.length?rows.map(row=>'<tr data-id="'+row.id+'">'+normalCells(row)+'</tr>').join(''):'<tr><td colspan="'+(isAdmin?5:4)+'" class="price-empty">Belum ada pricelist untuk kategori ini.</td></tr>';
   }

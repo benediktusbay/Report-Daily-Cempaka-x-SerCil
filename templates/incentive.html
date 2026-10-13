@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Incentive | Daily Sales Report{% endblock %}
+{% block title %}Incentive · Daily Monitoring{% endblock %}
 
 {% block head %}
 <style>
@@ -45,6 +45,20 @@
   .mobile-detail-btn{width:100%;margin-top:10px;border:1px solid #cbd5e1;background:#fff;border-radius:8px;padding:8px;font-weight:800}
   .mobile-detail{display:none;margin-top:8px}.mobile-detail.open{display:grid;gap:7px}
   .mobile-param{border-top:1px dashed #e5e7eb;padding-top:6px;font-size:10px}
+}
+/* Heatmap status komponen (sama dengan dashboard): hijau = tercapai, merah = belum, abu = belum berjalan */
+.kpi-block{display:grid;gap:5px;align-content:start}
+.param{border-top:0!important;border-radius:8px;padding:7px 9px;align-items:center}
+.param.heat-good,.mobile-param.heat-good{background:#e7f8ed;color:#15803d}
+.param.heat-bad,.mobile-param.heat-bad{background:#ffe9eb;color:#b91c1c}
+.param.heat-neutral,.mobile-param.heat-neutral{background:#f1f5f9;color:#64748b}
+.param>span:first-child{color:#172033;font-weight:700}
+.heat-good .ok,.heat-bad .bad,.heat-neutral .pending{color:inherit}
+.heat-neutral .pending{color:#64748b}
+@media(max-width:768px){
+  .mobile-detail.open{gap:6px}
+  .mobile-param{border-top:0!important;border-radius:8px;padding:8px 10px}
+  .mobile-param strong{color:#172033}
 }
 </style>
 {% endblock %}
@@ -125,7 +139,7 @@
                   <div class="kpi-block">
                     <div class="kpi-title">{{ group }}</div>
                     {% for d in r.detail if d.kpi == group %}
-                    <div class="param">
+                    <div class="param {% if d.status == 'Achieved' %}heat-good{% elif d.status == 'Pending' %}heat-neutral{% else %}heat-bad{% endif %}">
                       <span>{{ d.parameter }}</span>
                       <span>
                         {% if d.status == 'Achieved' %}<span class="ok">Achieved</span>
@@ -160,25 +174,25 @@
           <div class="mobile-name">{{ r.person }}</div>
           <span class="level-badge">{{ r.level }}</span>
         </div>
-        <div class="mobile-total">{{ r.earned|rupiah_short }}</div>
+        <div class="mobile-total">{{ r.earned|rupiah }}</div>
       </div>
 
       <div class="mobile-grid">
-        <div class="mobile-cell"><label>Speed</label><strong>{{ r.summary['Speed Distribution']|rupiah_short }}</strong></div>
-        <div class="mobile-cell"><label>SKU</label><strong>{{ r.summary['SKU']|rupiah_short }}</strong></div>
-        <div class="mobile-cell"><label>QVO</label><strong>{{ r.summary['QVO']|rupiah_short }}</strong></div>
-        <div class="mobile-cell"><label>Revenue</label><strong>{{ r.summary['Revenue']|rupiah_short }}</strong></div>
+        <div class="mobile-cell"><label>Speed</label><strong>{{ r.summary['Speed Distribution']|rupiah }}</strong></div>
+        <div class="mobile-cell"><label>SKU</label><strong>{{ r.summary['SKU']|rupiah }}</strong></div>
+        <div class="mobile-cell"><label>QVO</label><strong>{{ r.summary['QVO']|rupiah }}</strong></div>
+        <div class="mobile-cell"><label>Revenue</label><strong>{{ r.summary['Revenue']|rupiah }}</strong></div>
       </div>
 
       <button class="mobile-detail-btn" type="button" onclick="toggleMobile('m-{{ loop.index }}')">Detail</button>
       <div id="m-{{ loop.index }}" class="mobile-detail">
         {% for d in r.detail %}
-        <div class="mobile-param">
+        <div class="mobile-param {% if d.status == 'Achieved' %}heat-good{% elif d.status == 'Pending' %}heat-neutral{% else %}heat-bad{% endif %}">
           <strong>{{ d.kpi }} · {{ d.parameter }}</strong><br>
           {% if d.status == 'Achieved' %}<span class="ok">Achieved</span>
           {% elif d.status == 'Pending' %}<span class="pending">Pending</span>
           {% else %}<span class="bad">Not Achieved</span>{% endif %}
-          · {{ d.payout|rupiah_short }}
+          · {{ d.payout|rupiah }}
         </div>
         {% endfor %}
       </div>

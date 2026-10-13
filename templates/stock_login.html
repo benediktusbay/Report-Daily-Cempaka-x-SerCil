@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Login Stock Apple</title>
+  <title>Login Stock · Daily Monitoring</title>
   <style>
     *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,sans-serif;background:#f3f6fa;color:#14213a;min-height:100vh;display:grid;place-items:center;padding:20px}
     .panel{width:min(430px,100%);background:#fff;border:1px solid #dfe6ef;border-radius:18px;box-shadow:0 16px 50px rgba(15,35,65,.10);padding:28px}
@@ -17,7 +17,7 @@
 <body>
   <main class="panel">
     <div class="mark">▦</div>
-    <h1>Stock Apple</h1>
+    <h1>Stock</h1>
     <p>Masukkan email yang telah didaftarkan. Kami akan mengirim kode OTP untuk verifikasi.</p>
     {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div class="flash flash-{{ category }}">{{ message }}</div>{% endfor %}{% endwith %}
     <form method="post">

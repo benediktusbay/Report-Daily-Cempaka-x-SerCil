@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard | Daily Sales Report{% endblock %}
+{% block title %}Dashboard · Daily Monitoring{% endblock %}
 
 {% block header_tools %}
 <div class="header-tools">
@@ -1313,7 +1313,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 </div>
 
 <div class="sales-projection-backdrop" id="salesProjectionBackdrop"></div><aside class="sales-projection-drawer" id="salesProjectionDrawer" aria-hidden="true"><div class="sales-projection-head"><div><h3 id="salesProjectionPerson">Sales Projection</h3><p>Projection (vs Time Gone)</p></div><button class="sales-projection-close" id="salesProjectionClose" type="button">×</button></div><div class="sales-projection-body"><div class="sales-projection-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 16l5-5 4 4 7-8"></path><path d="M15 7h5v5"></path></svg>Sales Projection — MTD</div><div class="sales-projection-grid"><div class="sales-projection-item"><span>Gap vs Time Gone</span><strong id="salesProjectionGap">—</strong></div><div class="sales-projection-item"><span>Target Daily</span><strong id="salesProjectionDaily">—</strong></div><div class="sales-projection-item"><span>Est Closing</span><strong id="salesProjectionClosing">—</strong></div><div class="sales-projection-item"><span>Est Closing %</span><strong id="salesProjectionPct">—</strong></div></div><div class="sales-projection-note">Proyeksi mengikuti laju pencapaian MTD dan working days pada filter aktif.</div></div></aside>
-<script>(function(){const drawer=document.getElementById('salesProjectionDrawer'),back=document.getElementById('salesProjectionBackdrop'),close=document.getElementById('salesProjectionClose');function money(v){if(v===''||v==null||Number.isNaN(Number(v)))return '—';const n=Number(v),a=Math.abs(n);let s;if(a>=1e9)s='Rp'+(a/1e9).toLocaleString('id-ID',{maximumFractionDigits:2})+' M';else if(a>=1e6)s='Rp'+(a/1e6).toLocaleString('id-ID',{maximumFractionDigits:1})+' Jt';else s='Rp'+a.toLocaleString('id-ID',{maximumFractionDigits:0});return (n<0?'-':n>0?'+':'')+s}function open(btn){document.getElementById('salesProjectionPerson').textContent=btn.dataset.person||'Sales Projection';const g=document.getElementById('salesProjectionGap');g.textContent=money(btn.dataset.gap);g.className=Number(btn.dataset.gap)>0?'positive':Number(btn.dataset.gap)<0?'negative':'';document.getElementById('salesProjectionDaily').textContent=money(btn.dataset.daily).replace(/^\+/,'');document.getElementById('salesProjectionClosing').textContent=money(btn.dataset.closing).replace(/^\+/,'');document.getElementById('salesProjectionPct').textContent=btn.dataset.pct!==''?Number(btn.dataset.pct).toLocaleString('id-ID',{maximumFractionDigits:1})+'%':'—';drawer.classList.add('open');back.classList.add('open');drawer.setAttribute('aria-hidden','false')}function shut(){drawer.classList.remove('open');back.classList.remove('open');drawer.setAttribute('aria-hidden','true')}document.addEventListener('click',e=>{const b=e.target.closest('.sales-projection-trigger');if(b)open(b)});close?.addEventListener('click',shut);back?.addEventListener('click',shut);document.addEventListener('keydown',e=>{if(e.key==='Escape')shut()})})();</script>
+<script>(function(){const drawer=document.getElementById('salesProjectionDrawer'),back=document.getElementById('salesProjectionBackdrop'),close=document.getElementById('salesProjectionClose');function money(v){if(v===''||v==null||Number.isNaN(Number(v)))return '—';const n=Number(v),a=Math.abs(n);const s='Rp '+Math.round(a).toLocaleString('id-ID');return (n<0?'-':n>0?'+':'')+s}function open(btn){document.getElementById('salesProjectionPerson').textContent=btn.dataset.person||'Sales Projection';const g=document.getElementById('salesProjectionGap');g.textContent=money(btn.dataset.gap);g.className=Number(btn.dataset.gap)>0?'positive':Number(btn.dataset.gap)<0?'negative':'';document.getElementById('salesProjectionDaily').textContent=money(btn.dataset.daily).replace(/^\+/,'');document.getElementById('salesProjectionClosing').textContent=money(btn.dataset.closing).replace(/^\+/,'');document.getElementById('salesProjectionPct').textContent=btn.dataset.pct!==''?Number(btn.dataset.pct).toLocaleString('id-ID',{maximumFractionDigits:1})+'%':'—';drawer.classList.add('open');back.classList.add('open');drawer.setAttribute('aria-hidden','false')}function shut(){drawer.classList.remove('open');back.classList.remove('open');drawer.setAttribute('aria-hidden','true')}document.addEventListener('click',e=>{const b=e.target.closest('.sales-projection-trigger');if(b)open(b)});close?.addEventListener('click',shut);back?.addEventListener('click',shut);document.addEventListener('keydown',e=>{if(e.key==='Escape')shut()})})();</script>
 
 <dialog id="projection-dialog" aria-labelledby="projection-title"><h3 id="projection-title"></h3><p id="projection-person"></p><div id="projection-exact"></div><form method="dialog"><button>Tutup</button></form></dialog>
 <script>
@@ -1475,11 +1475,11 @@ document.addEventListener('click',function(event){
   </div></div>
 </div>
 
-{% macro no_purchase_row(d) %}<div class="dealer-action-row" data-no-purchase-card-row data-salesman="{{ d.salesman|e }}" data-depo="{{ d.depo|e }}"><span><b>{{ d.dealer }}</b><small>{{ d.bp }} · {{ d.depo }}</small></span><span>{{ d.salesman }}</span><strong>{{ d.target|rupiah_short }}</strong></div>{% endmacro %}
+{% macro no_purchase_row(d) %}<div class="dealer-action-row" data-no-purchase-card-row data-salesman="{{ d.salesman|e }}" data-depo="{{ d.depo|e }}"><span><b>{{ d.dealer }}</b><small>{{ d.bp }} · {{ d.depo }}</small></span><span>{{ d.salesman }}</span><strong>{{ d.target|rupiah }}</strong></div>{% endmacro %}
 <div class="dealer-actions">
   <div class="card dealer-action-card" id="noPurchaseCard">
     <div class="dealer-action-header"><h3>Dealer Belum Belanja</h3><div class="dealer-count-badge no-purchase" id="noPurchaseBadge" aria-label="{{ dealer_no_purchase|length }} dealer belum belanja"><span class="dealer-count-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1"></circle><circle cx="19" cy="20" r="1"></circle><path d="M3 4h2l2.6 10.4a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L21 8H7"></path></svg></span><span class="dealer-count-copy"><strong id="noPurchaseCount">{{ dealer_no_purchase|length }}</strong><span>Dealer</span></span></div></div>
-    <div class="no-purchase-target-total" id="noPurchaseTargetTotal">{{ dealer_no_purchase|length }} Dealer · {{ no_purchase_target_total|rupiah_short }} Target Belum Tergarap</div>
+    <div class="no-purchase-target-total" id="noPurchaseTargetTotal">{{ dealer_no_purchase|length }} Dealer · {{ no_purchase_target_total|rupiah }} Target Belum Tergarap</div>
     <div class="dealer-action-row dealer-action-head"><span>Dealer</span><span>Salesman</span><span>Target</span></div>
     <div id="noPurchaseCardRows">{% for d in dealer_no_purchase[:3] %}{{ no_purchase_row(d) }}{% else %}<p class="empty" id="noPurchaseEmpty">Tidak ada dealer untuk filter ini.</p>{% endfor %}</div>
     <div class="dealer-card-footer"><span class="dealer-card-count" id="noPurchaseCardCount">Menampilkan {{ 3 if dealer_no_purchase|length > 3 else dealer_no_purchase|length }} dari {{ dealer_no_purchase|length }} dealer</span>{% if dealer_no_purchase %}<button type="button" class="dealer-show-all" id="noPurchaseShowAll" data-dealer-dialog="no-purchase-list">Lihat Semua <span class="arrow">→</span></button>{% endif %}</div>
@@ -1521,19 +1521,20 @@ document.addEventListener('click',function(event){
   function norm(v){return String(v||'').trim().toLowerCase();}
   function activeSalesman(){return mobileQuery.matches&&mobileSelector?mobileSelector.value:'';}
   function filteredRows(){const salesman=norm(activeSalesman());return sourceRows.filter(row=>!salesman||norm(row.dataset.salesman)===salesman);}
-  function shortRp(value){const n=Number(value||0),a=Math.abs(n),prefix=(n<0?'-':'')+'Rp';if(a>=1e9)return prefix+(a/1e9).toLocaleString('id-ID',{maximumFractionDigits:2})+' M';if(a>=1e6)return prefix+(a/1e6).toLocaleString('id-ID',{maximumFractionDigits:1})+' Jt';if(a>=1e3)return prefix+(a/1e3).toLocaleString('id-ID',{maximumFractionDigits:1})+' Rb';return prefix+a.toLocaleString('id-ID',{maximumFractionDigits:0});}
+  function shortRp(value){const n=Number(value||0),a=Math.abs(n),prefix=(n<0?'-':'')+'Rp ';if(a>=1e9)return prefix+(a/1e9).toLocaleString('id-ID',{maximumFractionDigits:2})+' M';if(a>=1e6)return prefix+(a/1e6).toLocaleString('id-ID',{maximumFractionDigits:1})+' Jt';if(a>=1e3)return prefix+(a/1e3).toLocaleString('id-ID',{maximumFractionDigits:1})+' Rb';return prefix+a.toLocaleString('id-ID',{maximumFractionDigits:0});}
   function esc(v){return String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));}
+  function fullRp(value){const n=Number(value||0);return (n<0?'-':'')+'Rp '+Math.round(Math.abs(n)).toLocaleString('id-ID');}
   function render(){
     const rows=filteredRows();const salesman=activeSalesman();
     sourceRows.forEach(row=>{row.hidden=!rows.includes(row);});
     if(countNode)countNode.textContent=rows.length;
-    if(targetTotalNode)targetTotalNode.textContent=rows.length+' Dealer · '+shortRp(rows.reduce((sum,row)=>sum+Number(row.dataset.totalTarget||0),0))+' Target Belum Tergarap';
+    if(targetTotalNode)targetTotalNode.textContent=rows.length+' Dealer · '+fullRp(rows.reduce((sum,row)=>sum+Number(row.dataset.totalTarget||0),0))+' Target Belum Tergarap';
     if(badge){badge.setAttribute('aria-label',rows.length+' dealer belum belanja');}
     if(cardCount)cardCount.textContent='Menampilkan '+Math.min(3,rows.length)+' dari '+rows.length+' dealer';
     if(scopeNode)scopeNode.textContent=salesman?'Filter aktif: '+salesman:'Sesuai filter Depo + Salesman dashboard aktif';
     if(showAll)showAll.style.display=rows.length?'inline-flex':'none';
     if(cardRows){
-      cardRows.innerHTML=rows.slice(0,3).map(row=>'<div class="dealer-action-row" data-salesman="'+esc(row.dataset.salesman)+'" data-depo="'+esc(row.dataset.depo)+'"><span><b>'+esc(row.dataset.dealer)+'</b><small>'+esc(row.dataset.bp)+' · '+esc(row.dataset.depo)+'</small></span><span>'+esc(row.dataset.salesman)+'</span><strong>'+shortRp(row.dataset.totalTarget)+'</strong></div>').join('')||'<p class="empty">Tidak ada dealer untuk filter ini.</p>';
+      cardRows.innerHTML=rows.slice(0,3).map(row=>'<div class="dealer-action-row" data-salesman="'+esc(row.dataset.salesman)+'" data-depo="'+esc(row.dataset.depo)+'"><span><b>'+esc(row.dataset.dealer)+'</b><small>'+esc(row.dataset.bp)+' · '+esc(row.dataset.depo)+'</small></span><span>'+esc(row.dataset.salesman)+'</span><strong>'+fullRp(row.dataset.totalTarget)+'</strong></div>').join('')||'<p class="empty">Tidak ada dealer untuk filter ini.</p>';
     }
   }
   document.addEventListener('click',function(event){const listButton=event.target.closest('[data-dealer-dialog]');if(listButton){render();const target=document.getElementById(listButton.dataset.dealerDialog);if(target)target.showModal();}});
@@ -1739,12 +1740,12 @@ document.addEventListener('click',function(event){
     const prefix=value<0?'-':'';
     const amount=Math.abs(value);
     function scaled(unit,digits,suffix){
-      return prefix+'Rp'+(amount/unit).toFixed(digits).replace(/\.?0+$/,'').replace('.',',')+suffix;
+      return prefix+'Rp '+(amount/unit).toFixed(digits).replace(/\.?0+$/,'').replace('.',',')+suffix;
     }
     if(amount>=1_000_000_000)return scaled(1_000_000_000,2,' M');
     if(amount>=1_000_000)return scaled(1_000_000,1,' Jt');
     if(amount>=1_000)return scaled(1_000,1,' Rb');
-    return prefix+'Rp'+Math.round(amount).toLocaleString('id-ID');
+    return prefix+'Rp '+Math.round(amount).toLocaleString('id-ID');
   }
   function setBasis(basis,updateUrl){
     values.forEach(function(value){
@@ -1820,20 +1821,20 @@ document.addEventListener('click',function(event){
     const sign=number<0?'-':'';
     let n=Math.abs(number);
     if(n>=1000000000){
-      return sign+'Rp'+(n/1000000000).toFixed(2).replace(/0+$/,'').replace(/\.$/,'').replace('.',',')+' M';
+      return sign+'Rp '+(n/1000000000).toFixed(2).replace(/0+$/,'').replace(/\.$/,'').replace('.',',')+' M';
     }
     if(n>=1000000){
-      return sign+'Rp'+(n/1000000).toFixed(1).replace(/\.0$/,'').replace('.',',')+' Jt';
+      return sign+'Rp '+(n/1000000).toFixed(1).replace(/\.0$/,'').replace('.',',')+' Jt';
     }
     if(n>=1000){
-      return sign+'Rp'+(n/1000).toFixed(1).replace(/\.0$/,'').replace('.',',')+' Rb';
+      return sign+'Rp '+(n/1000).toFixed(1).replace(/\.0$/,'').replace('.',',')+' Rb';
     }
-    return sign+'Rp'+Math.round(n).toLocaleString('id-ID');
+    return sign+'Rp '+Math.round(n).toLocaleString('id-ID');
   }
 
   function rupiahExactJs(value){
     const n=Number(value||0);
-    return (n<0?'-':'')+'Rp'+Math.round(Math.abs(n)).toLocaleString('id-ID');
+    return (n<0?'-':'')+'Rp '+Math.round(Math.abs(n)).toLocaleString('id-ID');
   }
 
   function pctJs(ach,target){
@@ -2422,7 +2423,7 @@ document.addEventListener('click',function(event){
     });
   }
   function money(value){
-    const n=Number(value)||0,a=Math.abs(n),prefix=(n<0?'-':'')+'Rp';
+    const n=Number(value)||0,a=Math.abs(n),prefix=(n<0?'-':'')+'Rp ';
     if(a>=1e9) return prefix+(a/1e9).toLocaleString('id-ID',{minimumFractionDigits:0,maximumFractionDigits:2})+' M';
     if(a>=1e6) return prefix+(a/1e6).toLocaleString('id-ID',{minimumFractionDigits:0,maximumFractionDigits:1})+' Jt';
     if(a>=1e3) return prefix+(a/1e3).toLocaleString('id-ID',{minimumFractionDigits:0,maximumFractionDigits:1})+' Rb';
@@ -2502,7 +2503,7 @@ document.addEventListener('click',function(event){
       '.jpg-sheet{width:2400px;background:#f4f7fb}.jpg-head{position:relative;background:#0b315b;color:#fff;padding:34px 38px 30px}.jpg-kicker{font-size:13px;font-weight:800;letter-spacing:1.8px;opacity:.75}.jpg-head h1{font-size:36px;line-height:1.15;margin:9px 0 5px}.jpg-period{font-size:15px;opacity:.82}.jpg-logo{position:absolute;right:38px;top:34px;width:55px;height:55px;border-radius:14px;background:#fff;color:#0b315b;display:flex;align-items:center;justify-content:center;font-size:27px}.jpg-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:18px;background:#eaf2fb}.jpg-metric{background:#fff;border:1px solid #d9e2ed;border-radius:13px;padding:15px 17px}.jpg-metric span{display:block;font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:#64748b;font-weight:800;margin-bottom:6px}.jpg-metric strong{font-size:22px}.jpg-table-wrap{padding:18px}.jpg-depo-title{margin:5px 0 10px;padding:10px 14px;border-left:6px solid #0b315b;background:#dfeaf6;color:#0b315b;font-size:18px}.jpg-table+.jpg-depo-title{margin-top:22px}.jpg-table{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border:1px solid #dbe4ee;border-radius:14px;overflow:hidden}.jpg-table th{background:#edf3fa;color:#334155;font-size:14px;text-transform:uppercase;letter-spacing:.5px;padding:15px 16px;text-align:left;border-bottom:1px solid #dbe4ee;white-space:nowrap}.jpg-table td{font-size:17px;padding:15px 16px;border-bottom:1px solid #e6ebf1;vertical-align:middle}.jpg-table tr:last-child td{border-bottom:0}.jpg-table .dealer-cell{font-weight:800;width:28%}.jpg-table .group-head{text-align:center;background:#dfeaf6;color:#0b315b;font-size:15px;font-weight:900}.jpg-table .sub-head{text-align:right;background:#f5f8fc;font-size:12px}.jpg-table .pct-cell{text-align:right;white-space:nowrap;font-weight:900}.jpg-table .number{text-align:right;white-space:nowrap}.jpg-table .center{text-align:center}.jpg-table .total-cell{font-weight:900}.jpg-table .qvo-ok{background:#dcfce7;color:#166534}.ok{color:#167044}.mid{color:#9a6700}.low{color:#b42318}.jpg-foot{display:flex;justify-content:space-between;background:#eaf2fb;color:#64748b;padding:14px 28px;font-size:11px}'+
       '</style><article class="jpg-sheet"><header class="jpg-head"><div class="jpg-kicker">DEALER ACHIEVEMENT DETAIL</div><h1>'+esc(salesman)+'</h1><div class="jpg-period">Billing through '+esc(reportDate)+'</div><div class="jpg-logo">▦</div></header>'+
       '<section class="jpg-summary"><div class="jpg-metric"><span>Total Target</span><strong>'+money(totals.target)+'</strong></div><div class="jpg-metric"><span>Total Achievement</span><strong>'+money(totals.actual)+'</strong></div><div class="jpg-metric"><span>Achievement %</span><strong class="'+pctClass(totalPct)+'">'+pctText(totalPct)+'</strong></div></section>'+
-      '<section class="jpg-table-wrap">'+allDealerTablesHtml(rows,salesman)+'</section><footer class="jpg-foot"><span>Daily Sales Report Apple</span><span>Target &amp; Achievement per Dealer</span></footer></article>';
+      '<section class="jpg-table-wrap">'+allDealerTablesHtml(rows,salesman)+'</section><footer class="jpg-foot"><span>Daily Monitoring Dashboard</span><span>Target &amp; Achievement per Dealer</span></footer></article>';
     document.body.appendChild(stage);
     button.disabled=true;
     button.textContent='Membuat JPG...';

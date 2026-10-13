@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/dashboard-logo.svg') }}">
   <meta name="format-detection" content="telephone=no,date=no,address=no,email=no,url=no">
-  <title>Stock Apple</title>
+  <title>Stock · Daily Monitoring</title>
   <style>
     *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,sans-serif;background:#f3f6fa;color:#14213a}a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important;font:inherit!important}.page{max-width:1500px;margin:auto;padding:22px}
     .topbar{display:flex;justify-content:space-between;align-items:center;gap:18px;background:#fff;border:1px solid #dfe6ef;border-radius:16px;padding:16px 18px;margin-bottom:18px}.brand{display:flex;align-items:center;gap:12px}.logo{width:40px;height:40px;border-radius:11px;background:#0b315b;color:#fff;display:grid;place-items:center;font-size:21px}.brand h1{font-size:21px;margin:0}.brand p{font-size:12px;color:#64748b;margin:3px 0 0}.account{text-align:right;font-size:13px}.account-links{display:flex;justify-content:flex-end;gap:12px}.account a{color:#b42318;text-decoration:none;font-weight:800}.account a.dashboard-link{color:#0b315b}.account div{color:#64748b;margin-bottom:4px}
@@ -88,7 +88,7 @@
   <header class="topbar">
     <div class="brand">
       <div class="brand-logo" aria-hidden="true"><img src="{{ url_for('static', filename='img/dashboard-logo.svg') }}" alt=""></div>
-      <div><div class="brand-title">Daily Monitoring Dashboard</div><div class="brand-subtitle">Daily Sales Report Apple</div></div>
+      <div><div class="brand-title">Daily Monitoring Dashboard</div></div>
     </div>
     <div class="user-area">
       {% if stock_is_admin %}<div class="user-info"><strong>{{ session.get('username', '') }}</strong><br>admin</div><a class="logout" href="{{ url_for('logout') }}">Logout</a>{% else %}<a class="logout" href="{{ url_for('login') }}">Login</a>{% endif %}
@@ -100,12 +100,13 @@
       <a href="{{ url_for('pricelist') }}">Pricelist</a>
       <a href="{{ url_for('incentive') }}">Incentive</a>
       <a href="{{ url_for('pjp') }}">PJP</a>
+      <a href="{{ url_for('closing') }}">Closing</a>
       {% if stock_is_admin %}<a href="{{ url_for('targets') }}">Target Master</a><a href="{{ url_for('users') }}">Users</a>{% endif %}
     </nav>
   </header>
 
   <section class="page-heading">
-    <div><h1>Stock Apple</h1><p>Cempaka &amp; R5 Daily Stock</p></div>
+    <div><h1>Stock</h1><p>Cempaka &amp; R5 Daily Stock</p></div>
     <div class="stock-header-side">
       {% if selected %}<div class="stock-date-meta"><strong>Data per {{ selected.stock_date.strftime('%d %b %Y') }}</strong>{% if selected.uploaded_at %}<span id="stockUpdatedAt" data-utc="{{ selected.uploaded_at.strftime('%Y-%m-%dT%H:%M:%SZ') }}">Terakhir diperbarui: {{ selected.uploaded_at.strftime('%d %b %Y %H:%M') }} UTC</span>{% endif %}</div>{% endif %}
       {% if stock_is_admin %}
