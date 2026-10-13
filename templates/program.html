@@ -107,11 +107,11 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 .loyalty-mobile .ppg-month-cell.red strong[data-program-pct]{color:#b91c1c}
 .loyalty-mobile .ppg-month-cell.green .ppg-progress span{background:#16a34a}
 .loyalty-mobile .ppg-month-cell.red .ppg-progress span{background:#dc2626}
-/* Sel bulan: nominal di atas (utama), persen di bawah, rata tengah */
+/* Sel bulan: hanya nominal, rata tengah. Persen tetap ada di pop-up detail dan versi HP. */
 .ppg-table td.ppg-month-cell{text-align:center;vertical-align:middle}
-.ppg-table td.ppg-month-cell .ppg-month-top{flex-direction:column;align-items:center;justify-content:center;gap:3px;white-space:nowrap}
+.ppg-table td.ppg-month-cell .ppg-month-top{justify-content:center;white-space:nowrap}
 .ppg-table td.ppg-month-cell .ppg-month-top span{font-size:14px;font-weight:900;font-variant-numeric:tabular-nums}
-.ppg-table td.ppg-month-cell .ppg-month-top strong,.loyalty-quarter-table .ppg-month-top strong{font-size:11px;font-weight:700;opacity:.85;font-variant-numeric:tabular-nums}
+.ppg-table td.ppg-month-cell .ppg-month-top strong[data-program-pct]{display:none}
 </style>
 {% endblock %}
 
