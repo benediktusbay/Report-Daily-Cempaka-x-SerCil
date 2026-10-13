@@ -52,6 +52,7 @@
 .price-meta{display:flex;flex-wrap:wrap;gap:6px 18px;margin:0 0 10px;padding:10px 14px;border:1px solid #dbe4f0;border-radius:11px;background:#f8fbff;color:#334155;font-size:13px}
 .price-meta b{color:#0b2545;margin-right:4px}
 .price-meta[hidden]{display:none}
+.price-excel-help{margin:0 0 10px;color:#475569;font-size:12px;line-height:1.5}
 </style>
 {% endblock %}
 
@@ -83,6 +84,20 @@
   <summary>Admin Upload</summary>
   <div class="price-admin-master-body">
 <div class="price-admin-tools">
+<details class="price-paste price-admin-toggle" id="priceExcelSection">
+  <summary>Upload Excel</summary>
+  <div class="price-paste-body">
+  <p class="price-excel-help">File .xlsx / .xls / .csv dengan kolom <b>Model</b>, harga <b>SRP Promo</b> (atau <b>SRP</b>) dan <b>STP Promo</b> (atau <b>STP</b>), serta <b>Period</b>. Kalau file tidak punya kolom Period, isi Period di bawah. Kategori diambil dari kolom <b>Kategori</b> atau nama sheet (mengandung iPhone / Mac / iPad / ACC); kalau tidak ada, pakai Kategori default.</p>
+  <div class="price-paste-actions">
+    <div class="price-field"><label for="priceExcelFile">File Excel</label><input id="priceExcelFile" type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"></div>
+    <div class="price-field"><label for="priceExcelPeriod">Period (jika tidak ada di file)</label><input id="priceExcelPeriod" placeholder="4-10 Oct" maxlength="100"></div>
+    <div class="price-field"><label for="priceExcelCategory">Kategori default</label><select id="priceExcelCategory"><option value="iphone">iPhone</option><option value="mac">Mac/MacBook</option><option value="ipad">iPad</option><option value="acc">ACC</option></select></div>
+    <button type="button" class="price-btn" id="priceExcelAnalyze">Analisis Excel</button>
+    <button type="button" class="price-btn" id="priceExcelTemplate">Download template</button>
+  </div>
+  <div class="price-progress" id="priceExcelProgress" role="status"></div>
+  </div>
+</details>
 <details class="price-paste price-admin-toggle" id="pricePasteSection">
   <summary>Paste Pricelist</summary>
   <div class="price-paste-body">
@@ -154,7 +169,7 @@
 })();
 </script>
 
-{% if session.get('role') == 'admin' %}<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>{% endif %}
+{% if session.get('role') == 'admin' %}<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>{% endif %}
 <script>
 (function(){
   const dataNode=document.getElementById('pricelistData');
@@ -270,7 +285,9 @@
   let pendingOrigin='image';
   let analysisGeneration=0;
   function showPasteProgress(message,type){pasteProgress.style.display='block';pasteProgress.className='price-progress'+(type?' '+type:'');pasteProgress.textContent=message;}
-  function showWorkflowProgress(message,type){(pendingOrigin==='paste'?showPasteProgress:showProgress)(message,type);}
+  const excelProgress=document.getElementById('priceExcelProgress');
+  function showExcelProgress(message,type){if(!excelProgress)return;excelProgress.style.display='block';excelProgress.className='price-progress'+(type?' '+type:'');excelProgress.textContent=message;}
+  function showWorkflowProgress(message,type){(pendingOrigin==='paste'?showPasteProgress:pendingOrigin==='excel'?showExcelProgress:showProgress)(message,type);}
   function parseRupiah(value,allowZero=false){
     const text=String(value??'').trim().replace(/^rp\s*/i,'').replace(/\s+/g,'');
     if(!/^(?:\d+|\d{1,3}(?:[.,]\d{3})+)$/.test(text))return null;
@@ -997,6 +1014,114 @@
     const blocked=result.rows.filter(row=>row.errors.length).length;
     showPasteProgress(result.rows.length+' baris produk dianalisis; '+result.blank+' baris kosong/separator dilewati; '+blocked+' perlu diperbaiki.',blocked?'':'success');
   });
+
+  // ---------- Upload Excel: dibaca di browser (SheetJS) lalu masuk ke alur review yang sama ----------
+  const excelSection=document.getElementById('priceExcelSection');
+  const excelFile=document.getElementById('priceExcelFile');
+  const excelCategory=document.getElementById('priceExcelCategory');
+  const excelAnalyze=document.getElementById('priceExcelAnalyze');
+  const excelTemplate=document.getElementById('priceExcelTemplate');
+  function excelCategoryKey(value){
+    const key=String(value||'').toLowerCase().replace(/[^a-z]/g,'');
+    if(!key)return '';
+    if(key.includes('iphone'))return 'iphone';
+    if(key.includes('ipad'))return 'ipad';
+    if(key.includes('macbook')||key.includes('imac')||/(^|[^a-z])mac/.test(String(value||'').toLowerCase()))return 'mac';
+    if(key==='acc'||key.includes('accessor')||key.includes('aksesoris')||/(^|[^a-z])acc([^a-z]|$)/.test(String(value||'').toLowerCase()))return 'acc';
+    return '';
+  }
+  function excelHeaderKey(value){
+    const key=String(value||'').toLowerCase().replace(/[^a-z]/g,'');
+    return {model:'model',produk:'model',product:'model',srp:'srp',srppromo:'srp_promo',stp:'stp',stppromo:'stp_promo',support:'support',period:'period',periode:'period',kategori:'category',category:'category'}[key]||'';
+  }
+  function excelCellText(value){
+    if(value===null||value===undefined)return '';
+    if(typeof value==='number')return String(Math.round(value));
+    return String(value).trim();
+  }
+  function parseExcelSheet(matrix,sheetName,fallback,periodFallback){
+    const rows=[],errors=[];let blank=0,headerIndex=-1,columns={};
+    for(let i=0;i<Math.min(matrix.length,30);i++){
+      const keys=(matrix[i]||[]).map(excelHeaderKey);
+      const hasSrp=keys.includes('srp_promo')||keys.includes('srp');
+      const hasStp=keys.includes('stp_promo')||keys.includes('stp');
+      if(keys.includes('model')&&hasSrp&&hasStp){
+        headerIndex=i;keys.forEach((key,col)=>{if(key&&columns[key]===undefined)columns[key]=col;});break;
+      }
+    }
+    if(headerIndex<0)return {rows,blank,errors:['Sheet "'+sheetName+'": header Model, SRP/SRP Promo, STP/STP Promo tidak ditemukan.'],skipped:true};
+    // File tanpa kolom "Promo": SRP dipakai sebagai SRP Promo, STP sebagai STP Promo.
+    if(columns.srp_promo===undefined)columns.srp_promo=columns.srp;
+    if(columns.stp_promo===undefined)columns.stp_promo=columns.stp;
+    const missingPeriod=columns.period===undefined;
+    const sheetCategory=excelCategoryKey(sheetName);
+    for(let i=headerIndex+1;i<matrix.length;i++){
+      const cells=(matrix[i]||[]).map(excelCellText);
+      const get=key=>columns[key]===undefined?'':(cells[columns[key]]||'');
+      if(cells.every(value=>!value)){blank++;continue;}
+      if(!get('model')&&!get('srp_promo')&&!get('stp_promo')){blank++;continue;}
+      const category=excelCategoryKey(get('category'))||sheetCategory||fallback;
+      rows.push({
+        _category:category,_sourceType:'paste',_meta:{},
+        model:get('model'),srp:parseRupiah(get('srp')),srp_promo:parseRupiah(get('srp_promo')),
+        stp_promo:parseRupiah(get('stp_promo')),support:parseRupiah(get('support')||'0',true),
+        period:normalizePeriod(missingPeriod?periodFallback:get('period')),
+        _raw:{srp:get('srp'),srp_promo:get('srp_promo'),stp_promo:get('stp_promo'),support:get('support')}
+      });
+    }
+    return {rows,blank,errors,skipped:false,missingPeriod};
+  }
+  if(excelSection){
+    excelSection.addEventListener('toggle',function(){
+      if(pendingOrigin==='excel')reviewBox.style.display=this.open&&Object.keys(pending).length?'block':'none';
+    });
+    excelTemplate.addEventListener('click',function(){
+      if(typeof XLSX==='undefined'){showExcelProgress('Pembaca Excel belum termuat. Muat ulang halaman lalu coba lagi.','error');return;}
+      const book=XLSX.utils.book_new();
+      [['iPhone','iPhone 17 256GB'],['Mac','MacBook Air 13 M4 256GB'],['iPad','iPad Air 11 M3 128GB'],['ACC','AirPods 4']].forEach(function(item){
+        const sheet=XLSX.utils.aoa_to_sheet([['Model','SRP','SRP Promo','STP Promo','Support','Period'],[item[1],0,0,0,0,'27 Sep-3 Oct']]);
+        sheet['!cols']=[{wch:34},{wch:14},{wch:14},{wch:14},{wch:12},{wch:16}];
+        XLSX.utils.book_append_sheet(book,sheet,item[0]);
+      });
+      XLSX.writeFile(book,'template-pricelist.xlsx');
+    });
+    excelAnalyze.addEventListener('click',async function(){
+      const file=excelFile.files&&excelFile.files[0];
+      if(!file){showExcelProgress('Pilih file Excel terlebih dulu.','error');return;}
+      if(typeof XLSX==='undefined'){showExcelProgress('Pembaca Excel belum termuat. Muat ulang halaman lalu coba lagi.','error');return;}
+      analysisGeneration++;
+      pendingOrigin='excel';
+      pending={};
+      reviewBox.style.display='none';reviewTableWrap.innerHTML='';reviewSummary.innerHTML='';saveButton.style.display='none';
+      showExcelProgress('Membaca '+file.name+'…');
+      let book;
+      try{book=XLSX.read(new Uint8Array(await file.arrayBuffer()),{type:'array'});}
+      catch(error){showExcelProgress('File tidak bisa dibaca sebagai Excel/CSV.','error');return;}
+      const fallback=excelCategory.value;let blank=0;const errors=[];let used=0;let periodMissing=false;
+      const periodFallback=(document.getElementById('priceExcelPeriod')?.value||'').trim();
+      book.SheetNames.forEach(function(name){
+        const matrix=XLSX.utils.sheet_to_json(book.Sheets[name],{header:1,raw:true,defval:''});
+        const result=parseExcelSheet(matrix,name,fallback,periodFallback);
+        blank+=result.blank;
+        if(result.missingPeriod)periodMissing=true;
+        if(result.skipped){if(book.SheetNames.length===1)errors.push(...result.errors);return;}
+        used++;
+        result.rows.forEach(function(row){
+          if(!pending[row._category])pending[row._category]={filename:file.name,source:'excel',rows:[]};
+          pending[row._category].rows.push(row);
+        });
+      });
+      const total=Object.values(pending).reduce((sum,item)=>sum+item.rows.length,0);
+      if(!errors.length&&total&&periodMissing&&!periodFallback){showExcelProgress('File ini tidak punya kolom Period. Isi kolom "Period (jika tidak ada di file)", misalnya 4-10 Oct, lalu klik Analisis Excel lagi.','error');pending={};return;}
+      if(errors.length||!total){showExcelProgress(errors[0]||'Tidak ada baris produk yang ditemukan. Pastikan ada kolom Model, SRP Promo, STP Promo, dan Period.','error');pending={};return;}
+      reviewTableWrap.style.display='block';
+      renderReview();
+      const allRows=Object.values(pending).flatMap(item=>item.rows);
+      const blocked=allRows.filter(row=>row.errors&&row.errors.length).length;
+      const perCategory=Object.keys(pending).map(cat=>({iphone:'iPhone',mac:'Mac/MacBook',ipad:'iPad',acc:'ACC'}[cat]||cat)+' '+pending[cat].rows.length).join(', ');
+      showExcelProgress(total+' baris dari '+used+' sheet ('+perCategory+'); '+blank+' baris kosong dilewati; '+blocked+' perlu diperbaiki. Kategori yang ada di file akan menggantikan pricelist lamanya.',blocked?'':'success');
+    });
+  }
 
   const manualChoices=new Map();
   uploadFile.addEventListener('change',()=>{manualChoices.clear();manualCategories.style.display='none';manualCategories.innerHTML='';});
