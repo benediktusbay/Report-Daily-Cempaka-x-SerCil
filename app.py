@@ -3968,14 +3968,16 @@ def upload_pricelist_image():
     category = normalize_text(payload.get('category')).lower()
     source = normalize_text(payload.get('source') or 'image').lower()
     filename = secure_filename(normalize_text(payload.get('filename')) or
-                               ('paste-table' if source == 'paste' else 'pricelist.jpg'))
+                               ({'paste': 'paste-table', 'excel': 'pricelist.xlsx'}.get(source, 'pricelist.jpg')))
     rows = payload.get('rows') or []
     if category not in PRICELIST_CATEGORIES:
         return jsonify({'ok': False, 'message': 'Kategori pricelist tidak valid.'}), 400
-    if source not in ('image', 'paste'):
+    if source not in ('image', 'paste', 'excel'):
         return jsonify({'ok': False, 'message': 'Sumber pricelist tidak valid.'}), 400
     if source == 'image' and not filename.lower().endswith(('.jpg', '.jpeg')):
         return jsonify({'ok': False, 'message': 'Format gambar harus JPG/JPEG.'}), 400
+    if source == 'excel' and not filename.lower().endswith(('.xlsx', '.xls', '.csv')):
+        return jsonify({'ok': False, 'message': 'Format file harus Excel (.xlsx/.xls) atau CSV.'}), 400
     if not isinstance(rows, list) or not rows:
         return jsonify({'ok': False, 'message': 'Tidak ada baris pricelist yang berhasil dibaca.'}), 400
     cleaned = {}
