@@ -1045,6 +1045,16 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   .heat-cell .sku-link{height:34px;font-size:14px}
 }
 
+/* Font heatmap lebih tenang (mockup "Sesudah"): header huruf biasa, angka 14px/700, Total tanpa bingkai */
+.heat-table thead th{font-size:12px;font-weight:700;color:#334155;text-transform:none;letter-spacing:0}
+.heat-sub{font-size:11px;font-weight:400;color:#64748b}
+.heat-table tbody th{font-weight:600}
+.heat-cell{font-size:14px;font-weight:700}
+.heat-total .heat-cell{box-shadow:none}
+.heat-total th,.heat-total td{border-top:1px solid #cbd5e1}
+.heat-total th,.heat-total .heat-cell{font-weight:800}
+@media(max-width:768px){.heat-table thead th{font-size:11px}.heat-sub{font-size:10px}.heat-cell{font-size:13px}}
+
 /* Distribution Quality + Speed Distribution dalam satu baris */
 .heat-pair{display:grid;grid-template-columns:minmax(0,45fr) minmax(0,55fr);gap:14px;align-items:stretch}
 .heat-pair>.section{display:flex;flex-direction:column}
