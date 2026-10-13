@@ -77,6 +77,9 @@ WEEK_PCTS = {1: 0.75, 2: 0.90, 3: 1.00, 4: 1.00}
 WEEK_END_DAY = {1: 7, 2: 14, 3: 21, 4: 31}
 WEEK_START_DAY = {1: 1, 2: 8, 3: 15, 4: 22}
 BO_TARGET_PER_SALESMAN = 25
+# Dealer yang selalu tampil paling atas (dalam kategori/target yang sama) di Program Loyalty.
+# 10028000 = PT SINAR ARTHA MAHAMAKMUR, 10028005 = PT UNIVERSAL GLOBAL SEJAHTERA
+LOYALTY_PRIORITY_BPS = ['10028000', '10028005']
 
 # Public Viewer is intentionally limited to these depots.
 # Admin continues to see every depot available in Monthly Target / Billing.
@@ -3456,7 +3459,12 @@ def program():
                                                        for item, period in zip(months, effective) if period))
                         for member in members],
         })
-    program_loyalty.sort(key=lambda row: (-row['target'], row['dealer']))
+    # Urutan: target terbesar dulu; dalam target yang sama, dealer prioritas
+    # (LOYALTY_PRIORITY_BPS) tampil paling atas sesuai urutan daftar, sisanya A-Z.
+    priority_rank = {normalize_bp(bp): index for index, bp in enumerate(LOYALTY_PRIORITY_BPS)}
+    program_loyalty.sort(key=lambda row: (
+        -row['target'], priority_rank.get(normalize_bp(row['bp']), len(priority_rank)), row['dealer']
+    ))
     for number, row in enumerate(program_loyalty, 1):
         row['number'] = number
     loyalty_target = sum(row['target'] for row in program_loyalty)
