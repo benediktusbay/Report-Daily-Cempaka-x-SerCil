@@ -64,8 +64,9 @@ def qvo_display_amount(value_no_tax, basis):
 
 def qvo_display_row(row, basis):
     display = dict(row)
-    for key in ('sales_mtd', 'gap', 'avg_sales', 'recent_avg'):
-        if key in display:
+    for key in ('sales_mtd', 'gap', 'avg_sales', 'recent_avg', 'projection', 'daily_needed',
+                'pending', 'gap_after_pending', 'no_do_pending'):
+        if key in display and display[key] is not None:
             display[key] = qvo_display_amount(display[key], basis)
     if 'history' in display:
         display['history'] = [
@@ -1972,7 +1973,10 @@ def build_qvo_potential(month, current_dealers, history_count=8):
         consistency_trend = consistency * .60 + trend_score * .40
         score = gap_score * .40 + history_score * .25 + recent_score * .20 + consistency_trend * .15
 
-        historical_strong = qvo_achieved >= 2 or avg_sales >= QVO_THRESHOLD * .85
+        # Watchlist berbasis recency: QVO minimal 2 dari 3 bulan terakhir,
+        # atau minimal 4 dari 8 bulan histori.
+        recent_qvo = sum(1 for v in vals[-3:] if v >= QVO_THRESHOLD)
+        historical_strong = recent_qvo >= 2 or qvo_achieved >= 4
         recent_drop = bool(vals) and (
             d['sales_mtd'] == 0 or
             (avg_sales > 0 and d['sales_mtd'] < avg_sales * .30 and trend == 'Down')
@@ -2008,6 +2012,7 @@ def build_qvo_potential(month, current_dealers, history_count=8):
             'history_qvo': qvo_achieved,
             'history_total': history_count_actual,
             'history_label': f'{qvo_achieved} / {history_count_actual}',
+            'recent_qvo': recent_qvo,
             'last_qvo': last_qvo,
             'last_qvo_label': pd.to_datetime(last_qvo + '-01').strftime('%B %Y') if last_qvo else 'Belum pernah',
             'trend': trend,
@@ -2071,6 +2076,7 @@ def qvo_analysis_scope(month, requested_depos=None, requested_salesmen=None):
         bp = normalize_bp(t.bp)
         current[(owner, bp)] = {
             'salesman': owner, 'bp': bp, 'dealer': t.dealer, 'depo': t.depo, 'sales_mtd': 0.0,
+            'device': 0.0, 'macbook': 0.0, 'acc': 0.0,
         }
     for r in billing_rows:
         owner, depo, dealer_name, target = resolve_billing_owner(r, lookup)
@@ -2090,11 +2096,14 @@ def qvo_analysis_scope(month, requested_depos=None, requested_salesmen=None):
         key = (owner, bp)
         rec = current.setdefault(key, {
             'salesman': owner, 'bp': bp, 'dealer': dealer_name, 'depo': depo, 'sales_mtd': 0.0,
+            'device': 0.0, 'macbook': 0.0, 'acc': 0.0,
         })
         if depo != 'Unmapped':
             rec['depo'] = depo
         if r.category in ('Device', 'Macbook', 'ACC'):
-            rec['sales_mtd'] += float(r.nett_amount or 0)
+            amount = float(r.nett_amount or 0)
+            rec['sales_mtd'] += amount
+            rec[r.category.lower()] += amount
     return list(current.values()), depos, salesmen, depo_filters, salesman_filters
 
 
@@ -3032,61 +3041,227 @@ def _dashboard_context():
     )
 
 
+QVO_NEAR_GAP = 10_000_000
+QVO_MONTHS_ID = ('Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des')
+QVO_PROJECTION_PUSH_RATIO = 0.70
+
+
+def qvo_month_label(month_key, with_year=True):
+    year, number = month_key.split('-')
+    label = QVO_MONTHS_ID[int(number) - 1]
+    return f'{label} {year}' if with_year else label
+
+
+def qvo_projection(sales_mtd, elapsed, total):
+    """Proyeksi akhir bulan per dealer dari run-rate MTD (hari kerja), non-PPN."""
+    remaining = max(total - elapsed, 0)
+    gap = max(QVO_THRESHOLD - sales_mtd, 0)
+    daily_needed = gap / remaining if remaining and gap else None
+    if sales_mtd <= 0:
+        return {'projection': None, 'projection_status': 'Belum belanja', 'daily_needed': daily_needed}
+    if not elapsed or not total:
+        return {'projection': None, 'projection_status': 'Perlu dorong', 'daily_needed': daily_needed}
+    projection = sales_mtd / elapsed * total
+    if projection >= QVO_THRESHOLD:
+        status = 'On track'
+    elif projection >= QVO_THRESHOLD * QVO_PROJECTION_PUSH_RATIO:
+        status = 'Perlu dorong'
+    else:
+        status = 'Sulit'
+    return {'projection': projection, 'projection_status': status, 'daily_needed': daily_needed}
+
+
+def qvo_bp_key(value):
+    return normalize_bp(value).lstrip('0')
+
+
+def qvo_closing_pending(month):
+    """Pending SO per (salesman, BP) dari menu Closing pada session ini.
+
+    Closing menyimpan hasilnya di cache memori per session (tanpa database), jadi
+    data hanya tersedia jika SO/DO bulan yang sama sudah diupload di menu Closing.
+    Pending dihitung sama dengan Estimated Closing: SO belum Billing dan DO tersedia.
+    SO tanpa DO dicatat terpisah dan tidak mengurangi gap.
+    """
+    key = session.get('closing_cache_key')
+    if not key:
+        return None
+    with _closing_cache_lock:
+        state = _closing_cache.get(key)
+        if not state or state.get('month') != month or not state.get('result'):
+            return None
+        result = state['result']
+        uploaded = [CLOSING_SLOTS[slot][0] for slot in CLOSING_SLOTS if slot in state.get('slots', {})]
+        stamps = [info.get('uploaded_at') for info in state.get('slots', {}).values() if info.get('uploaded_at')]
+    by_dealer, no_do_by_dealer = {}, {}
+    for row in result['detail'].get('pending', []):
+        k = (canonical_salesman(row.get('salesman')), qvo_bp_key(row.get('bp')))
+        by_dealer[k] = by_dealer.get(k, 0.0) + float(row.get('nett') or 0)
+    for row in result['detail'].get('no_do', []):
+        k = (canonical_salesman(row.get('salesman')), qvo_bp_key(row.get('bp')))
+        no_do_by_dealer[k] = no_do_by_dealer.get(k, 0.0) + float(row.get('nett') or 0)
+    return {'by_dealer': by_dealer, 'no_do_by_dealer': no_do_by_dealer,
+            'slots': uploaded, 'uploaded_at': stamps[-1] if stamps else ''}
+
+
 @app.route('/qvo-analysis')
 def qvo_analysis():
     if 'user_id' not in session:
         session['username'] = 'Viewer'
         session['role'] = 'viewer'
-    latest = db.session.query(db.func.max(Billing.billing_date)).scalar()
+    latest_any = db.session.query(db.func.max(Billing.billing_date)).scalar()
     latest_target_month = db.session.query(db.func.max(MonthlyTarget.month)).scalar()
-    default_month = latest.strftime('%Y-%m') if latest else (latest_target_month or datetime.now().strftime('%Y-%m'))
+    default_month = latest_any.strftime('%Y-%m') if latest_any else (latest_target_month or datetime.now().strftime('%Y-%m'))
     month = request.args.get('month', default_month)
     qvo_basis = 'non_ppn' if request.args.get('qvo_basis') == 'non_ppn' else 'with_ppn'
     current, depos, salesmen, depo_filters, salesman_filters = qvo_analysis_scope(
         month, request.args.getlist('depo'), request.args.getlist('salesman')
     )
     rows, history_months = build_qvo_potential(month, current)
-    potential_rows = [r for r in rows if r['action'] != 'Low Priority']
+
+    # Hari kerja mengikuti tanggal billing terakhir pada bulan terpilih.
+    start, end = month_range(month)
+    latest = db.session.query(db.func.max(Billing.billing_date)).filter(
+        Billing.billing_date >= start, Billing.billing_date <= end,
+    ).scalar()
+    if latest:
+        elapsed_days, total_days, _ = working_day_progress(start, end, latest)
+    else:
+        _, total_days, _ = working_day_progress(start, end, start)
+        elapsed_days = 0
+    remaining_days = max(total_days - elapsed_days, 0)
+
+    # Proyeksi + komposisi belanja MTD per dealer (semua nilai masih non-PPN).
+    current_by_key = {(c['salesman'], c['bp']): c for c in current}
+    for r in rows:
+        r.update(qvo_projection(r['sales_mtd'], elapsed_days, total_days))
+        src = current_by_key.get((r['salesman'], r['bp']), {})
+        parts = [(label, float(src.get(key, 0) or 0))
+                 for key, label in (('device', 'Device'), ('macbook', 'MacBook'), ('acc', 'ACC'))]
+        positive_total = sum(v for _, v in parts if v > 0)
+        r['mix_label'] = (' · '.join(f'{label} {round(v / positive_total * 100)}%'
+                                     for label, v in parts if v > 0)
+                          if positive_total > 0 else '')
+
+    # Gap setelah SO yang sudah DO tetapi belum Billing (dari menu Closing).
+    closing_pending = qvo_closing_pending(month)
+    for r in rows:
+        if closing_pending is None:
+            r.update(pending=None, gap_after_pending=None, no_do_pending=None)
+            continue
+        k = (r['salesman'], qvo_bp_key(r['bp']))
+        pending = closing_pending['by_dealer'].get(k, 0.0)
+        r['pending'] = pending
+        r['gap_after_pending'] = max(QVO_THRESHOLD - r['sales_mtd'] - pending, 0)
+        r['no_do_pending'] = closing_pending['no_do_by_dealer'].get(k, 0.0)
+        if pending > 0 and r['gap_after_pending'] == 0:
+            r['projection_status'] = 'Aman via SO'
+
+    potential_raw = [r for r in rows if r['action'] != 'Low Priority']
+
+    # Tanggal belanja terakhir untuk dealer Watchlist (satu query).
+    watch_raw = [r for r in potential_raw if r['action'] == 'Watchlist']
+    if watch_raw:
+        last_by_bp = {}
+        last_rows = db.session.query(
+            Billing.sold_to_code, db.func.max(Billing.billing_date)
+        ).filter(
+            Billing.sold_to_code.in_({r['bp'] for r in watch_raw}),
+            Billing.billing_date <= end,
+            Billing.category.in_(('Device', 'Macbook', 'ACC')),
+        ).group_by(Billing.sold_to_code).all()
+        for raw_bp, last_date in last_rows:
+            bp = normalize_bp(raw_bp)
+            if last_date and (bp not in last_by_bp or last_date > last_by_bp[bp]):
+                last_by_bp[bp] = last_date
+        reference = latest or end
+        for r in watch_raw:
+            last_date = last_by_bp.get(r['bp'])
+            r['last_purchase_label'] = date_id(last_date) if last_date else ''
+            r['days_since_purchase'] = (reference - last_date).days if last_date else None
+
+    # Per salesman: jumlah potential, yang sudah QVO bulan ini, dan sebaran depo.
+    qvo_now_by_salesman = {}
+    for c in current:
+        if c['sales_mtd'] >= QVO_THRESHOLD:
+            qvo_now_by_salesman[c['salesman']] = qvo_now_by_salesman.get(c['salesman'], 0) + 1
     by_salesman = []
     for salesman in LOCKED_SALESMEN:
-        subset = [r for r in potential_rows if r['salesman'] == salesman]
-        if subset:
-            by_salesman.append({
-                'salesman': salesman,
-                'count': len(subset),
-                'push': sum(r['action'] == 'Push Now' for r in subset),
-                'watchlist': sum(r['action'] == 'Watchlist' for r in subset),
-                'avg_score': sum(r['score'] for r in subset) / len(subset),
-            })
+        subset = [r for r in potential_raw if r['salesman'] == salesman]
+        qvo_now = qvo_now_by_salesman.get(salesman, 0)
+        if not subset and not qvo_now:
+            continue
+        depo_counts = {}
+        for r in subset:
+            depo_counts[r['depo']] = depo_counts.get(r['depo'], 0) + 1
+        by_salesman.append({
+            'salesman': salesman,
+            'count': len(subset),
+            'qvo_now': qvo_now,
+            'depo_label': ' · '.join(f'{d} {n}' for d, n in sorted(depo_counts.items(), key=lambda x: -x[1]))
+                          if len(depo_counts) > 1 else '',
+            'push': sum(r['action'] == 'Push Now' for r in subset),
+            'watchlist': sum(r['action'] == 'Watchlist' for r in subset),
+            'avg_score': sum(r['score'] for r in subset) / len(subset) if subset else 0,
+        })
+    by_salesman.sort(key=lambda x: (-x['count'], x['salesman']))
+
+    # Gap ke QVO: populasi sama dengan Potential; dealer belum belanja dipisah.
+    def amount_label(value):
+        return rupiah_short(qvo_display_amount(value, qvo_basis))
+    active_raw = [r for r in potential_raw if r['sales_mtd'] > 0]
     gap_bands = [
-        {'label': f'≤ {rupiah_short(qvo_display_amount(5_000_000, qvo_basis))}',
-         'count': sum(r['gap'] <= 5_000_000 for r in rows)},
-        {'label': f'{rupiah_short(qvo_display_amount(5_000_000, qvo_basis))}–{rupiah_short(qvo_display_amount(10_000_000, qvo_basis))}',
-         'count': sum(5_000_000 < r['gap'] <= 10_000_000 for r in rows)},
-        {'label': f'{rupiah_short(qvo_display_amount(10_000_000, qvo_basis))}–{rupiah_short(qvo_display_amount(20_000_000, qvo_basis))}',
-         'count': sum(10_000_000 < r['gap'] <= 20_000_000 for r in rows)},
-        {'label': f'> {rupiah_short(qvo_display_amount(20_000_000, qvo_basis))}',
-         'count': sum(r['gap'] > 20_000_000 for r in rows)},
+        {'label': f'≤ {amount_label(5_000_000)}', 'tone': 'near',
+         'count': sum(r['gap'] <= 5_000_000 for r in active_raw)},
+        {'label': f'{amount_label(5_000_000)}–{amount_label(10_000_000)}', 'tone': 'near',
+         'count': sum(5_000_000 < r['gap'] <= 10_000_000 for r in active_raw)},
+        {'label': f'{amount_label(10_000_000)}–{amount_label(20_000_000)}', 'tone': 'mid',
+         'count': sum(10_000_000 < r['gap'] <= 20_000_000 for r in active_raw)},
+        {'label': f'> {amount_label(20_000_000)}', 'tone': 'far',
+         'count': sum(r['gap'] > 20_000_000 for r in active_raw)},
+        {'label': 'Belum belanja', 'tone': 'idle',
+         'count': len(potential_raw) - len(active_raw)},
     ]
+
+    potential_count = len(potential_raw)
     conversion = []
     for m in history_months:
+        count = sum(any(h['month'] == m and h['qvo'] for h in r['history']) for r in potential_raw)
         conversion.append({
             'month': m,
-            'label': pd.to_datetime(m + '-01').strftime('%b %Y'),
-            'count': sum(any(h['month'] == m and h['qvo'] for h in r['history']) for r in potential_rows),
+            'label': qvo_month_label(m, with_year=False),
+            'full_label': qvo_month_label(m),
+            'count': count,
+            'pct': count / potential_count * 100 if potential_count else 0,
         })
+
+    summary = {
+        'potential': potential_count,
+        'near': sum(r['gap'] <= QVO_NEAR_GAP for r in active_raw),
+        'near_label': amount_label(QVO_NEAR_GAP),
+        'qvo_now': sum(qvo_now_by_salesman.values()),
+        'remaining_days': remaining_days,
+        'elapsed_days': elapsed_days,
+        'total_days': total_days,
+        'covered_by_so': sum(1 for r in potential_raw
+                             if (r.get('pending') or 0) > 0 and r.get('gap_after_pending') == 0),
+        'with_pending': sum(1 for r in potential_raw if (r.get('pending') or 0) > 0),
+    }
+
     rows = [qvo_display_row(r, qvo_basis) for r in rows]
     potential_rows = [r for r in rows if r['action'] != 'Low Priority']
-    watchlist_rows = [r for r in rows if r['action'] == 'Watchlist']
+    watchlist_rows = [r for r in potential_rows if r['action'] == 'Watchlist']
     return render_template(
-        'qvo_analysis.html', month=month, rows=rows, potential_rows=potential_rows,
+        'qvo_analysis.html', month=month, month_label=qvo_month_label(month),
+        rows=rows, potential_rows=potential_rows,
         top_rows=potential_rows[:10], recovery=watchlist_rows,
         by_salesman=by_salesman, gap_bands=gap_bands, conversion=conversion,
+        history_range=(f'{conversion[0]["label"]}–{conversion[-1]["label"]}' if conversion else ''),
+        summary=summary, latest=latest, closing_pending=closing_pending,
         qvo_threshold=qvo_display_amount(QVO_THRESHOLD, qvo_basis),
         qvo_basis=qvo_basis, depos=depos, salesmen=salesmen,
         depo_filters=depo_filters, salesman_filters=salesman_filters,
     )
-
 
 def sales_projection(achievement, target, elapsed, total_days, has_target=True):
     """Projection uses unrounded MTD values and the shared working-day calendar."""
