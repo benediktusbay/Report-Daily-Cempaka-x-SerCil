@@ -3058,16 +3058,16 @@ def qvo_projection(sales_mtd, elapsed, total):
     gap = max(QVO_THRESHOLD - sales_mtd, 0)
     daily_needed = gap / remaining if remaining and gap else None
     if sales_mtd <= 0:
-        return {'projection': None, 'projection_status': 'Belum belanja', 'daily_needed': daily_needed}
+        return {'projection': None, 'projection_status': 'Not yet', 'daily_needed': daily_needed}
     if not elapsed or not total:
-        return {'projection': None, 'projection_status': 'Perlu dorong', 'daily_needed': daily_needed}
+        return {'projection': None, 'projection_status': 'Need to push', 'daily_needed': daily_needed}
     projection = sales_mtd / elapsed * total
     if projection >= QVO_THRESHOLD:
         status = 'On track'
     elif projection >= QVO_THRESHOLD * QVO_PROJECTION_PUSH_RATIO:
-        status = 'Perlu dorong'
+        status = 'Need to push'
     else:
-        status = 'Sulit'
+        status = 'Unlikely'
     return {'projection': projection, 'projection_status': status, 'daily_needed': daily_needed}
 
 
@@ -3155,7 +3155,7 @@ def qvo_analysis():
         r['gap_after_pending'] = max(QVO_THRESHOLD - r['sales_mtd'] - pending, 0)
         r['no_do_pending'] = closing_pending['no_do_by_dealer'].get(k, 0.0)
         if pending > 0 and r['gap_after_pending'] == 0:
-            r['projection_status'] = 'Aman via SO'
+            r['projection_status'] = 'Covered by SO'
 
     potential_raw = [r for r in rows if r['action'] != 'Low Priority']
 
