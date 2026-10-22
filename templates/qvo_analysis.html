@@ -15,8 +15,8 @@
 
 /* Proyeksi akhir bulan */
 .qvo-proj{display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;font-size:9px;font-weight:900;white-space:nowrap}
-.qvo-proj.on-track{background:#dcfce7;color:#166534}.qvo-proj.perlu-dorong{background:#fef3c7;color:#92400e}.qvo-proj.sulit{background:#fee2e2;color:#b91c1c}.qvo-proj.belum-belanja{background:#f1f5f9;color:#64748b}
-.qvo-proj.aman-via-so{background:#dcfce7;color:#166534;box-shadow:inset 0 0 0 1px #86efac}
+.qvo-proj.on-track{background:#dcfce7;color:#166534}.qvo-proj.need-to-push{background:#fef3c7;color:#92400e}.qvo-proj.unlikely{background:#fee2e2;color:#b91c1c}.qvo-proj.not-yet{background:#f1f5f9;color:#64748b}
+.qvo-proj.covered-by-so{background:#dcfce7;color:#166534;box-shadow:inset 0 0 0 1px #86efac}
 .qvo-pending-line{display:block;margin-top:4px;font-size:10px;font-weight:700;color:#15803d;white-space:nowrap}.qvo-pending-line.nodo{color:#92400e}
 .qvo-closing-note{display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border-radius:12px;font-size:12px;line-height:1.45}
 .qvo-closing-note.on{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534}.qvo-closing-note.off{background:#f8fafc;border:1px solid #e2e8f0;color:#475569}
@@ -51,7 +51,11 @@
 
 /* Histori konversi */
 .qvo-cols{display:flex;align-items:flex-end;gap:12px;height:190px;padding-top:6px}
-.qvo-col{flex:1;min-width:0;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end}
+.qvo-col{flex:1;min-width:0;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;border:0;background:transparent;padding:0 0 4px;font:inherit;cursor:pointer;border-radius:10px}
+.qvo-col:hover{background:#f1f5f9}.qvo-col:hover .qvo-col-bar{background:#94a3b8}.qvo-col.last:hover .qvo-col-bar{background:#0b4fa3}
+.qvo-col:focus-visible{outline:2px solid #1769e8;outline-offset:2px}
+.qvo-month-group{margin:4px 0 8px;font-size:12px;font-weight:900;color:#0f172a}.qvo-month-group.miss{margin-top:18px;color:#64748b}
+.qvo-month-ok{color:#15803d;font-weight:900}.qvo-month-table{table-layout:fixed}
 .qvo-col-value{font-size:13px;font-weight:900;color:#0f172a;margin-bottom:5px}
 .qvo-col-bar{width:100%;max-width:56px;border-radius:6px 6px 0 0;background:#cbd5e1}.qvo-col.last .qvo-col-bar{background:#1769e8}
 .qvo-col-label{margin-top:7px;font-size:11px;font-weight:800;color:#334155}.qvo-col-pct{font-size:10px;color:#64748b;margin-top:2px}
@@ -235,17 +239,17 @@
     </div>
 
     <div class="qvo-insight-card wide">
-      <div class="qvo-insight-head"><div><h3>Histori konversi QVO</h3><p>Dari {{ summary.potential }} dealer potential saat ini, berapa yang mencapai QVO tiap bulan.</p></div></div>
+      <div class="qvo-insight-head"><div><h3>Histori konversi QVO</h3><p>Dari {{ summary.potential }} dealer potential saat ini, berapa yang mencapai QVO tiap bulan. Klik batang untuk melihat dealernya.</p></div></div>
       {% if conversion %}
       {% set max_conv = (conversion|max(attribute='count')).count or 1 %}
-      <div class="qvo-cols" role="img" aria-label="Histori konversi QVO per bulan">
+      <div class="qvo-cols" aria-label="Histori konversi QVO per bulan">
         {% for x in conversion %}
-        <div class="qvo-col{% if loop.last %} last{% endif %}" title="{{ x.full_label }}: {{ x.count }} dealer ({{ x.pct|round|int }}%)">
+        <button type="button" class="qvo-col{% if loop.last %} last{% endif %}" data-qvo-month="{{ x.month }}" data-qvo-month-label="{{ x.full_label }}" title="{{ x.full_label }}: {{ x.count }} dealer ({{ x.pct|round|int }}%) — klik untuk detail" aria-label="{{ x.full_label }}: {{ x.count }} dealer mencapai QVO, lihat daftar">
           <div class="qvo-col-value">{{ x.count }}</div>
           <div class="qvo-col-bar" style="height:{{ (x.count / max_conv * 120)|round|int }}px"></div>
           <div class="qvo-col-label">{{ x.label }}</div>
           <div class="qvo-col-pct">{{ x.pct|round|int }}%</div>
-        </div>
+        </button>
         {% endfor %}
       </div>
       {% else %}<p class="qvo-empty">Belum ada historical billing.</p>{% endif %}
@@ -266,6 +270,7 @@
 <script type="application/json" id="qvoRowsData">{{ rows|tojson }}</script>
 <script type="application/json" id="qvoWatchData">{{ {'title': 'Watchlist QVO ' ~ month_label, 'asOf': (latest|date_id if latest else ''), 'rows': recovery}|tojson }}</script>
 <dialog class="qvo-list-dialog" id="qvoListDialog"><div class="qvo-dialog-head"><div><h3 id="qvoListTitle">Dealer List</h3><p id="qvoListSubtitle"></p></div><button type="button" class="qvo-dialog-close" data-close-dialog="qvoListDialog">×</button></div><div class="qvo-dialog-body"><div style="overflow-x:auto"><table class="qvo-list-table"><thead><tr><th>Dealer</th><th>Salesman</th><th>Depo</th><th>Sales MTD</th><th>Gap ke QVO</th><th>Proyeksi</th><th>History QVO</th><th>Score</th></tr></thead><tbody id="qvoListBody"></tbody></table></div></div></dialog>
+<dialog class="qvo-list-dialog" id="qvoMonthDialog"><div class="qvo-dialog-head"><div><h3 id="qvoMonthTitle">Dealer QVO</h3><p id="qvoMonthSubtitle"></p></div><button type="button" class="qvo-dialog-close" data-close-dialog="qvoMonthDialog">×</button></div><div class="qvo-dialog-body" id="qvoMonthBody"></div></dialog>
 <dialog class="qvo-action-dialog" id="qvoActionDialog"><div class="qvo-dialog-head"><div><h3 id="qvoActionTitle">Action</h3><p id="qvoActionDealer"></p></div><button type="button" class="qvo-dialog-close" data-close-dialog="qvoActionDialog">×</button></div><div class="qvo-dialog-body"><div class="qvo-action-definition" id="qvoActionDefinition"></div><div class="qvo-action-reason" id="qvoActionReason"></div><div class="qvo-action-metrics" id="qvoActionMetrics"></div></div></dialog>
 <dialog class="qvo-history-dialog" id="qvoHistoryDialog">
   <div class="qvo-history-head"><div><h3 id="qvoHistoryTitle">History QVO</h3><p id="qvoHistorySubtitle"></p></div><button type="button" class="qvo-history-close" id="qvoHistoryClose">×</button></div>
@@ -325,6 +330,19 @@
     const summary=e.target.closest('[data-qvo-summary]');
     if(summary){const key=summary.dataset.qvoSummary;const data=key==='potential'?rows.filter(r=>r.action!=='Low Priority'):rows.filter(r=>r.action===key);document.getElementById('qvoListTitle').textContent=key==='potential'?'Total Potential':key;document.getElementById('qvoListSubtitle').textContent=data.length+' dealer';document.getElementById('qvoListBody').innerHTML=data.map(d=>'<tr><td><b>'+esc(d.dealer)+'</b><br><small>'+esc(d.bp)+'</small></td><td>'+esc(d.salesman)+'</td><td>'+esc(d.depo)+'</td><td>'+money(d.sales_mtd)+'</td><td>'+money(d.gap)+'</td><td>'+esc(projectionText(d))+'</td><td>'+esc(d.history_label)+'</td><td>'+Number(d.score||0).toFixed(1)+'</td></tr>').join('')||'<tr><td colspan="8" style="text-align:center;padding:22px">Tidak ada dealer.</td></tr>';document.getElementById('qvoListDialog').showModal();return}
     const btn=e.target.closest('[data-qvo-action]');if(btn){let d={};try{d=JSON.parse(btn.dataset.qvoAction||'{}')}catch(err){}document.getElementById('qvoActionTitle').textContent=d.action||'Action';document.getElementById('qvoActionDealer').textContent=(d.dealer||'Dealer')+' · '+(d.salesman||'')+' · '+(d.depo||'');document.getElementById('qvoActionDefinition').textContent=definitions[d.action]||'';document.getElementById('qvoActionReason').textContent=actionReason(d);document.getElementById('qvoActionMetrics').innerHTML=[['Sales MTD',money(d.sales_mtd)],['Gap ke QVO',money(d.gap)],['Proyeksi akhir bulan',projectionText(d)],['Perlu per hari kerja',money(d.daily_needed)],...((d.pending===null||d.pending===undefined)?[]:[['SO pending (DO ada)',money(d.pending)],['Gap setelah SO',money(d.gap_after_pending)]]),['Komposisi MTD',d.mix_label||'—'],['Avg Sales',money(d.avg_sales)],['History QVO',d.history_label||'0 / 0'],['Trend',d.trend||'—'],['Potential Score',Number(d.score||0).toFixed(1)]].map(x=>'<div class="qvo-action-metric"><span>'+x[0]+'</span><strong>'+esc(x[1])+'</strong></div>').join('');document.getElementById('qvoActionDialog').showModal();return}
+    const col=e.target.closest('[data-qvo-month]');
+    if(col){
+      const m=col.dataset.qvoMonth, label=col.dataset.qvoMonthLabel||m;
+      const potential=rows.filter(r=>r.action!=='Low Priority');
+      const monthSales=r=>{const h=(r.history||[]).find(x=>x.month===m);return h||{sales:0,qvo:false}};
+      const hit=potential.filter(r=>monthSales(r).qvo).sort((a,b)=>monthSales(b).sales-monthSales(a).sales);
+      const miss=potential.filter(r=>!monthSales(r).qvo).sort((a,b)=>monthSales(b).sales-monthSales(a).sales);
+      const table=list=>'<div style="overflow-x:auto"><table class="qvo-list-table qvo-month-table"><colgroup><col style="width:26%"><col style="width:20%"><col style="width:10%"><col style="width:12%"><col style="width:11%"><col style="width:11%"><col style="width:10%"></colgroup><thead><tr><th>Dealer</th><th>Salesman</th><th>Depo</th><th>Sales '+esc(label)+'</th><th>Sales MTD</th><th>Gap ke QVO</th><th>Action</th></tr></thead><tbody>'+
+        (list.map(d=>'<tr><td><b>'+esc(d.dealer)+'</b><br><small>'+esc(d.bp)+'</small></td><td>'+esc(d.salesman)+'</td><td>'+esc(d.depo)+'</td><td'+(monthSales(d).qvo?' class="qvo-month-ok"':'')+'>'+money(monthSales(d).sales)+'</td><td>'+money(d.sales_mtd)+'</td><td>'+money(d.gap)+'</td><td>'+esc(d.action)+'</td></tr>').join('')||'<tr><td colspan="7" style="text-align:center;padding:18px;color:#64748b">Tidak ada dealer.</td></tr>')+'</tbody></table></div>';
+      document.getElementById('qvoMonthTitle').textContent='Konversi QVO — '+label;
+      document.getElementById('qvoMonthSubtitle').textContent=hit.length+' dari '+potential.length+' dealer potential mencapai QVO bulan ini';
+      document.getElementById('qvoMonthBody').innerHTML='<div class="qvo-month-group">✓ Mencapai QVO ('+hit.length+')</div>'+table(hit)+'<div class="qvo-month-group miss">Tidak mencapai QVO ('+miss.length+')</div>'+table(miss);
+      document.getElementById('qvoMonthDialog').showModal();return}
     const close=e.target.closest('[data-close-dialog]');if(close)document.getElementById(close.dataset.closeDialog)?.close();
   });
 })();
