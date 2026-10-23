@@ -59,6 +59,41 @@
 .price-normal-badge{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:#fde7b0;color:#8a4b00;font-size:12px;font-weight:800;white-space:nowrap}
 .price-normal-legend{display:inline-flex;align-items:center;gap:8px;margin-left:auto;color:#475569}
 .price-normal-legend i{width:14px;height:14px;border-radius:4px;background:#fff8e6;box-shadow:inset 3px 0 0 #f59e0b;border:1px solid #f3d9a4}
+/* Opsi A: tabel dikelompokkan per seri */
+.price-table{min-width:0;width:100%;border-collapse:collapse}
+.price-table th.num,.price-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+.price-table td.num.srp{font-weight:700}
+.price-table tr.price-group td{background:#f4f7fb;border-top:1px solid #dbe4f0;padding-top:10px;padding-bottom:10px}
+.price-group-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.price-group-name{font-size:14px;font-weight:800;color:#0b2545}
+.price-promo-badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;background:#e3f1e8;color:#1f6b40;font-size:11px;font-weight:800;white-space:nowrap}
+.price-group .price-normal-badge{padding:3px 9px;font-size:11px}
+.price-table tr.price-row td:first-child{font-weight:600;color:#334155}
+.price-table tr.price-normal td:first-child{box-shadow:none}
+.price-row-period{display:block;margin-top:2px;color:#64748b;font-size:11px;font-weight:500;white-space:normal}
+.price-edit-cell{white-space:normal!important;text-align:left!important}
+.price-edit-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.price-edit-grid label{display:block;margin-bottom:3px;color:#64748b;font-size:10px;font-weight:800;text-transform:uppercase}
+.price-edit-buttons{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.price-edit-buttons button{min-height:36px;padding:6px 12px;font-size:12px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;cursor:pointer}.price-edit-buttons button[data-action="save"]{background:#167044;border-color:#167044;color:#fff}
+@media(max-width:720px){
+  .price-meta{flex-direction:column;gap:6px}
+  .price-meta .price-normal-legend{margin-left:0;padding-top:6px;border-top:1px solid #e5ebf3}
+  .price-tab-actions{flex-wrap:wrap;gap:6px}
+  .price-tab-actions .price-btn.copy{order:-1;width:100%;min-height:44px;font-size:13px;padding:9px 12px}
+  .price-table th,.price-table td{padding:9px 10px;white-space:nowrap}
+  .price-table th{font-size:10px}
+  .price-table td{font-size:13px;line-height:1.3}
+  .price-table th.num,.price-table td.num{text-align:right}
+  .price-table th:nth-child(1){width:30%}
+  .price-table th:nth-child(2),.price-table th:nth-child(3){width:35%}
+  .price-table-admin th:nth-child(1){width:26%}
+  .price-table-admin th:nth-child(2),.price-table-admin th:nth-child(3){width:30%}
+  .price-table-admin th:nth-child(4){width:14%}
+  .price-table td.price-model-full{white-space:normal;overflow-wrap:anywhere}
+  .price-edit-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .price-edit-grid input{min-height:40px}
+}
 </style>
 {% endblock %}
 
@@ -148,7 +183,7 @@
 
 <div class="card price-table-wrap">
   <table class="price-table {% if session.get('role') == 'admin' %}price-table-admin{% endif %}">
-    <thead><tr><th>Model</th><th>STP Promo</th><th>SRP Promo</th><th>Period</th>{% if session.get('role') == 'admin' %}<th class="price-actions">AKSI</th>{% endif %}</tr></thead>
+    <thead><tr><th id="priceFirstHead">Kapasitas</th><th class="num">STP (Rp)</th><th class="num">SRP (Rp)</th>{% if session.get('role') == 'admin' %}<th class="price-actions">AKSI</th>{% endif %}</tr></thead>
     <tbody id="priceTableBody"></tbody>
   </table>
 </div>
@@ -205,10 +240,57 @@
     metaNode.innerHTML=parts.join('');
     metaNode.hidden=!parts.length;
   }
+  // Opsi A: kelompokkan per seri. Seri = nama model tanpa token kapasitas terakhir (mis. 256GB / 1TB).
+  const firstHead=document.getElementById('priceFirstHead');
+  const COLS=isAdmin?4:3;
+  const CAP_RE=/(^|\s)(\d+(?:[.,]\d+)?)\s?(GB|TB)(?=\s|$)/gi;
+  function num(value){return Math.round(Number(value)||0).toLocaleString('id-ID');}
+  function periodKey(period){return String(period||'').trim().toLowerCase().replace(/\s+/g,' ');}
+  function splitModel(model){
+    const text=String(model||'').trim().replace(/\s+/g,' ');
+    let m,last=null;CAP_RE.lastIndex=0;
+    while((m=CAP_RE.exec(text)))last=m;
+    if(!last)return null;
+    const start=last.index+last[1].length,end=last.index+last[0].length;
+    const series=(text.slice(0,start)+' '+text.slice(end)).replace(/\s+/g,' ').trim();
+    if(!series)return null;
+    const unit=last[3].toUpperCase();
+    return {series:series,capacity:last[2]+unit,size:parseFloat(last[2].replace(',','.'))*(unit==='TB'?1024:1)};
+  }
+  function buildGroups(){
+    const groups=[],byKey={};
+    (data[active]||[]).forEach(row=>{
+      const parts=splitModel(row.model);
+      const key=parts?'s:'+parts.series.toLowerCase():'m:'+row.id;
+      if(!byKey[key]){byKey[key]={series:parts?parts.series:null,items:[]};groups.push(byKey[key]);}
+      byKey[key].items.push({row:row,parts:parts});
+    });
+    groups.forEach(g=>{
+      if(g.series)g.items.sort((a,b)=>a.parts.size-b.parts.size);
+      g.allNormal=g.items.every(x=>isNormalPrice(x.row.period));
+      g.mixed=new Set(g.items.map(x=>periodKey(x.row.period))).size>1;
+      g.period=g.mixed?'':String(g.items[0].row.period||'').trim();
+    });
+    // Seri yang semuanya Harga Normal tampil paling atas; sisanya ikut urutan file upload.
+    return groups.filter(g=>g.allNormal).concat(groups.filter(g=>!g.allNormal));
+  }
+  function rowHtml(row,parts,showPeriod){
+    return '<tr data-id="'+row.id+'" class="price-row'+(isNormalPrice(row.period)?' price-normal':'')+'">'+normalCells(row,parts,showPeriod)+'</tr>';
+  }
   function render(){
     renderMeta();
-    const rows=visibleRows();count.textContent=rows.length+' produk';
-    body.innerHTML=rows.length?rows.map(row=>'<tr data-id="'+row.id+'"'+(isNormalPrice(row.period)?' class="price-normal"':'')+'>'+normalCells(row)+'</tr>').join(''):'<tr><td colspan="'+(isAdmin?5:4)+'" class="price-empty">Belum ada pricelist untuk kategori ini.</td></tr>';
+    const rows=data[active]||[];count.textContent=rows.length+' produk';
+    if(!rows.length){firstHead.textContent='Kapasitas';body.innerHTML='<tr><td colspan="'+COLS+'" class="price-empty">Belum ada pricelist untuk kategori ini.</td></tr>';return;}
+    const groups=buildGroups();
+    firstHead.textContent=groups.every(g=>g.series)?'Kapasitas':(groups.some(g=>g.series)?'Kapasitas / Model':'Model');
+    body.innerHTML=groups.map(g=>{
+      let html='';
+      if(g.series){
+        const badge=g.mixed?'':(g.allNormal?'<span class="price-normal-badge">'+NORMAL_PRICE+'</span>':(g.period?'<span class="price-promo-badge">Promo '+esc(g.period)+'</span>':''));
+        html='<tr class="price-group"><td colspan="'+COLS+'"><div class="price-group-head"><span class="price-group-name">'+esc(g.series)+'</span>'+badge+'</div></td></tr>';
+      }
+      return html+g.items.map(x=>rowHtml(x.row,x.parts,!g.series||g.mixed)).join('');
+    }).join('');
   }
   tabs.forEach(tab=>tab.addEventListener('click',function(){active=tab.dataset.category;tabs.forEach(x=>x.classList.toggle('active',x===tab));render();}));
   document.getElementById('priceCopy').addEventListener('click',async function(){
@@ -221,8 +303,9 @@
   render();
 
 
-  function normalCells(row){
-    return '<td>'+esc(row.model)+'</td><td>'+money(row.stp_promo)+'</td><td>'+money(row.srp_promo)+'</td><td>'+(isNormalPrice(row.period)?'<span class="price-normal-badge">'+NORMAL_PRICE+'</span>':esc(row.period))+'</td>'+
+  function normalCells(row,parts,showPeriod){
+    const period=showPeriod&&row.period?'<span class="price-row-period">'+esc(isNormalPrice(row.period)?NORMAL_PRICE:row.period)+'</span>':'';
+    return '<td'+(parts?'':' class="price-model-full"')+'>'+esc(parts?parts.capacity:row.model)+period+'</td><td class="num">'+num(row.stp_promo)+'</td><td class="num srp">'+num(row.srp_promo)+'</td>'+
       (isAdmin?'<td class="price-actions"><button type="button" data-action="edit" aria-label="Edit '+esc(row.model)+'">✏<span class="price-edit-label"> Edit</span></button></td>':'');
   }
   if(isAdmin){
@@ -240,25 +323,25 @@
     function setBusy(value){busy=value;document.querySelectorAll('#priceTableBody button,#priceTableBody input,#priceManualForm button,#priceManualForm input,#priceManualForm select,#priceManualAdd,.price-tab').forEach(el=>el.disabled=value);}
     body.addEventListener('click',async function(event){
       const button=event.target.closest('button[data-action]');if(!button||busy)return;
-      const tr=button.closest('tr'),id=Number(tr.dataset.id),row=visibleRows().find(x=>x.id===id);if(!row)return;
+      const tr=button.closest('tr'),id=Number(tr.dataset.id),row=(data[active]||[]).find(x=>x.id===id);if(!row)return;
       const action=button.dataset.action;
       if(action==='edit'){
         if(tr.classList.contains('price-edit'))return;
         tr.classList.add('price-edit');
-        tr.innerHTML=['model','stp_promo','srp_promo','period'].map(key=>'<td><input name="'+key+'" aria-label="'+esc({model:'Model',srp_promo:'SRP Promo',stp_promo:'STP Promo',period:'Period'}[key])+'" '+(key.includes('promo')?'inputmode="numeric" ':'maxlength="'+(key==='model'?500:100)+'" ')+'value="'+esc(key.includes('promo')?Number(row[key]).toLocaleString('id-ID'):row[key])+'"></td>').join('')+
-          '<td class="price-actions"><button type="button" data-action="save">Simpan</button><button type="button" data-action="cancel">Batal</button><button type="button" class="price-delete" data-action="delete">Hapus</button><span class="price-row-error" role="alert"></span></td>';
+        const labels={model:'Model',stp_promo:'STP Promo',srp_promo:'SRP Promo',period:'Period'};
+        tr.innerHTML='<td colspan="'+COLS+'" class="price-edit-cell"><div class="price-edit-grid">'+['model','stp_promo','srp_promo','period'].map(key=>'<label>'+labels[key]+'<input name="'+key+'" '+(key.includes('promo')?'inputmode="numeric" ':'maxlength="'+(key==='model'?500:100)+'" ')+'value="'+esc(key.includes('promo')?Number(row[key]).toLocaleString('id-ID'):row[key])+'"></label>').join('')+'</div>'+
+          '<div class="price-edit-buttons"><button type="button" data-action="save">Simpan</button><button type="button" data-action="cancel">Batal</button><button type="button" class="price-delete" data-action="delete">Hapus</button></div><span class="price-row-error" role="alert"></span></td>';
         tr.querySelector('input').focus();return;
       }
-      if(action==='cancel'){tr.classList.remove('price-edit');tr.innerHTML=normalCells(row);return;}
+      if(action==='cancel'){render();return;}
       if(action==='delete'&&!window.confirm('Hapus produk ini dari Pricelist?'))return;
       const category=active;
       setBusy(true);
       try{
         const url=action==='delete'?{{ url_for('pricelist_manual_delete',item_id=0)|tojson }}:{{ url_for('pricelist_manual_save',item_id=0)|tojson }};
         const result=await post(url.replace(/0$/,String(id)),action==='delete'?{}:fields(tr));
-        if(action==='delete'){data[category]=data[category].filter(x=>x.id!==id);tr.remove();if(!data[category].length)render();feedback('Produk berhasil dihapus');}
-        else{data[category][data[category].findIndex(x=>x.id===id)]=result.item;tr.classList.remove('price-edit');tr.innerHTML=normalCells(result.item);feedback('Pricelist berhasil diperbarui'+(result.warnings.length?' — '+result.warnings.join('; '):''));}
-        count.textContent=visibleRows().length+' produk';
+        if(action==='delete'){data[category]=data[category].filter(x=>x.id!==id);render();feedback('Produk berhasil dihapus');}
+        else{data[category][data[category].findIndex(x=>x.id===id)]=result.item;render();feedback('Pricelist berhasil diperbarui'+(result.warnings.length?' — '+result.warnings.join('; '):''));}
       }catch(error){tr.querySelector('.price-row-error').textContent=error.message;}
       finally{setBusy(false);}
     });
@@ -269,7 +352,7 @@
       try{
         const result=await post({{ url_for('pricelist_manual_save')|tojson }},payload);
         data[result.item.category].push(result.item);
-        if(active===result.item.category){const empty=body.querySelector('.price-empty');if(empty)body.innerHTML='';body.insertAdjacentHTML('beforeend','<tr data-id="'+result.item.id+'">'+normalCells(result.item)+'</tr>');count.textContent=visibleRows().length+' produk';}
+        if(active===result.item.category)render();
         form.hidden=true;form.reset();feedback('Produk berhasil ditambahkan'+(result.warnings.length?' — '+result.warnings.join('; '):''));
       }catch(error){document.getElementById('priceManualError').textContent=error.message;}
       finally{setBusy(false);}
