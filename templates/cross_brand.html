@@ -16,8 +16,8 @@
   .cb-table { border-collapse:separate; border-spacing:0; width:100%; min-width:1080px; }
   .cb-table th, .cb-table td { padding:10px 10px; border-bottom:1px solid #edf1f7; text-align:left; white-space:nowrap; font-size:12px; }
   .cb-table thead th { position:sticky; background:#f8fafc; color:#52647e; font-weight:800; z-index:2; text-transform:none; letter-spacing:0; }
-  .cb-table thead tr:first-child th { top:0; font-size:12px; color:#0b2545; border-bottom:0; }
-  .cb-table thead tr:nth-child(2) th { top:37px; font-size:10px; cursor:pointer; user-select:none; }
+  .cb-table thead tr:first-child th { top:0; height:42px; box-sizing:border-box; font-size:14px; color:#0b2545; border-bottom:0; }
+  .cb-table thead tr:nth-child(2) th { top:42px; font-size:12px; cursor:pointer; user-select:none; }
   .cb-table thead tr:nth-child(2) th:hover { color:#1769e8; }
   .cb-table thead th.sorted { color:#1769e8; }
   .cb-table thead th[colspan], .cb-table thead tr:nth-child(2) th { text-align:center; }
@@ -80,7 +80,7 @@
 <div class="cb-head">
   <div>
     <h1>Cross Brand</h1>
-    <p>Belanja dealer di semua brand per depo</p>
+    <p>{% if latest %}Data s/d {{ latest.day }} {{ month_names[latest.month - 1] }} {{ latest.year }}{% else %}Belum ada data untuk bulan ini{% endif %}</p>
   </div>
   <form class="cb-filters" method="get" action="{{ url_for('cross_brand') }}">
     <label>Bulan
@@ -148,9 +148,8 @@
     </table>
   </div>
   <div class="cb-summary">
-    <strong>{{ summary.dealers }}</strong> dealer belanja ·
-    <strong>{{ summary.apple }}</strong> sudah Apple ·
-    <strong class="cb-red">{{ summary.non_apple }}</strong> belum Apple
+    <strong>{{ summary.dealers }}</strong> dealer belanja
+    {% for c in columns %} · {{ labels[c] }} <strong>{{ summary.brands[c] }}</strong>{% endfor %}
   </div>
   {% else %}
   <div class="cb-empty-state">Belum ada data Cross Brand untuk {{ month_label(month) }}{% if depo %} di depo {{ depo }}{% endif %}.</div>

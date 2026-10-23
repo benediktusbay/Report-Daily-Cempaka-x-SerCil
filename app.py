@@ -5275,12 +5275,14 @@ def cross_brand():
         'total': sum(t['total'] for t in table),
     }
     summary['non_apple'] = summary['dealers'] - summary['apple']
+    summary['brands'] = {c: sum(1 for t in table if t['cells'][c]['bought']) for c in columns}
+    latest = max((r.last_date for r in rows if r.last_date), default=None)
     last_upload = (UploadLog.query.filter_by(upload_mode='cross_brand')
                    .order_by(UploadLog.uploaded_at.desc()).first())
     return render_template(
         'cross_brand.html', month=month, months=months, depo=depo, depos=allowed,
         columns=columns, labels=CROSS_BRAND_LABELS, table=table, totals=totals,
-        summary=summary, is_admin=is_admin, last_upload=last_upload,
+        summary=summary, is_admin=is_admin, last_upload=last_upload, latest=latest,
     )
 
 
