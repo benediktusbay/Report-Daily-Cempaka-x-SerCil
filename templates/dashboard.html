@@ -1284,10 +1284,16 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   .dpa-amount { font-size:12px; color:#6b7280; font-weight:600; }
   .dpa-bar { height:9px; background:#e8edf4; border-radius:6px; margin:12px 0 4px; overflow:hidden; }
   .dpa-bar > span { display:block; height:9px; border-radius:6px; background:#2563eb; }
-  .dpa-row { display:grid; grid-template-columns:86px minmax(40px,1fr) 56px 88px; align-items:center; gap:8px; margin-top:9px; font-size:12px; font-weight:700; }
+  .dpa-row { display:grid; grid-template-columns:86px minmax(40px,1fr) 62px 96px; align-items:center; gap:10px; margin-top:9px; font-size:12px; font-weight:700; }
   .dpa-mini { height:6px; background:#e8edf4; border-radius:4px; overflow:hidden; }
   .dpa-mini > span { display:block; height:6px; border-radius:4px; }
-  .dpa-row b, .dpa-row .dpa-gap { text-align:right; white-space:nowrap; }
+  .dpa-row b, .dpa-row .dpa-gap { text-align:left; white-space:nowrap; }
+  .dpa-kpi { display:flex; gap:8px 20px; flex-wrap:wrap; margin-top:14px; font-size:12px; color:#52647e; font-weight:700; }
+  .dpa-kpi strong { color:#0b2545; }
+  .dpa-kpi .dpa-kpi-pct { color:#2563eb; }
+  .dpa-dialog-kpi { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+  .dpa-dialog-kpi div { flex:1 1 160px; padding:10px 12px; border:1px solid #e0e8f4; border-radius:10px; font-size:12px; color:#61738e; }
+  .dpa-dialog-kpi strong { display:block; font-size:16px; color:#0b2545; margin-top:4px; }
   .dpa-device { color:#43a047; } .dpa-device-bg { background:#43a047; }
   .dpa-mac { color:#dc3545; } .dpa-mac-bg { background:#dc3545; }
   .dpa-acc { color:#ea7a2c; } .dpa-acc-bg { background:#ea7a2c; }
@@ -1313,7 +1319,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     .dpa-card { padding:16px; border-radius:14px; }
     .dpa-title { font-size:17px; }
     .dpa-pct { font-size:26px; }
-    .dpa-row { grid-template-columns:78px minmax(30px,1fr) 50px 80px; gap:6px; font-size:11px; }
+    .dpa-row { grid-template-columns:76px minmax(30px,1fr) 52px 84px; gap:6px; font-size:11px; }
   }
 </style>
 
@@ -1322,6 +1328,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 {% macro gap_short(v) %}{% if v is none %}—{% elif v >= 0 %}+{{ v|rupiah_short }}{% else %}{{ v|rupiah_short }}{% endif %}{% endmacro %}
 {% macro gap_full(v) %}{% if v is none %}—{% elif v >= 0 %}+{{ v|rupiah }}{% else %}{{ v|rupiah }}{% endif %}{% endmacro %}
 {% macro gap_cls(v) %}{% if v is not none %}{{ 'dpa-neg' if v < 0 else 'dpa-pos' }}{% endif %}{% endmacro %}
+{% macro kpi_text(actual, target, pct) %}<strong>{{ actual }}</strong>{% if target %} / {{ target }} · <span class="dpa-kpi-pct">{{ pct_text(pct) }}</span>{% endif %}{% endmacro %}
 {% macro money_or_dash(v) %}{% if v is not none %}{{ v|rupiah }}{% else %}—{% endif %}{% endmacro %}
 
 <section class="dpa-card">
@@ -1349,17 +1356,26 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
       </div>
       {% endfor %}
 
+      <div class="dpa-kpi">
+        <span>BO {{ kpi_text(r.bo, r.bo_target, r.bo_pct) }}</span>
+        <span>QVO {{ kpi_text(r.qvo, r.qvo_target, r.qvo_pct) }}</span>
+      </div>
+
       <div class="dpa-foot">Est closing <strong>{{ pct_text(r.projection.est_closing_pct) }}</strong></div>
     </div>
     {% endfor %}
   </div>
 
   {% set total_gap = (cards.sales - cards.sales_target) if cards.sales_target else none %}
+  {% set t_bo = depo_achievement|sum(attribute='bo') %}{% set t_bo_tg = depo_achievement|sum(attribute='bo_target') %}
+  {% set t_qvo = depo_achievement|sum(attribute='qvo') %}{% set t_qvo_tg = depo_achievement|sum(attribute='qvo_target') %}
   <div class="dpa-total">
     <span>TOTAL</span>
     <span>{{ cards.sales|rupiah_short }} / {{ cards.sales_target|rupiah_short if cards.sales_target else '—' }}</span>
     <span class="dpa-total-pct">{{ pct_text(cards.sales_pct if cards.sales_target else none) }}</span>
     <span>Gap <span class="{{ gap_cls(total_gap) }}">{{ gap_short(total_gap) }}</span></span>
+    <span class="dpa-kpi" style="margin:0">BO&nbsp;{{ kpi_text(t_bo, t_bo_tg, (t_bo / t_bo_tg * 100) if t_bo_tg else none) }}</span>
+    <span class="dpa-kpi" style="margin:0">QVO&nbsp;{{ kpi_text(t_qvo, t_qvo_tg, (t_qvo / t_qvo_tg * 100) if t_qvo_tg else none) }}</span>
     <span>Est closing {{ pct_text(projection_summary.est_closing_pct) }}</span>
   </div>
 </section>
@@ -1402,6 +1418,10 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
         </tr>
       </tfoot>
     </table>
+  </div>
+  <div class="dpa-dialog-kpi">
+    <div>BO (actual / target)<strong>{{ r.bo }} / {{ r.bo_target if r.bo_target else '—' }} · {{ pct_text(r.bo_pct) }}</strong></div>
+    <div>QVO (actual / target)<strong>{{ r.qvo }} / {{ r.qvo_target if r.qvo_target else '—' }} · {{ pct_text(r.qvo_pct) }}</strong></div>
   </div>
 </dialog>
 {% endfor %}
