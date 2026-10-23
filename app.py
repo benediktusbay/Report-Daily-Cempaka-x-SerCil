@@ -514,6 +514,8 @@ class Billing(db.Model):
     nett_amount_with_tax = db.Column(db.Float, default=0)
     category = db.Column(db.String(20), nullable=False)
     sku_key = db.Column(db.String(300))
+    # Cust.Location dari Billing Detail = depo asal dealer di master customer SAP.
+    cust_location = db.Column(db.String(120))
 
 
 class PJPWeeklyPlan(db.Model):
@@ -782,6 +784,22 @@ BILLING_ALIASES = {
     ],
 }
 
+# Kolom opsional: file lama tanpa kolom ini tetap bisa diupload.
+OPTIONAL_BILLING_ALIASES = {
+    'cust_location': ['cust.location', 'cust location', 'customer location'],
+}
+
+# Depo dealer yang dikenali dari Cust.Location (mis. "TAM DC SERANG").
+CUST_LOCATION_DEPOS = ('Cempaka', 'Serang', 'Cilegon', 'Roxy', 'Tangerang')
+
+
+def depo_from_cust_location(value):
+    key = normalize_text(value).lower()
+    for depo in CUST_LOCATION_DEPOS:
+        if depo.lower() in key:
+            return depo
+    return None
+
 TARGET_ALIASES = {
     'depo': ['depo', 'depot'],
     'bp': ['bp', 'sold to party code', 'sold to code'],
@@ -1026,6 +1044,13 @@ def iter_billing_xlsx(stream):
                 key: header.index(source_column)
                 for key, source_column in mapped.items()
             }
+            normalized_header = {normalize_col(c): i for i, c in enumerate(header)}
+            for key, choices in OPTIONAL_BILLING_ALIASES.items():
+                for alias in choices:
+                    index = normalized_header.get(normalize_col(alias))
+                    if index is not None:
+                        column_indexes[key] = index
+                        break
             break
 
         if column_indexes is None:
@@ -1278,6 +1303,11 @@ def initialize_database_schema():
             'ALTER TABLE billing ADD COLUMN nett_amount_with_tax FLOAT DEFAULT 0'
         ))
         db.session.commit()
+    if 'cust_location' not in billing_columns:
+        db.session.execute(text(
+            'ALTER TABLE billing ADD COLUMN cust_location VARCHAR(120)'
+        ))
+        db.session.commit()
     upload_log_columns = {c['name'] for c in inspect(db.engine).get_columns('upload_log')}
     if 'upload_mode' not in upload_log_columns:
         db.session.execute(text(
@@ -1458,9 +1488,11 @@ def resolve_billing_owner(row, target_by_bp):
     if billing_salesman not in LOCKED_SALESMEN:
         return '', 'Unmapped', normalize_text(row.sold_to_name), None
 
+    # BP belum ada di Target Master: depo mengikuti Cust.Location dari
+    # Billing (master customer SAP, sama dengan Area Depo di Power BI).
     return (
         billing_salesman,
-        'Unmapped',
+        depo_from_cust_location(getattr(row, 'cust_location', None)) or 'Unmapped',
         normalize_text(row.sold_to_name),
         None,
     )
@@ -4450,6 +4482,7 @@ def upload():
                 'article': article, 'quantity': qty, 'nett_amount': amount,
                 'nett_amount_with_tax': amount_with_tax,
                 'category': classify(group), 'sku_key': sku_from_article(article, group),
+                'cust_location': normalize_text(rr.get('cust_location'))[:120] or None,
             }
 
         if upload_mode == 'historical':
