@@ -1269,7 +1269,94 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   </div>
 </div>
 </div>
-{% include '_depo_achievement.html' %}
+{# ===== Achievement per Depo ===== #}
+{% if depo_achievement %}
+<style>
+  .dpa-card { background:#fff; border:1px solid #e5e7eb; border-radius:18px; padding:22px 24px; margin:0 0 14px; box-shadow:0 3px 14px rgba(15,23,42,.05); }
+  .dpa-head { display:flex; justify-content:space-between; align-items:baseline; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+  .dpa-title { font-size:20px; font-weight:800; color:#0b2545; }
+  .dpa-note { font-size:12px; color:#6b7280; display:flex; align-items:center; gap:6px; }
+  .dpa-note i { display:inline-block; width:2px; height:12px; background:#475569; }
+  .dpa-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:14px; }
+  .dpa-depo { border:1px solid #e5e7eb; border-radius:14px; padding:16px 18px; background:#fbfcfe; }
+  .dpa-name { font-size:15px; font-weight:800; color:#0b2545; }
+  .dpa-main { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-top:8px; }
+  .dpa-pct { font-size:30px; font-weight:800; color:#2563eb; line-height:1.1; }
+  .dpa-amount { font-size:12px; color:#6b7280; font-weight:600; }
+  .dpa-bar { position:relative; height:9px; background:#e8edf4; border-radius:6px; margin:12px 0 6px; }
+  .dpa-bar > span { display:block; height:9px; border-radius:6px; background:#2563eb; }
+  .dpa-tg { position:absolute; top:-4px; width:2px; height:17px; background:#475569; }
+  .dpa-row { display:grid; grid-template-columns:92px 1fr 58px; align-items:center; gap:8px; margin-top:9px; font-size:12px; font-weight:700; }
+  .dpa-mini { height:6px; background:#e8edf4; border-radius:4px; overflow:hidden; }
+  .dpa-mini > span { display:block; height:6px; border-radius:4px; }
+  .dpa-row b { text-align:right; }
+  .dpa-device { color:#43a047; } .dpa-device-bg { background:#43a047; }
+  .dpa-mac { color:#dc3545; } .dpa-mac-bg { background:#dc3545; }
+  .dpa-acc { color:#ea7a2c; } .dpa-acc-bg { background:#ea7a2c; }
+  .dpa-foot { display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; border-top:1px solid #e5e7eb; margin-top:14px; padding-top:10px; font-size:12px; color:#6b7280; font-weight:600; }
+  .dpa-foot strong { color:#172033; }
+  .dpa-neg { color:#dc2626 !important; } .dpa-pos { color:#16a34a !important; }
+  .dpa-total { display:flex; justify-content:space-between; align-items:center; gap:10px 18px; flex-wrap:wrap; margin-top:14px; padding:12px 18px; background:#f4f7fb; border-radius:12px; font-size:13px; font-weight:700; color:#172033; }
+  .dpa-total .dpa-total-pct { color:#2563eb; font-size:15px; font-weight:800; }
+  @media (max-width:620px) {
+    .dpa-card { padding:16px; border-radius:14px; }
+    .dpa-title { font-size:17px; }
+    .dpa-pct { font-size:26px; }
+  }
+</style>
+
+{% set tg = projection_timegone if projection_timegone else 0 %}
+{% macro pct_text(v) %}{% if v is not none %}{{ v|percent_id }}%{% else %}—{% endif %}{% endmacro %}
+{% macro bar_w(v) %}{{ [[v or 0, 0]|max, 100]|min }}{% endmacro %}
+{% macro gap_text(v) %}{% if v is none %}—{% elif v >= 0 %}+{{ v|rupiah_short }}{% else %}{{ v|rupiah_short }}{% endif %}{% endmacro %}
+
+<section class="dpa-card">
+  <div class="dpa-head">
+    <div class="dpa-title">Achievement per Depo</div>
+    <div class="dpa-note"><i></i> Time gone {{ tg|percent_id }}%</div>
+  </div>
+
+  <div class="dpa-grid">
+    {% for r in depo_achievement %}
+    <div class="dpa-depo">
+      <div class="dpa-name">{{ r.label }}</div>
+      <div class="dpa-main">
+        <span class="dpa-pct">{{ pct_text(r.sales_pct) }}</span>
+        <span class="dpa-amount">{{ r.sales|rupiah_short }} / {{ r.sales_target|rupiah_short if r.sales_target else '—' }}</span>
+      </div>
+      <div class="dpa-bar">
+        <span style="width:{{ bar_w(r.sales_pct) }}%"></span>
+        <div class="dpa-tg" style="left:{{ [tg, 100]|min }}%"></div>
+      </div>
+
+      {% for key, label, cls in [('device','Device','dpa-device'), ('macbook','MacBook','dpa-mac'), ('acc','Accessories','dpa-acc')] %}
+      {% set p = r[key ~ '_pct'] %}
+      <div class="dpa-row">
+        <span class="{{ cls }}">{{ label }}</span>
+        <div class="dpa-mini"><span class="{{ cls }}-bg" style="width:{{ bar_w(p) }}%"></span></div>
+        <b class="{{ cls }}">{{ pct_text(p) }}</b>
+      </div>
+      {% endfor %}
+
+      <div class="dpa-foot">
+        {% set gap = r.projection.gap_vs_timegone %}
+        <span>Gap <strong class="{{ 'dpa-neg' if gap is not none and gap < 0 else 'dpa-pos' if gap is not none else '' }}">{{ gap_text(gap) }}</strong></span>
+        <span>Est closing <strong>{{ pct_text(r.projection.est_closing_pct) }}</strong></span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% set tgap = projection_summary.gap_vs_timegone %}
+  <div class="dpa-total">
+    <span>TOTAL</span>
+    <span>{{ cards.sales|rupiah_short }} / {{ cards.sales_target|rupiah_short if cards.sales_target else '—' }}</span>
+    <span class="dpa-total-pct">{{ pct_text(cards.sales_pct if cards.sales_target else none) }}</span>
+    <span>Gap <span class="{{ 'dpa-neg' if tgap is not none and tgap < 0 else 'dpa-pos' if tgap is not none else '' }}">{{ gap_text(tgap) }}</span></span>
+    <span>Est closing {{ pct_text(projection_summary.est_closing_pct) }}</span>
+  </div>
+</section>
+{% endif %}
 <div class="quality-grid">
   <div class="card quality-card quality-card-exact bo-card" role="button" tabindex="0" data-quality="BO" data-target="{{ cards.bo_target }}" data-achievement="{{ cards.bo }}"><div class="quality-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10h18"></path><path d="M5 10v10h14V10"></path><path d="M4 10l2-5h12l2 5"></path><path d="M8 20v-6h8v6"></path></svg></div><div class="quality-copy"><span class="quality-label">BO</span><div class="quality-top"><div class="quality-value">{{ cards.bo }}</div><div class="quality-rate">{{ cards.bo_rate|percent_id }}%</div></div></div><div class="quality-progress"><span style="width:{{ 100 if cards.bo_rate > 100 else cards.bo_rate }}%"></span></div></div>
   <div class="card quality-card quality-card-exact qvo-card" role="button" tabindex="0" data-quality="QVO" data-target="{{ cards.qvo_target }}" data-achievement="{{ cards.qvo }}"><div class="quality-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M9.5 11.5 8 21l4-2.4 4 2.4-1.5-9.5"></path><path d="m10.5 8 1 1 2-2"></path></svg></div><div class="quality-copy"><span class="quality-label">QVO</span><div class="quality-top"><div class="quality-value">{{ cards.qvo }}</div><div class="quality-rate">{{ cards.qvo_rate|percent_id }}%</div></div></div><div class="quality-progress"><span style="width:{{ 100 if cards.qvo_rate > 100 else cards.qvo_rate }}%"></span></div></div>
