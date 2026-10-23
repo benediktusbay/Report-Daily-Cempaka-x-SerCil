@@ -20,6 +20,8 @@
   .cb-table thead tr:nth-child(2) th { top:37px; font-size:10px; cursor:pointer; user-select:none; }
   .cb-table thead tr:nth-child(2) th:hover { color:#1769e8; }
   .cb-table thead th.sorted { color:#1769e8; }
+  .cb-table thead th[colspan], .cb-table thead tr:nth-child(2) th { text-align:center; }
+  .cb-table th.cb-total { border-left:1px solid #e5eaf2; }
   .cb-table .cb-dealer { position:sticky; left:0; background:#fff; z-index:1; min-width:220px; max-width:260px; white-space:normal; font-weight:800; color:#0b2545; border-right:1px solid #e5eaf2; }
   .cb-table thead .cb-dealer { background:#f8fafc; z-index:3; }
   .cb-table .cb-dealer small { display:block; color:#94a3b8; font-weight:700; font-size:11px; margin-top:2px; }
@@ -35,9 +37,18 @@
   .cb-summary { margin-top:12px; font-size:13px; font-weight:700; color:#52647e; }
   .cb-summary strong { color:#0b2545; }
   .cb-summary .cb-red { color:#dc2626; }
-  .cb-upload { margin-top:18px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:12px; color:#64748b; }
-  .cb-upload input[type=file] { font-size:12px; }
-  .cb-upload button { height:36px; padding:0 14px; border:1px solid #1769e8; border-radius:9px; background:#fff; color:#1769e8; font-weight:800; cursor:pointer; }
+  .admin-upload { margin-bottom:14px; }
+  .admin-upload summary { display:flex; justify-content:flex-end; cursor:pointer; color:#52647e; font-size:12px; font-weight:900; list-style:none; padding:2px 0 10px; }
+  .admin-upload summary::-webkit-details-marker { display:none; }
+  .admin-upload summary:before { content:'▸'; margin-right:5px; }
+  .admin-upload[open] summary:before { content:'▾'; }
+  .upload-card { background:#fff; border:1px solid #e5e7eb; border-radius:14px; box-shadow:0 3px 14px rgba(15,23,42,.05); padding:18px; margin-bottom:6px; }
+  .upload-card h3 { margin:0 0 5px; }
+  .upload-card p { color:#6b7280; margin:0 0 14px; font-size:13px; }
+  .upload-card form { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  .upload-card input { border:1px solid #d1d5db; border-radius:8px; padding:8px; max-width:100%; }
+  .upload-card button { border:0; border-radius:9px; padding:10px 15px; font-weight:700; cursor:pointer; background:#0b2545; color:#fff; }
+  .upload-card button:hover { background:#133c65; }
   .cb-empty-state { padding:40px 16px; text-align:center; color:#64748b; }
   @media (max-width:620px) {
     .cb-head h1 { font-size:20px; }
@@ -49,17 +60,33 @@
 
 {% block body %}
 {% macro money(v) %}{{ v|rupiah_short }}{% endmacro %}
+{% set month_names = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] %}
+{% macro month_label(m) %}{{ month_names[m[5:7]|int - 1] }} {{ m[:4] }}{% endmacro %}
+
+{% if is_admin %}
+<details class="admin-upload">
+  <summary>Admin Upload</summary>
+  <div class="upload-card">
+    <h3>Upload Billing Semua Brand</h3>
+    <p>Satu bulan per file; upload ulang mengganti data bulan itu.{% if last_upload %} Terakhir: {{ last_upload.filename }}.{% endif %}</p>
+    <form method="post" action="{{ url_for('cross_brand_upload') }}" enctype="multipart/form-data">
+      <input type="file" name="file" accept=".xlsx" required>
+      <button type="submit">Upload</button>
+    </form>
+  </div>
+</details>
+{% endif %}
 
 <div class="cb-head">
   <div>
     <h1>Cross Brand</h1>
-    <p>Belanja dealer di semua brand per depo · Nett Amount No Tax · ASP = value ÷ qty semua item</p>
+    <p>Belanja dealer di semua brand per depo</p>
   </div>
   <form class="cb-filters" method="get" action="{{ url_for('cross_brand') }}">
     <label>Bulan
       <select name="month">
-        {% for m in months %}<option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ m }}</option>{% endfor %}
-        {% if month not in months %}<option value="{{ month }}" selected>{{ month }}</option>{% endif %}
+        {% for m in months %}<option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ month_label(m) }}</option>{% endfor %}
+        {% if month not in months %}<option value="{{ month }}" selected>{{ month_label(month) }}</option>{% endif %}
       </select>
     </label>
     <label>Depo
@@ -84,7 +111,7 @@
         </tr>
         <tr>
           {% for c in columns %}
-          <th class="cb-brand-start" data-sort="{{ c|lower }}-amount">Sales</th>
+          <th class="cb-brand-start" data-sort="{{ c|lower }}-amount">Achievement</th>
           <th data-sort="{{ c|lower }}-asp">ASP</th>
           {% endfor %}
         </tr>
@@ -126,17 +153,9 @@
     <strong class="cb-red">{{ summary.non_apple }}</strong> belum Apple
   </div>
   {% else %}
-  <div class="cb-empty-state">Belum ada data Cross Brand untuk {{ month }}{% if depo %} di depo {{ depo }}{% endif %}.</div>
+  <div class="cb-empty-state">Belum ada data Cross Brand untuk {{ month_label(month) }}{% if depo %} di depo {{ depo }}{% endif %}.</div>
   {% endif %}
 
-  {% if is_admin %}
-  <form class="cb-upload" method="post" action="{{ url_for('cross_brand_upload') }}" enctype="multipart/form-data">
-    <strong style="color:#0b2545">Upload Billing semua brand</strong>
-    <input type="file" name="file" accept=".xlsx" required>
-    <button type="submit">Upload</button>
-    <span>Satu bulan per file; upload ulang mengganti data bulan itu.{% if last_upload %} Terakhir: {{ last_upload.filename }}.{% endif %}</span>
-  </form>
-  {% endif %}
 </div>
 {% endblock %}
 
