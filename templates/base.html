@@ -340,6 +340,10 @@
         Closing
       </a>
 
+      <a class="{% if request.endpoint == 'cross_brand' %}active{% endif %}" href="{{ url_for('cross_brand') }}">
+        Cross Brand
+      </a>
+
       {% if session.get('role') == 'admin' %}
 
         <a class="{% if request.endpoint == 'targets' %}active{% endif %}" href="{{ url_for('targets') }}">

@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Cross Brand · Daily Monitoring Dashboard{% endblock %}
+
+{% block head %}
+<style>
+  .cb-head { display:flex; justify-content:space-between; align-items:flex-end; gap:14px; flex-wrap:wrap; margin-bottom:16px; }
+  .cb-head h1 { margin:0; font-size:26px; color:#0b2545; }
+  .cb-head p { margin:4px 0 0; color:#64748b; font-size:13px; }
+  .cb-filters { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; }
+  .cb-filters label { display:flex; flex-direction:column; gap:4px; font-size:11px; font-weight:800; color:#52647e; }
+  .cb-filters select, .cb-filters input { height:40px; padding:0 12px; border:1px solid #dbe4f0; border-radius:10px; background:#fff; color:#0b2545; font-weight:700; min-width:150px; }
+  .cb-filters button { height:40px; padding:0 16px; border:0; border-radius:10px; background:#1769e8; color:#fff; font-weight:800; cursor:pointer; }
+  .cb-card { background:#fff; border:1px solid #e5e7eb; border-radius:18px; box-shadow:0 3px 14px rgba(15,23,42,.05); padding:18px; }
+  .cb-search { width:100%; max-width:340px; height:40px; padding:0 12px; border:1px solid #dbe4f0; border-radius:10px; margin-bottom:12px; font-weight:600; }
+  .cb-wrap { overflow:auto; max-height:72vh; border:1px solid #e5eaf2; border-radius:12px; }
+  .cb-table { border-collapse:separate; border-spacing:0; width:100%; min-width:1080px; }
+  .cb-table th, .cb-table td { padding:10px 10px; border-bottom:1px solid #edf1f7; text-align:left; white-space:nowrap; font-size:12px; }
+  .cb-table thead th { position:sticky; background:#f8fafc; color:#52647e; font-weight:800; z-index:2; text-transform:none; letter-spacing:0; }
+  .cb-table thead tr:first-child th { top:0; font-size:12px; color:#0b2545; border-bottom:0; }
+  .cb-table thead tr:nth-child(2) th { top:37px; font-size:10px; cursor:pointer; user-select:none; }
+  .cb-table thead tr:nth-child(2) th:hover { color:#1769e8; }
+  .cb-table thead th.sorted { color:#1769e8; }
+  .cb-table .cb-dealer { position:sticky; left:0; background:#fff; z-index:1; min-width:220px; max-width:260px; white-space:normal; font-weight:800; color:#0b2545; border-right:1px solid #e5eaf2; }
+  .cb-table thead .cb-dealer { background:#f8fafc; z-index:3; }
+  .cb-table .cb-dealer small { display:block; color:#94a3b8; font-weight:700; font-size:11px; margin-top:2px; }
+  .cb-table .cb-brand-start { border-left:1px solid #e5eaf2; }
+  .cb-table td { font-weight:700; color:#172033; font-variant-numeric:tabular-nums; }
+  .cb-table td.cb-asp { color:#64748b; }
+  .cb-table td.cb-empty { background:#fdecec; color:#dc2626; }
+  .cb-table td.cb-total { font-weight:900; color:#0b2545; border-left:1px solid #e5eaf2; }
+  .cb-table tbody tr:hover td { background:#f5f9ff; }
+  .cb-table tbody tr:hover td.cb-empty { background:#fadede; }
+  .cb-table tfoot td { position:sticky; bottom:0; background:#eef4fb; font-weight:900; color:#0b2545; border-bottom:0; }
+  .cb-table tfoot .cb-dealer { background:#eef4fb; }
+  .cb-summary { margin-top:12px; font-size:13px; font-weight:700; color:#52647e; }
+  .cb-summary strong { color:#0b2545; }
+  .cb-summary .cb-red { color:#dc2626; }
+  .cb-upload { margin-top:18px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:12px; color:#64748b; }
+  .cb-upload input[type=file] { font-size:12px; }
+  .cb-upload button { height:36px; padding:0 14px; border:1px solid #1769e8; border-radius:9px; background:#fff; color:#1769e8; font-weight:800; cursor:pointer; }
+  .cb-empty-state { padding:40px 16px; text-align:center; color:#64748b; }
+  @media (max-width:620px) {
+    .cb-head h1 { font-size:20px; }
+    .cb-filters select, .cb-filters input { min-width:0; flex:1 1 130px; }
+    .cb-table .cb-dealer { min-width:150px; max-width:170px; }
+  }
+</style>
+{% endblock %}
+
+{% block body %}
+{% macro money(v) %}{{ v|rupiah_short }}{% endmacro %}
+
+<div class="cb-head">
+  <div>
+    <h1>Cross Brand</h1>
+    <p>Belanja dealer di semua brand per depo · Nett Amount No Tax · ASP = value ÷ qty semua item</p>
+  </div>
+  <form class="cb-filters" method="get" action="{{ url_for('cross_brand') }}">
+    <label>Bulan
+      <select name="month">
+        {% for m in months %}<option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ m }}</option>{% endfor %}
+        {% if month not in months %}<option value="{{ month }}" selected>{{ month }}</option>{% endif %}
+      </select>
+    </label>
+    <label>Depo
+      <select name="depo">
+        {% for d in depos %}<option value="{{ d }}" {% if d == depo %}selected{% endif %}>{{ 'Tanpa Depo' if d == 'Unmapped' else d }}</option>{% endfor %}
+      </select>
+    </label>
+    <button type="submit">Tampilkan</button>
+  </form>
+</div>
+
+<div class="cb-card">
+  {% if table %}
+  <input class="cb-search" type="search" id="cbSearch" placeholder="Cari dealer atau BP" aria-label="Cari dealer atau BP">
+  <div class="cb-wrap">
+    <table class="cb-table" id="cbTable">
+      <thead>
+        <tr>
+          <th class="cb-dealer" rowspan="2">Dealer</th>
+          {% for c in columns %}<th colspan="2" class="cb-brand-start">{{ labels[c] }}</th>{% endfor %}
+          <th rowspan="2" class="cb-total" data-sort="total" style="cursor:pointer">Total</th>
+        </tr>
+        <tr>
+          {% for c in columns %}
+          <th class="cb-brand-start" data-sort="{{ c|lower }}-amount">Sales</th>
+          <th data-sort="{{ c|lower }}-asp">ASP</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in table %}
+        <tr data-search="{{ (t.dealer ~ ' ' ~ t.bp)|lower }}" data-total="{{ t.total }}"
+            {% for c in columns %}data-{{ c|lower }}-amount="{{ t.cells[c].amount }}" data-{{ c|lower }}-asp="{{ t.cells[c].asp or 0 }}" {% endfor %}>
+          <td class="cb-dealer">{{ t.dealer }}<small>{{ t.bp }}</small></td>
+          {% for c in columns %}
+          {% set cell = t.cells[c] %}
+          {% if cell.bought %}
+          <td class="cb-brand-start">{{ money(cell.amount) }}</td>
+          <td class="cb-asp">{{ money(cell.asp) if cell.asp else '—' }}</td>
+          {% else %}
+          <td class="cb-brand-start cb-empty">—</td>
+          <td class="cb-empty">—</td>
+          {% endif %}
+          {% endfor %}
+          <td class="cb-total">{{ money(t.total) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td class="cb-dealer">TOTAL</td>
+          {% for c in columns %}
+          <td class="cb-brand-start">{{ money(totals[c].amount) }}</td>
+          <td>{{ money(totals[c].asp) if totals[c].asp else '—' }}</td>
+          {% endfor %}
+          <td class="cb-total">{{ money(summary.total) }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  <div class="cb-summary">
+    <strong>{{ summary.dealers }}</strong> dealer belanja ·
+    <strong>{{ summary.apple }}</strong> sudah Apple ·
+    <strong class="cb-red">{{ summary.non_apple }}</strong> belum Apple
+  </div>
+  {% else %}
+  <div class="cb-empty-state">Belum ada data Cross Brand untuk {{ month }}{% if depo %} di depo {{ depo }}{% endif %}.</div>
+  {% endif %}
+
+  {% if is_admin %}
+  <form class="cb-upload" method="post" action="{{ url_for('cross_brand_upload') }}" enctype="multipart/form-data">
+    <strong style="color:#0b2545">Upload Billing semua brand</strong>
+    <input type="file" name="file" accept=".xlsx" required>
+    <button type="submit">Upload</button>
+    <span>Satu bulan per file; upload ulang mengganti data bulan itu.{% if last_upload %} Terakhir: {{ last_upload.filename }}.{% endif %}</span>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const table = document.getElementById('cbTable');
+  if (!table) return;
+  const tbody = table.tBodies[0];
+  const search = document.getElementById('cbSearch');
+  search && search.addEventListener('input', function () {
+    const q = this.value.trim().toLowerCase();
+    for (const tr of tbody.rows) tr.style.display = !q || tr.dataset.search.includes(q) ? '' : 'none';
+  });
+  let current = 'total', desc = true;
+  table.querySelectorAll('th[data-sort]').forEach(function (th) {
+    th.addEventListener('click', function () {
+      const key = th.dataset.sort;
+      desc = key === current ? !desc : true;
+      current = key;
+      const attr = key === 'total' ? 'total' : key.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+      const rows = Array.from(tbody.rows);
+      rows.sort((a, b) => (Number(b.dataset[attr] || 0) - Number(a.dataset[attr] || 0)) * (desc ? 1 : -1));
+      rows.forEach(r => tbody.appendChild(r));
+      table.querySelectorAll('th.sorted').forEach(x => x.classList.remove('sorted'));
+      th.classList.add('sorted');
+    });
+  });
+})();
+</script>
+{% endblock %}
