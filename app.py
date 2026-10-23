@@ -3032,6 +3032,20 @@ def _dashboard_context():
             'device_pct': _depo_pct(b['device'], b['device_target']),
             'macbook_pct': _depo_pct(b['macbook'], b['macbook_target']),
             'acc_pct': _depo_pct(b['acc'], b['acc_target']),
+            'categories': [
+                {
+                    'key': key, 'label': label,
+                    'actual': b[key], 'target': b[key + '_target'],
+                    'pct': _depo_pct(b[key], b[key + '_target']),
+                    'gap': b[key] - b[key + '_target'] if b[key + '_target'] else None,
+                    'projection': sales_projection(
+                        b[key], b[key + '_target'], projection_elapsed, working_days_total,
+                        target_available and b[key + '_target'] > 0,
+                    ),
+                }
+                for key, label in (('device', 'Device'), ('macbook', 'MacBook'), ('acc', 'Accessories'))
+            ],
+            'gap': sales - sales_target if sales_target else None,
             'projection': sales_projection(
                 sales, sales_target, projection_elapsed, working_days_total,
                 target_available and sales_target > 0,
