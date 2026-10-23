@@ -2535,7 +2535,62 @@ def dashboard_dealers():
     )
 
 
+# Kolom Billing yang benar-benar dipakai dashboard (hemat transfer Neon).
+DASHBOARD_BILLING_COLUMNS = (
+    Billing.billing_date, Billing.salesman, Billing.sold_to_code, Billing.sold_to_name,
+    Billing.item_group, Billing.article, Billing.quantity, Billing.nett_amount,
+    Billing.category, Billing.cust_location,
+)
+
+# Cache hasil hitungan dashboard di memori worker. Kunci = role + filter URL +
+# id upload Billing/Target terakhir, jadi cache otomatis basi setelah upload.
+DASHBOARD_CACHE_TTL_SECONDS = 6 * 60 * 60
+DASHBOARD_CACHE_MAX_ENTRIES = 32
+DASHBOARD_CACHE_IGNORED_ARGS = {'token', 'offset', 'limit', 'tab', 'view', 'format'}
+_dashboard_cache = {}
+_dashboard_cache_lock = Lock()
+
+
+def _dashboard_cache_key():
+    billing_upload = db.session.query(db.func.max(UploadLog.id)).filter(
+        or_(UploadLog.upload_mode.is_(None), UploadLog.upload_mode != 'cross_brand')).scalar()
+    target_upload = db.session.query(db.func.max(TargetUploadLog.id)).scalar()
+    args = tuple(sorted(
+        (key, tuple(sorted(request.args.getlist(key))))
+        for key in request.args if key not in DASHBOARD_CACHE_IGNORED_ARGS
+    ))
+    return (session.get('role') or 'viewer', args, billing_upload, target_upload)
+
+
 def _dashboard_context():
+    if 'user_id' not in session:
+        session['username'] = 'Viewer'
+        session['role'] = 'viewer'
+    key = _dashboard_cache_key()
+    now = time.time()
+    with _dashboard_cache_lock:
+        hit = _dashboard_cache.get(key)
+        if hit and hit['expires'] > now:
+            context = dict(hit['context'])
+        else:
+            context = None
+    if context is None:
+        context = _dashboard_context_uncached()
+        with _dashboard_cache_lock:
+            for stale in [k for k, v in _dashboard_cache.items() if v['expires'] <= now]:
+                _dashboard_cache.pop(stale, None)
+            while len(_dashboard_cache) >= DASHBOARD_CACHE_MAX_ENTRIES:
+                oldest = min(_dashboard_cache, key=lambda k: _dashboard_cache[k]['expires'])
+                _dashboard_cache.pop(oldest, None)
+            _dashboard_cache[key] = {'context': context, 'expires': now + DASHBOARD_CACHE_TTL_SECONDS}
+        context = dict(context)
+    # Log upload kecil dan berisi objek database: selalu dibaca segar.
+    context['uploads'] = UploadLog.query.order_by(UploadLog.uploaded_at.desc()).limit(6).all()
+    context['target_uploads'] = TargetUploadLog.query.order_by(TargetUploadLog.uploaded_at.desc()).limit(6).all()
+    return context
+
+
+def _dashboard_context_uncached():
     # Public Viewer mode:
     # anyone with the dashboard URL may view reports without logging in.
     # Admin-only routes still require a real authenticated admin session.
@@ -2579,7 +2634,8 @@ def _dashboard_context():
     start, end = month_range(month)
 
     monthly_targets, target_by_bp = target_lookup_for_month(month)
-    billing_rows = Billing.query.filter(Billing.billing_date >= start, Billing.billing_date <= end).all()
+    billing_rows = db.session.query(*DASHBOARD_BILLING_COLUMNS).filter(
+        Billing.billing_date >= start, Billing.billing_date <= end).all()
 
     # Build period-specific Depo <-> Salesman mapping from Monthly Target.
     # The target file for the selected month is the source of truth.
@@ -2955,7 +3011,7 @@ def _dashboard_context():
         previous_cutoff = previous_end.replace(day=min(latest_in_scope.day, previous_end.day))
         previous_month = previous_start.strftime('%Y-%m')
         _, previous_target_by_bp = target_lookup_for_month(previous_month)
-        previous_rows = Billing.query.filter(
+        previous_rows = db.session.query(*DASHBOARD_BILLING_COLUMNS).filter(
             Billing.billing_date >= previous_start,
             Billing.billing_date <= previous_cutoff,
         ).all()
@@ -3119,8 +3175,6 @@ def _dashboard_context():
     quality_qvo_dealers.sort(key=lambda d: (d['salesman'], d['dealer']))
     projection_timegone = projection_elapsed / working_days_total * 100 if working_days_total else 0
 
-    uploads = UploadLog.query.order_by(UploadLog.uploaded_at.desc()).limit(6).all()
-    target_uploads = TargetUploadLog.query.order_by(TargetUploadLog.uploaded_at.desc()).limit(6).all()
 
     # Client-side filter mapping for instant bidirectional Depo <-> Salesman UI.
     filter_salesman_depos = {
@@ -3148,7 +3202,7 @@ def _dashboard_context():
         filter_depo_salesmen=filter_depo_salesmen,
         cards=cards, table=table, leaderboard=leaderboard,
         speed_rows=speed_rows, sku_rows=sku_rows, sku_detail=sku_detail, dealer_detail=dealer_detail,
-        sku_targets=dashboard_sku_targets(), uploads=uploads, target_uploads=target_uploads,
+        sku_targets=dashboard_sku_targets(),
         qvo_threshold=qvo_display_amount(QVO_THRESHOLD, 'with_ppn'),
         qvo_basis=qvo_basis, qvo_basis_requested=qvo_basis_requested,
         latest_in_scope=latest_in_scope,
