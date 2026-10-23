@@ -2953,6 +2953,59 @@ def _dashboard_context():
         target_available and cards['sales_target'] > 0,
     )
 
+    # Achievement per Depo: sumber dan rumus sama dengan kartu KPI dan
+    # Sales Projection, sehingga total semua depo = angka kartu Achievement.
+    depo_salesmen = {x['salesman'] for x in table}
+    depo_stats = {}
+
+    def _depo_bucket(name):
+        return depo_stats.setdefault(name or 'Unmapped', {
+            'device': 0.0, 'macbook': 0.0, 'acc': 0.0,
+            'device_target': 0.0, 'macbook_target': 0.0, 'acc_target': 0.0,
+        })
+
+    for d in dealer.values():
+        if d['salesman'] not in depo_salesmen:
+            continue
+        b = _depo_bucket(d['depo'])
+        b['device'] += d['Device']
+        b['macbook'] += d['Macbook']
+        b['acc'] += d['ACC']
+    for t in scoped_targets:
+        if t.salesman not in depo_salesmen:
+            continue
+        b = _depo_bucket(t.depo)
+        b['device_target'] += float(t.device_target or 0)
+        b['macbook_target'] += float(t.macbook_target or 0)
+        b['acc_target'] += float(t.acc_target or 0)
+
+    def _depo_pct(actual, target):
+        return actual / target * 100 if target else None
+
+    depo_order = ([d for d in VIEWER_ALLOWED_DEPOS if d in depo_stats]
+                  + sorted(d for d in depo_stats if d not in VIEWER_ALLOWED_DEPOS and d != 'Unmapped')
+                  + (['Unmapped'] if 'Unmapped' in depo_stats else []))
+    depo_achievement = []
+    for name in depo_order:
+        b = depo_stats[name]
+        sales = b['device'] + b['macbook'] + b['acc']
+        sales_target = b['device_target'] + b['macbook_target'] + b['acc_target']
+        if not sales and not sales_target:
+            continue
+        depo_achievement.append({
+            'depo': name,
+            'label': 'Tanpa Depo' if name == 'Unmapped' else name,
+            'sales': sales, 'sales_target': sales_target,
+            'sales_pct': _depo_pct(sales, sales_target),
+            'device_pct': _depo_pct(b['device'], b['device_target']),
+            'macbook_pct': _depo_pct(b['macbook'], b['macbook_target']),
+            'acc_pct': _depo_pct(b['acc'], b['acc_target']),
+            'projection': sales_projection(
+                sales, sales_target, projection_elapsed, working_days_total,
+                target_available and sales_target > 0,
+            ),
+        })
+
     visible_people = {x['salesman'] for x in table}
     quality_bo_dealers = [bo_dealer_names[key] for key, amounts in bo_amounts_by_owner_bp.items()
                           if key[0] in visible_people and is_bo_amounts(amounts['device'], amounts['macbook'])]
@@ -3030,6 +3083,7 @@ def _dashboard_context():
         target_available=target_available,
         projection_rows=projection_rows, projection_summary=projection_summary,
         projection_timegone=projection_timegone,
+        depo_achievement=depo_achievement,
         quality_bo_dealers=quality_bo_dealers, quality_qvo_dealers=quality_qvo_dealers,
         dealer_no_purchase=dealer_no_purchase, qvo_opportunities=qvo_opportunities,
         no_purchase_target_total=no_purchase_target_total,
