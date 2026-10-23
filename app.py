@@ -2994,6 +2994,7 @@ def _dashboard_context():
         return depo_stats.setdefault(name or 'Unmapped', {
             'device': 0.0, 'macbook': 0.0, 'acc': 0.0,
             'device_target': 0.0, 'macbook_target': 0.0, 'acc_target': 0.0,
+            'bo': 0, 'qvo': 0, 'bo_target': 0, 'qvo_target': 0,
         })
 
     for d in dealer.values():
@@ -3010,6 +3011,28 @@ def _dashboard_context():
         b['device_target'] += float(t.device_target or 0)
         b['macbook_target'] += float(t.macbook_target or 0)
         b['acc_target'] += float(t.acc_target or 0)
+        b['bo_target'] += int(t.bo_target or 0)
+        b['qvo_target'] += int(t.qvo_target or 0)
+
+    # BO/QVO per depo: satu dealer (salesman, BP) dihitung sekali, di depo
+    # tempat transaksi terakhirnya bulan ini (kalau pindah depo di tengah bulan).
+    depo_dealer = {}
+    for d in dealer.values():
+        if d['salesman'] not in depo_salesmen:
+            continue
+        key = (d['salesman'], d['bp'])
+        x = depo_dealer.setdefault(key, {'device': 0.0, 'macbook': 0.0, 'acc': 0.0,
+                                         'depo': d['depo'], 'last': None})
+        x['device'] += d['Device']
+        x['macbook'] += d['Macbook']
+        x['acc'] += d['ACC']
+        if d['last_date'] is not None and (x['last'] is None or d['last_date'] > x['last']):
+            x['last'] = d['last_date']
+            x['depo'] = d['depo']
+    for x in depo_dealer.values():
+        b = _depo_bucket(x['depo'])
+        b['bo'] += int(is_bo_amounts(x['device'], x['macbook']))
+        b['qvo'] += int(x['device'] + x['macbook'] + x['acc'] >= QVO_THRESHOLD)
 
     def _depo_pct(actual, target):
         return actual / target * 100 if target else None
@@ -3046,6 +3069,8 @@ def _dashboard_context():
                 for key, label in (('device', 'Device'), ('macbook', 'MacBook'), ('acc', 'Accessories'))
             ],
             'gap': sales - sales_target if sales_target else None,
+            'bo': b['bo'], 'bo_target': b['bo_target'], 'bo_pct': _depo_pct(b['bo'], b['bo_target']),
+            'qvo': b['qvo'], 'qvo_target': b['qvo_target'], 'qvo_pct': _depo_pct(b['qvo'], b['qvo_target']),
             'projection': sales_projection(
                 sales, sales_target, projection_elapsed, working_days_total,
                 target_available and sales_target > 0,
