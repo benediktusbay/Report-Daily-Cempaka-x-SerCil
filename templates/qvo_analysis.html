@@ -13,6 +13,16 @@
 .qvo-table.qvo-main-table th:first-child,.qvo-table.qvo-main-table td:first-child{text-align:center}
 .qvo-list-table th,.qvo-list-table td{text-align:left}
 
+/* Gap ke QVO: progress bar menuju threshold */
+.qvo-gapbar{min-width:170px}
+.qvo-gapbar-track{height:7px;border-radius:999px;background:#e8eef6;overflow:hidden;margin-bottom:5px}
+.qvo-gapbar-track span{display:block;height:100%;border-radius:inherit}
+.qvo-gapbar-track span.near{background:#16a34a}.qvo-gapbar-track span.mid{background:#1769e8}.qvo-gapbar-track span.far{background:#94a3b8}
+.qvo-gapbar-line{display:flex;justify-content:space-between;gap:10px;font-size:11px;white-space:nowrap}
+.qvo-gapbar-line b{font-weight:900}.qvo-gapbar-line b.near{color:#15803d}.qvo-gapbar-line b.mid{color:#1769e8}.qvo-gapbar-line b.far{color:#64748b}
+.qvo-gapbar-line span{color:#64748b;font-weight:700}
+.qvo-main-table{min-width:900px!important}
+
 /* Proyeksi akhir bulan */
 .qvo-proj{display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;font-size:9px;font-weight:900;white-space:nowrap}
 .qvo-proj.on-track{background:#dcfce7;color:#166534}.qvo-proj.need-to-push{background:#fef3c7;color:#92400e}.qvo-proj.unlikely{background:#fee2e2;color:#b91c1c}.qvo-proj.not-yet{background:#f1f5f9;color:#64748b}
@@ -84,6 +94,16 @@
 {% set basis_label = 'non-PPN' if qvo_basis == 'non_ppn' else 'with PPN' %}
 {% macro gap_cell(r) -%}
 {{ r.gap|rupiah_short }}{% if r.pending %}<span class="qvo-pending-line">SO pending {{ r.pending|rupiah_short }} · sisa {{ r.gap_after_pending|rupiah_short }}</span>{% endif %}{% if r.no_do_pending %}<span class="qvo-pending-line nodo">SO tanpa DO {{ r.no_do_pending|rupiah_short }}</span>{% endif %}
+{%- endmacro %}
+{% macro gap_bar(r) -%}
+{% set pct = ((r.sales_mtd / qvo_threshold * 100) if qvo_threshold else 0) %}
+{% set pct = [[pct, 0]|max, 100]|min %}
+{% set tone = 'near' if pct >= 80 else ('mid' if pct >= 50 else 'far') %}
+<div class="qvo-gapbar">
+  <div class="qvo-gapbar-track"><span class="{{ tone }}" style="width:{{ pct }}%"></span></div>
+  <div class="qvo-gapbar-line"><b class="{{ tone }}">Kurang {{ r.gap|rupiah_short }}</b><span>{{ pct|round|int }}%</span></div>
+  {% if r.pending %}<span class="qvo-pending-line">SO pending {{ r.pending|rupiah_short }} · sisa {{ r.gap_after_pending|rupiah_short }}</span>{% endif %}{% if r.no_do_pending %}<span class="qvo-pending-line nodo">SO tanpa DO {{ r.no_do_pending|rupiah_short }}</span>{% endif %}
+</div>
 {%- endmacro %}
 {% macro projection_cell(r) -%}
 <div class="qvo-proj-cell">{% if r.projection is not none %}<strong>{{ r.projection|rupiah_short }}</strong>{% endif %}<span class="qvo-proj {{ r.projection_status|lower|replace(' ','-') }}">{{ r.projection_status }}</span></div>
@@ -167,23 +187,19 @@
 
     <div class="qvo-table-wrap">
       <table class="qvo-table qvo-main-table">
-        <thead><tr><th>Rank</th><th>Dealer</th><th>Salesman</th><th>Depo</th><th class="number">Sales MTD</th><th class="number">Gap ke QVO</th><th>Proyeksi akhir bulan</th><th class="number">Avg Sales</th><th class="center">History QVO</th><th class="center">Trend</th><th class="center">Score</th><th>Action</th></tr></thead>
+        <thead><tr><th>Rank</th><th>Dealer</th><th class="number">Sales MTD</th><th>Gap ke QVO ({{ qvo_threshold|rupiah_short }})</th><th class="number">Avg Sales</th><th class="center">History QVO</th><th>Action</th></tr></thead>
         <tbody>
         {% for r in top_rows %}
           <tr>
             <td class="center"><span class="qvo-rank">{{ loop.index }}</span></td>
-            <td class="qvo-dealer"><strong>{{ r.dealer }}</strong><small>{{ r.bp }}</small></td>
-            <td>{{ r.salesman }}</td><td>{{ r.depo }}</td>
+            <td class="qvo-dealer"><strong>{{ r.dealer }}</strong><small>{{ r.bp }}{% if r.depo %} · {{ r.depo }}{% endif %}</small></td>
             <td class="number">{{ r.sales_mtd|rupiah_short }}</td>
-            <td class="number qvo-gap">{{ gap_cell(r) }}</td>
-            <td>{{ projection_cell(r) }}</td>
+            <td>{{ gap_bar(r) }}</td>
             <td class="number">{{ r.avg_sales|rupiah_short }}</td>
             <td class="center"><button class="qvo-history-btn" type="button" data-qvo-history='{{ r|tojson }}'>{{ r.history_label }}</button></td>
-            <td class="center qvo-trend {{ r.trend }}">{{ r.trend }}</td>
-            <td class="center"><span class="qvo-score">{{ '%.1f'|format(r.score) }}</span></td>
             <td><button type="button" class="qvo-action {{ r.action|lower|replace(' ','-') }}" data-qvo-action='{{ r|tojson }}'>{{ r.action }}</button></td>
           </tr>
-        {% else %}<tr><td colspan="12" class="qvo-empty">Tidak ada QVO Potential pada filter ini.</td></tr>{% endfor %}
+        {% else %}<tr><td colspan="7" class="qvo-empty">Tidak ada QVO Potential pada filter ini.</td></tr>{% endfor %}
         </tbody>
       </table>
     </div>
