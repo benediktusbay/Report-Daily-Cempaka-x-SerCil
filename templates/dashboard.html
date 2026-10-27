@@ -2652,16 +2652,51 @@ document.addEventListener('click',function(event){
   function dealerActualTotal(d){
     return (Number(d.device)||0)+(Number(d.macbook)||0)+(Number(d.acc)||0);
   }
+  function dashMoney(value){
+    return (Number(value)||0)>0 ? money(value) : '<span class="dash">-</span>';
+  }
+  function checkCell(on){
+    return on ? '<td class="center"><span class="ck">&#10003;</span></td>' : '<td class="center"><span class="dash">-</span></td>';
+  }
+  function dealerRowHtml(d){
+    const isTarget=!!d.is_target;
+    const target=dealerTargetTotal(d);
+    const actual=dealerActualTotal(d);
+    const percentage=isTarget?pct(actual,target):null;
+    const targetCell=isTarget?dashMoney(target):'<span class="nt">Non target</span>';
+    const pctCell=percentage===null
+      ? '<span class="dash">-</span>'
+      : '<span class="pct-text '+pctClass(percentage)+'">'+pctText(percentage)+'</span><div class="pbar"><i class="'+pctClass(percentage)+'" style="width:'+Math.max(0,Math.min(100,percentage)).toFixed(1)+'%"></i></div>';
+    return '<tr><td class="dealer-cell"><span class="dn">'+esc(d.dealer)+'</span><span class="dbp">'+esc(d.bp)+'</span></td>'+
+      '<td class="number total-cell">'+targetCell+'</td>'+
+      '<td class="number">'+dashMoney(d.device)+'</td><td class="number">'+dashMoney(d.macbook)+'</td><td class="number">'+dashMoney(d.acc)+'</td>'+
+      '<td class="number total-cell">'+dashMoney(actual)+'</td>'+
+      '<td class="pct-cell">'+pctCell+'</td>'+
+      checkCell(d.bo)+checkCell(d.qvo)+'</tr>';
+  }
   function dealerTableHtml(tableRows,title){
     const heading=title?'<h3 class="jpg-depo-title">DEPO '+esc(title)+'</h3>':'';
-    const header='<table class="jpg-table"><thead><tr><th rowspan="2">BP</th><th rowspan="2">Dealer</th><th colspan="3" class="group-head">Achievement</th><th colspan="3" class="group-head">Grand Total</th><th rowspan="2" class="center">BO</th><th rowspan="2" class="center">QVO</th></tr><tr><th class="sub-head">Device</th><th class="sub-head">MacBook</th><th class="sub-head">ACC</th><th class="sub-head">Target</th><th class="sub-head">Achievement</th><th class="sub-head">%</th></tr></thead><tbody>';
-    const body=tableRows.map(function(d){
-      const target=dealerTargetTotal(d);
-      const actual=dealerActualTotal(d);
-      const percentage=pct(actual,target);
-      return '<tr><td>'+esc(d.bp)+'</td><td class="dealer-cell">'+esc(d.dealer)+'</td><td class="number">'+money(d.device)+'</td><td class="number">'+money(d.macbook)+'</td><td class="number">'+money(d.acc)+'</td><td class="number total-cell">'+money(target)+'</td><td class="number total-cell">'+money(actual)+'</td><td class="pct-cell '+pctClass(percentage)+'">'+pctText(percentage)+'</td><td class="center total-cell">'+(d.bo?1:0)+'</td><td class="center total-cell '+(d.qvo?'qvo-ok':'')+'">'+(d.qvo?1:0)+'</td></tr>';
-    }).join('');
-    return heading+header+body+'</tbody></table>';
+    const targetRows=tableRows.filter(function(d){return !!d.is_target;});
+    const boCount=targetRows.filter(function(d){return d.bo;}).length;
+    const qvoCount=targetRows.filter(function(d){return d.qvo;}).length;
+    const targetCount=targetRows.length;
+    const active=tableRows.filter(function(d){return dealerActualTotal(d)!==0;}).sort(function(a,b){
+      return dealerActualTotal(b)-dealerActualTotal(a) || dealerTargetTotal(b)-dealerTargetTotal(a);
+    });
+    const idle=tableRows.filter(function(d){return dealerActualTotal(d)===0;}).sort(function(a,b){
+      return (b.is_target?1:0)-(a.is_target?1:0) || dealerTargetTotal(b)-dealerTargetTotal(a);
+    });
+    const sum=function(fn){return tableRows.reduce(function(t,d){return t+(Number(fn(d))||0);},0);};
+    const totalTarget=sum(dealerTargetTotal),totalActual=sum(dealerActualTotal);
+    const totalPct=pct(totalActual,totalTarget);
+    const header='<table class="jpg-table"><thead><tr><th>Dealer</th><th class="num-head">Target</th><th class="num-head">Device</th><th class="num-head">MacBook</th><th class="num-head">ACC</th><th class="num-head">Achievement</th><th class="num-head">%</th><th class="center">BO<span class="cnt">'+boCount+'/'+targetCount+'</span></th><th class="center">QVO<span class="cnt">'+qvoCount+'/'+targetCount+'</span></th></tr></thead><tbody>';
+    let body=active.map(dealerRowHtml).join('');
+    if(idle.length){
+      const idleTarget=idle.reduce(function(t,d){return t+dealerTargetTotal(d);},0);
+      body+='<tr class="grp-row"><td colspan="9">Belum belanja &middot; '+idle.length+' dealer &middot; target '+money(idleTarget)+'</td></tr>'+idle.map(dealerRowHtml).join('');
+    }
+    const foot='<tr class="sub-row"><td class="dealer-cell">Subtotal</td><td class="number">'+dashMoney(totalTarget)+'</td><td class="number">'+dashMoney(sum(function(d){return d.device;}))+'</td><td class="number">'+dashMoney(sum(function(d){return d.macbook;}))+'</td><td class="number">'+dashMoney(sum(function(d){return d.acc;}))+'</td><td class="number">'+dashMoney(totalActual)+'</td><td class="pct-cell"><span class="pct-text '+pctClass(totalPct)+'">'+pctText(totalPct)+'</span></td><td class="center">'+boCount+'/'+targetCount+'</td><td class="center">'+qvoCount+'/'+targetCount+'</td></tr>';
+    return heading+header+body+foot+'</tbody></table>';
   }
   function allDealerTablesHtml(rows,salesman){
     if(salesman.toLowerCase()==='ikmah novtianingrum'){
@@ -2672,6 +2707,8 @@ document.addEventListener('click',function(event){
     }
     return dealerTableHtml(rows,'');
   }
+
+  const JPG_EXTRA_CSS='.jpg-table .num-head{text-align:right}.jpg-table .dealer-cell{width:26%}.jpg-table .dn{display:block;font-weight:800;font-size:21px;line-height:1.25}.jpg-table .dbp{display:block;font-size:15px;color:#94a3b8;font-weight:400;margin-top:2px}.jpg-table .dash{color:#b6c0cc}.jpg-table .nt{display:inline-block;font-size:15px;font-weight:700;color:#475569;background:#eef2f7;border-radius:6px;padding:3px 9px;white-space:nowrap}.jpg-table .pct-cell{width:180px}.jpg-table .pct-text{display:block;text-align:right;font-weight:900}.jpg-table .pbar{height:6px;background:#e6ebf1;border-radius:3px;margin-top:6px;overflow:hidden}.jpg-table .pbar i{display:block;height:6px;border-radius:3px}.jpg-table .pbar i.ok{background:#167044}.jpg-table .pbar i.mid{background:#d99a00}.jpg-table .pbar i.low{background:#b42318}.jpg-table .ck{display:inline-block;min-width:44px;padding:5px 0;border-radius:9px;background:#dcfce7;color:#166534;font-weight:900;font-size:20px;line-height:1}.jpg-table .cnt{display:block;font-size:14px;font-weight:700;color:#94a3b8;text-transform:none;letter-spacing:0;margin-top:3px}.jpg-table .grp-row td{background:#f1f5f9;color:#475569;font-size:16px;font-weight:800;padding:11px 16px}.jpg-table .sub-row td{background:#eaf2fb;font-weight:900;border-top:2px solid #cfdceb;border-bottom:0}.jpg-table .sub-row .pct-text{display:inline}';
 
   async function downloadJpg(){
     const salesman=button.dataset.salesman||'';
@@ -2692,7 +2729,6 @@ document.addEventListener('click',function(event){
     }
     button.disabled=false;
     button.textContent='⬇ Download JPG';
-    rows.sort(function(a,b){return dealerTargetTotal(b)-dealerTargetTotal(a);});
     if(!rows.length){alert('Dealer untuk salesman ini belum tersedia.');return;}
 
     const totals=rows.reduce(function(sum,d){
@@ -2702,10 +2738,10 @@ document.addEventListener('click',function(event){
     },{target:0,actual:0});
     const totalPct=pct(totals.actual,totals.target);
     const stage=document.createElement('div');
-    stage.style.cssText='position:fixed;left:-10000px;top:0;width:2400px;background:#f4f7fb;color:#14213a;font-family:Arial,sans-serif;z-index:-1';
+    stage.style.cssText='position:fixed;left:-10000px;top:0;width:2000px;background:#f4f7fb;color:#14213a;font-family:Arial,sans-serif;z-index:-1';
     stage.innerHTML='<style>'+
-      '.jpg-sheet{width:2400px;background:#f4f7fb}.jpg-head{position:relative;background:#0b315b;color:#fff;padding:34px 38px 30px}.jpg-kicker{font-size:13px;font-weight:800;letter-spacing:1.8px;opacity:.75}.jpg-head h1{font-size:36px;line-height:1.15;margin:9px 0 5px}.jpg-period{font-size:15px;opacity:.82}.jpg-logo{position:absolute;right:38px;top:34px;width:55px;height:55px;border-radius:14px;background:#fff;color:#0b315b;display:flex;align-items:center;justify-content:center;font-size:27px}.jpg-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:18px;background:#eaf2fb}.jpg-metric{background:#fff;border:1px solid #d9e2ed;border-radius:13px;padding:15px 17px}.jpg-metric span{display:block;font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:#64748b;font-weight:800;margin-bottom:6px}.jpg-metric strong{font-size:22px}.jpg-table-wrap{padding:18px}.jpg-depo-title{margin:5px 0 10px;padding:10px 14px;border-left:6px solid #0b315b;background:#dfeaf6;color:#0b315b;font-size:18px}.jpg-table+.jpg-depo-title{margin-top:22px}.jpg-table{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border:1px solid #dbe4ee;border-radius:14px;overflow:hidden}.jpg-table th{background:#edf3fa;color:#334155;font-size:14px;text-transform:uppercase;letter-spacing:.5px;padding:15px 16px;text-align:left;border-bottom:1px solid #dbe4ee;white-space:nowrap}.jpg-table td{font-size:17px;padding:15px 16px;border-bottom:1px solid #e6ebf1;vertical-align:middle}.jpg-table tr:last-child td{border-bottom:0}.jpg-table .dealer-cell{font-weight:800;width:28%}.jpg-table .group-head{text-align:center;background:#dfeaf6;color:#0b315b;font-size:15px;font-weight:900}.jpg-table .sub-head{text-align:right;background:#f5f8fc;font-size:12px}.jpg-table .pct-cell{text-align:right;white-space:nowrap;font-weight:900}.jpg-table .number{text-align:right;white-space:nowrap}.jpg-table .center{text-align:center}.jpg-table .total-cell{font-weight:900}.jpg-table .qvo-ok{background:#dcfce7;color:#166534}.ok{color:#167044}.mid{color:#9a6700}.low{color:#b42318}.jpg-foot{display:flex;justify-content:space-between;background:#eaf2fb;color:#64748b;padding:14px 28px;font-size:11px}'+
-      '</style><article class="jpg-sheet"><header class="jpg-head"><div class="jpg-kicker">DEALER ACHIEVEMENT DETAIL</div><h1>'+esc(salesman)+'</h1><div class="jpg-period">Billing through '+esc(reportDate)+'</div><div class="jpg-logo">▦</div></header>'+
+      '.jpg-sheet{width:2000px;background:#f4f7fb}.jpg-head{position:relative;background:#0b315b;color:#fff;padding:34px 38px 30px}.jpg-kicker{font-size:16px;font-weight:800;letter-spacing:1.8px;opacity:.75}.jpg-head h1{font-size:44px;line-height:1.15;margin:9px 0 5px}.jpg-period{font-size:18px;opacity:.82}.jpg-logo{position:absolute;right:38px;top:34px;width:55px;height:55px;border-radius:14px;background:#fff;color:#0b315b;display:flex;align-items:center;justify-content:center;font-size:27px}.jpg-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:18px;background:#eaf2fb}.jpg-metric{background:#fff;border:1px solid #d9e2ed;border-radius:13px;padding:15px 17px}.jpg-metric span{display:block;font-size:13px;letter-spacing:.8px;text-transform:uppercase;color:#64748b;font-weight:800;margin-bottom:6px}.jpg-metric strong{font-size:28px}.jpg-table-wrap{padding:18px}.jpg-depo-title{margin:5px 0 10px;padding:10px 14px;border-left:6px solid #0b315b;background:#dfeaf6;color:#0b315b;font-size:22px}.jpg-table+.jpg-depo-title{margin-top:22px}.jpg-table{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border:1px solid #dbe4ee;border-radius:14px;overflow:hidden}.jpg-table th{background:#edf3fa;color:#334155;font-size:17px;text-transform:uppercase;letter-spacing:.5px;padding:15px 16px;text-align:left;border-bottom:1px solid #dbe4ee;white-space:nowrap}.jpg-table td{font-size:21px;padding:17px 16px;border-bottom:1px solid #e6ebf1;vertical-align:middle}.jpg-table tr:last-child td{border-bottom:0}.jpg-table .dealer-cell{font-weight:800;width:28%}.jpg-table .group-head{text-align:center;background:#dfeaf6;color:#0b315b;font-size:15px;font-weight:900}.jpg-table .sub-head{text-align:right;background:#f5f8fc;font-size:12px}.jpg-table .pct-cell{text-align:right;white-space:nowrap;font-weight:900}.jpg-table .number{text-align:right;white-space:nowrap}.jpg-table .center{text-align:center}.jpg-table .total-cell{font-weight:900}.jpg-table .qvo-ok{background:#dcfce7;color:#166534}.ok{color:#167044}.mid{color:#9a6700}.low{color:#b42318}.jpg-foot{display:flex;justify-content:space-between;background:#eaf2fb;color:#64748b;padding:16px 28px;font-size:14px}'+
+      JPG_EXTRA_CSS+'</style><article class="jpg-sheet"><header class="jpg-head"><div class="jpg-kicker">DEALER ACHIEVEMENT DETAIL</div><h1>'+esc(salesman)+'</h1><div class="jpg-period">Billing through '+esc(reportDate)+'</div><div class="jpg-logo">▦</div></header>'+
       '<section class="jpg-summary"><div class="jpg-metric"><span>Total Target</span><strong>'+money(totals.target)+'</strong></div><div class="jpg-metric"><span>Total Achievement</span><strong>'+money(totals.actual)+'</strong></div><div class="jpg-metric"><span>Achievement %</span><strong class="'+pctClass(totalPct)+'">'+pctText(totalPct)+'</strong></div></section>'+
       '<section class="jpg-table-wrap">'+allDealerTablesHtml(rows,salesman)+'</section><footer class="jpg-foot"><span>Daily Monitoring Dashboard</span><span>Target &amp; Achievement per Dealer</span></footer></article>';
     document.body.appendChild(stage);
