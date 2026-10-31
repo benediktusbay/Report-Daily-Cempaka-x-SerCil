@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}Budget · Daily Monitoring{% endblock %}
+{% block head %}<style>
+.bg{--ink:#0b2545;--muted:#64748b;--line:#e5e7eb;--soft:#f8fafc;--blue:#1769e8;--good:#15803d;--good-bg:#dcfce7;--bad:#b91c1c;--bad-bg:#fee2e2;--warn:#92400e;--warn-bg:#fffbeb;color:#1e293b}
+.bg h1{margin:0 0 4px;font-size:26px;color:var(--ink)}.bg-sub{margin:0 0 16px;color:var(--muted);font-size:14px;line-height:1.45}
+.bg-card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 3px 14px rgba(15,23,42,.05);padding:16px;margin-bottom:16px}
+.bg-h2{margin:0 0 4px;font-size:17px;color:var(--ink)}.bg-note{margin:0 0 12px;color:var(--muted);font-size:12.5px;line-height:1.45}
+.bg-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-bottom:14px}
+.bg-bar select{border:1px solid #cbd5e1;border-radius:9px;padding:8px 10px;font-weight:800;background:#fff;color:var(--ink)}
+.bg-tabs{display:flex;gap:6px;flex-wrap:wrap}.bg-tabs button{border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#334155;padding:8px 14px;font-weight:800;cursor:pointer;font-size:13px}.bg-tabs button.active{background:var(--ink);border-color:var(--ink);color:#fff}
+.bg-meta{margin-left:auto;font-size:12.5px;color:var(--muted)}.bg-meta b{color:var(--ink)}
+.bg-upload>summary{cursor:pointer;list-style:none;display:inline-flex;border-radius:9px;background:var(--ink);color:#fff;padding:8px 14px;font-weight:800;font-size:13px}.bg-upload>summary::-webkit-details-marker{display:none}.bg-upload[open]>summary{background:#334155}
+.bg-upload-body{margin-top:14px;border-top:1px solid var(--line);padding-top:14px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;font-size:13px}
+.bg-upload-body form{display:flex;flex-direction:column;gap:10px}.bg-upload-body input[type=file]{border:1px solid #d1d5db;border-radius:8px;padding:7px;background:#fff}
+.bg-btn{border:0;border-radius:9px;background:var(--blue);color:#fff;padding:10px 16px;font-weight:800;cursor:pointer;align-self:flex-start}.bg-link{color:var(--blue);font-weight:800}
+.bg-upload-body ul{margin:6px 0 0;padding-left:18px;color:#475569;line-height:1.6}.bg-upload-body code{background:#f1f5f9;border-radius:5px;padding:1px 5px}
+.bg-alert{padding:11px 14px;border-radius:10px;margin-bottom:14px;font-size:13.5px;background:var(--warn-bg);border:1px solid #fde68a;color:var(--warn)}
+.bg-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.bg-kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:0 3px 14px rgba(15,23,42,.05)}.bg-kpi.main{background:var(--ink);border-color:var(--ink);color:#fff}
+.bg-kpi-lbl{font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}.bg-kpi.main .bg-kpi-lbl,.bg-kpi.main .bg-kpi-foot{color:#cbd5e1}
+.bg-kpi-big{font-size:30px;font-weight:900;margin-top:4px;line-height:1.1}.bg-kpi-foot{margin-top:8px;font-size:12px;color:var(--muted);line-height:1.5}
+.bg-badge{display:inline-block;margin-top:7px;border-radius:999px;padding:3px 10px;font-size:12.5px;font-weight:800}.bg-badge.up{background:var(--good-bg);color:var(--good)}.bg-badge.down{background:var(--bad-bg);color:var(--bad)}
+.bg-prog{height:6px;border-radius:999px;background:#e2e8f0;margin-top:10px;overflow:hidden}.bg-prog i{display:block;height:100%;background:var(--blue);border-radius:999px}
+.bg-wrap{overflow-x:auto}.bg-table{width:100%;border-collapse:collapse;font-size:13px}
+.bg-table th{background:var(--soft);color:#52647e;font-size:11px;text-transform:uppercase;letter-spacing:.03em;padding:10px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+.bg-table td{padding:10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.bg-table th:first-child,.bg-table td:first-child{text-align:left}
+.bg-table tr.future td{color:#94a3b8}.bg-table tr.sum td{background:#f1f5f9;font-weight:800}.bg-table tr.tot td{background:var(--ink);color:#fff;font-weight:900;border-bottom:0}
+.bg-table tr.click{cursor:pointer}.bg-table tr.click:hover td{background:#f8fbff}
+.bg-tag{display:inline-block;margin-left:6px;font-size:10.5px;font-weight:800;border-radius:6px;padding:1px 6px;background:#e0ecff;color:var(--blue);vertical-align:1px}
+.bg-src{display:block;font-size:10.5px;color:var(--muted);font-weight:600}.bg-table tr.tot .bg-src{color:#cbd5e1}
+.bg-pct{display:inline-block;min-width:56px;border-radius:7px;padding:2px 7px;font-weight:900}.bg-pct.up{background:var(--good-bg);color:var(--good)}.bg-pct.down{background:var(--bad-bg);color:var(--bad)}
+.up{color:var(--good);font-weight:800}.down{color:var(--bad);font-weight:800}.bg-table tr.tot .up{color:#86efac}.bg-table tr.tot .down{color:#fca5a5}.bg-table tr.tot .bg-pct.up{color:#14532d}.bg-table tr.tot .bg-pct.down{color:#7f1d1d}
+.bg-dim{color:var(--muted);font-size:12px}
+@media(max-width:1000px){.bg-kpis{grid-template-columns:1fr 1fr}}
+@media(max-width:640px){
+ .bg h1{font-size:22px}.bg-card{padding:12px}.bg-kpis,.bg-upload-body{grid-template-columns:1fr}.bg-kpi-big{font-size:26px}.bg-meta{margin-left:0;width:100%}
+ .bg-stack thead{display:none}.bg-stack,.bg-stack tbody,.bg-stack tfoot,.bg-stack tr,.bg-stack td{display:block;width:100%;box-sizing:border-box}
+ .bg-stack tr{border-bottom:1px solid var(--line);padding:6px 0}.bg-stack td{border:0;padding:4px 10px;display:flex;justify-content:space-between;gap:12px;white-space:normal}
+ .bg-stack td::before{content:attr(data-label);color:var(--muted);font-size:12px;font-weight:700;text-align:left}.bg-stack td:first-child{font-weight:900;padding-top:8px}.bg-stack td:first-child::before{content:none}
+ .bg-stack tr.tot td::before{color:#cbd5e1}.bg-src{display:inline;margin-left:6px}
+}
+</style>{% endblock %}
+{% block body %}
+<div class="bg">
+<h1>Budget</h1>
+<p class="bg-sub">Target <b>Budget</b> dan <b>Rofo</b> dibanding Achievement billing per bulan. Rofo = total Target Master bulan itu (bulan tanpa Target Master diisi lewat upload). Khusus Rafhyski, Zefanya, Ikmah · tanpa PPN, sama dengan dashboard.</p>
+
+<div class="bg-bar">
+ <form method="get" action="{{ url_for('budget') }}"><select name="year" aria-label="Tahun" onchange="this.form.submit()">{% for y in years %}<option value="{{ y }}" {{ 'selected' if y == year }}>{{ y }}</option>{% endfor %}</select></form>
+ <div class="bg-tabs" role="tablist" aria-label="Depo"><button type="button" data-depo="ALL" class="active">Semua Depo</button>{% for d in data.depos %}<button type="button" data-depo="{{ d }}">{{ d }}</button>{% endfor %}</div>
+ <span class="bg-meta">{% if data.latest %}Billing s/d <b id="latestDate">{{ data.latest }}</b>{% else %}Belum ada billing {{ year }}{% endif %}</span>
+</div>
+
+{% if is_admin %}<div class="bg-card"><details class="bg-upload" {{ 'open' if not last_plan }}><summary>Upload Budget / Rofo</summary>
+ <div class="bg-upload-body">
+  <form method="post" action="{{ url_for('budget_upload') }}" enctype="multipart/form-data">
+   <input type="hidden" name="year" value="{{ year }}">
+   <label for="budgetFile"><b>File Excel</b></label>
+   <input id="budgetFile" name="budget_file" type="file" accept=".xlsx,.xls" required>
+   <button class="bg-btn" type="submit">Upload</button>
+   <a class="bg-link" href="{{ url_for('budget_template', year=year) }}">Download template {{ year }}</a>
+   {% if last_plan %}<span class="bg-dim">Terakhir diupload {{ last_plan.uploaded_by or '' }} · <span id="lastUpload" data-utc="{{ last_plan.uploaded_at.strftime('%Y-%m-%dT%H:%M:%SZ') }}">{{ last_plan.uploaded_at.strftime('%d/%m/%Y %H:%M') }} UTC</span></span>{% endif %}
+  </form>
+  <div><b>Format kolom:</b> <code>Tahun</code> <code>Bulan</code> <code>Depo</code> <code>Budget</code> <code>Rofo</code>
+   <ul><li>Satu baris = satu bulan × satu depo (Cempaka/Serang/Cilegon), angka total tanpa PPN.</li>
+   <li><b>Budget</b> diisi untuk 12 bulan. <b>Rofo</b> cukup untuk bulan yang belum ada Target Master.</li>
+   <li>Bulan yang sudah ada Target Master selalu memakai Target Master.</li>
+   <li>Upload ulang mengganti angka di sel yang sama; sel kosong tidak menghapus data lama.</li></ul></div>
+ </div>
+</details></div>{% endif %}
+
+<div id="alerts"></div>
+<div class="bg-kpis" id="kpis"></div>
+
+<div class="bg-card">
+ <h2 class="bg-h2">Per Bulan <span class="bg-dim" id="scopeLabel"></span></h2>
+ <p class="bg-note">Bulan berjalan ditandai <span class="bg-tag">berjalan</span> — achievement-nya baru sebagian bulan. Bulan yang belum berjalan berwarna abu-abu.</p>
+ <div class="bg-wrap"><table class="bg-table bg-stack" id="monthTable"><thead><tr><th>Bulan</th><th>Budget</th><th>Rofo</th><th>Achievement</th><th>% vs Budget</th><th>% vs Rofo</th><th>Selisih vs Budget</th><th>Selisih vs Rofo</th></tr></thead><tbody></tbody></table></div>
+</div>
+
+<div class="bg-card">
+ <h2 class="bg-h2">Per Depo · YTD</h2>
+ <p class="bg-note" id="depoNote"></p>
+ <div class="bg-wrap"><table class="bg-table bg-stack" id="depoTable"><thead><tr><th>Depo</th><th>Budget YTD</th><th>Rofo YTD</th><th>Achievement YTD</th><th>% vs Budget</th><th>% vs Rofo</th><th>Budget Setahun</th></tr></thead><tbody></tbody></table></div>
+</div>
+</div>
+{% endblock %}
+{% block scripts %}<script>
+(function(){
+const D={{ data|tojson }};
+const MONTHS=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+let depo='ALL';
+const num=v=>Number(v)||0;
+const rp=v=>(num(v)<0?'-':'')+'Rp '+Math.abs(num(v)).toLocaleString('id-ID',{maximumFractionDigits:0});
+const rpS=v=>{const n=Math.abs(num(v)),s=num(v)<0?'-':'';if(n>=1e9)return s+'Rp '+(n/1e9).toLocaleString('id-ID',{maximumFractionDigits:2})+' M';if(n>=1e6)return s+'Rp '+(n/1e6).toLocaleString('id-ID',{maximumFractionDigits:1})+' Jt';return s+rp(n)};
+const pct=(a,t)=>t?a/t*100:null;
+const pctTxt=p=>p==null?'–':p.toLocaleString('id-ID',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
+const signed=v=>(num(v)>=0?'+':'-')+rp(Math.abs(num(v)));
+const tone=v=>num(v)>=0?'up':'down';
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const td=(label,html,cls)=>`<td data-label="${label}"${cls?` class="${cls}"`:''}>${html}</td>`;
+const cutoff=D.cutoff, cutLabel=cutoff?MONTHS[cutoff-1]:'';
+const dl=document.getElementById('latestDate');if(dl&&D.latest){const p=D.latest.split('-');dl.textContent=`${+p[2]} ${MONTHS[+p[1]-1]} ${p[0]}`}
+const lu=document.getElementById('lastUpload');if(lu){const d=new Date(lu.dataset.utc);lu.textContent=d.toLocaleString('id-ID',{timeZone:'Asia/Jakarta',day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})+' WIB'}
+
+function cell(m,scope){
+ const ds=scope==='ALL'?D.depos:[scope];
+ const sum=f=>ds.reduce((s,d)=>s+num(m.depos[d][f]),0);
+ return {budget:sum('budget'),rofo:sum('rofo'),achievement:sum('achievement')+(scope==='ALL'?num(m.other):0)};
+}
+function totals(scope,upto){
+ const t={budget:0,rofo:0,achievement:0};
+ D.months.filter(m=>m.month<=upto).forEach(m=>{const c=cell(m,scope);t.budget+=c.budget;t.rofo+=c.rofo;t.achievement+=c.achievement});
+ return t;
+}
+const ytdLabel=cutoff?(cutoff===1?'Jan':'Jan–'+cutLabel):'';
+
+function alerts(){
+ const out=[];
+ const noBudget=D.months.every(m=>D.depos.every(d=>!num(m.depos[d].budget)));
+ if(noBudget)out.push(`Budget ${D.year} belum diupload.`);
+ else{const miss=D.months.filter(m=>m.has_budget.length<D.depos.length).map(m=>m.label);if(miss.length&&miss.length<12)out.push(`Budget belum lengkap untuk: ${miss.join(', ')}.`)}
+ const noRofo=D.months.filter(m=>m.status!=='future'&&!m.rofo_source).map(m=>m.label);
+ if(noRofo.length)out.push(`Rofo belum ada untuk: <b>${noRofo.join(', ')}</b> (belum ada Target Master). Isi lewat upload, kolom Rofo.`);
+ document.getElementById('alerts').innerHTML=out.map(t=>`<div class="bg-alert">${t}</div>`).join('');
+}
+
+function kpis(){
+ const y=totals(depo,cutoff),fy=totals(depo,12);
+ const pb=pct(y.achievement,y.budget),pr=pct(y.achievement,y.rofo),pf=pct(y.achievement,fy.budget);
+ const scope=depo==='ALL'?'Semua depo':depo;
+ const rest=Math.max(0,fy.budget-y.achievement),restMonths=12-cutoff;
+ document.getElementById('kpis').innerHTML=
+ `<div class="bg-kpi main"><div class="bg-kpi-lbl">Achievement YTD · ${esc(scope)}</div><div class="bg-kpi-big">${rpS(y.achievement)}</div><div class="bg-kpi-foot">${ytdLabel?ytdLabel+' '+D.year+(cutoff?' ('+cutLabel+' berjalan)':''):'Belum ada billing'}</div></div>`+
+ `<div class="bg-kpi"><div class="bg-kpi-lbl">vs Budget YTD</div><div class="bg-kpi-big">${pctTxt(pb)}</div>${y.budget?`<span class="bg-badge ${tone(y.achievement-y.budget)}">${y.achievement>=y.budget?'Lebih':'Kurang'} ${rpS(Math.abs(y.achievement-y.budget))}</span>`:''}<div class="bg-kpi-foot">Budget ${ytdLabel}: ${rpS(y.budget)}</div></div>`+
+ `<div class="bg-kpi"><div class="bg-kpi-lbl">vs Rofo YTD</div><div class="bg-kpi-big">${pctTxt(pr)}</div>${y.rofo?`<span class="bg-badge ${tone(y.achievement-y.rofo)}">${y.achievement>=y.rofo?'Lebih':'Kurang'} ${rpS(Math.abs(y.achievement-y.rofo))}</span>`:''}<div class="bg-kpi-foot">Rofo ${ytdLabel}: ${rpS(y.rofo)}</div></div>`+
+ `<div class="bg-kpi"><div class="bg-kpi-lbl">Budget Setahun ${D.year}</div><div class="bg-kpi-big">${pctTxt(pf)}</div><div class="bg-prog"><i style="width:${Math.min(100,num(pf))}%"></i></div><div class="bg-kpi-foot">Budget ${rpS(fy.budget)}${fy.budget?` · sisa ${rpS(rest)}${restMonths>0?` untuk ${restMonths} bulan (±${rpS(rest/restMonths)}/bulan)`:''}`:''}</div></div>`;
+}
+
+function row(label,c,cls,src,isFuture){
+ const pb=pct(c.achievement,c.budget),pr=pct(c.achievement,c.rofo);
+ const ach=isFuture?'–':rp(c.achievement);
+ const pill=(p,a,t)=>isFuture||p==null?'–':`<span class="bg-pct ${tone(a-t)}">${pctTxt(p)}</span>`;
+ const gap=(a,t)=>isFuture||!t?'–':`<span class="${tone(a-t)}">${signed(a-t)}</span>`;
+ return `<tr class="${cls||''}">${td('',label)}${td('Budget',c.budget?rp(c.budget):'–')}${td('Rofo',(c.rofo?rp(c.rofo):'–')+(src?`<span class="bg-src">${esc(src)}</span>`:''))}${td('Achievement',ach)}${td('% vs Budget',pill(pb,c.achievement,c.budget))}${td('% vs Rofo',pill(pr,c.achievement,c.rofo))}${td('Selisih vs Budget',gap(c.achievement,c.budget))}${td('Selisih vs Rofo',gap(c.achievement,c.rofo))}</tr>`;
+}
+
+function monthTable(){
+ document.getElementById('scopeLabel').textContent='· '+(depo==='ALL'?'Semua depo':depo)+' · '+D.year;
+ let html=D.months.map(m=>{const c=cell(m,depo);const label=esc(m.label)+(m.status==='mtd'?'<span class="bg-tag">berjalan</span>':'');
+  return row(label,c,m.status==='future'?'future':'',m.rofo_source,m.status==='future')}).join('');
+ if(cutoff)html+=row('YTD '+esc(ytdLabel),totals(depo,cutoff),'sum');
+ const fy=totals(depo,12);
+ html+=`<tr class="tot">${td('','Setahun '+D.year)}${td('Budget',rp(fy.budget))}${td('Rofo',rp(fy.rofo)+'<span class="bg-src">Rofo yang sudah ada</span>')}${td('Achievement',rp(fy.achievement))}${td('% vs Budget',`<span class="bg-pct ${tone(fy.achievement-fy.budget)}">${pctTxt(pct(fy.achievement,fy.budget))}</span>`)}${td('% vs Rofo','–')}${td('Selisih vs Budget',fy.budget?`<span class="${tone(fy.achievement-fy.budget)}">${signed(fy.achievement-fy.budget)}</span>`:'–')}${td('Selisih vs Rofo','–')}</tr>`;
+ document.querySelector('#monthTable tbody').innerHTML=html;
+}
+
+function depoTable(){
+ const other=D.months.filter(m=>m.month<=cutoff).reduce((s,m)=>s+num(m.other),0);
+ document.getElementById('depoNote').textContent=(ytdLabel?`${ytdLabel} ${D.year}. `:'')+'Klik depo untuk melihat rincian per bulannya.'+(other?` Total Semua Depo termasuk ${rp(other)} billing dengan depo belum diketahui.`:'');
+ const line=(name,y,fy,cls,key)=>`<tr class="${cls}"${key?` data-go="${esc(key)}"`:''}>${td('',esc(name))}${td('Budget YTD',rp(y.budget))}${td('Rofo YTD',rp(y.rofo))}${td('Achievement YTD',rp(y.achievement))}${td('% vs Budget',y.budget?`<span class="bg-pct ${tone(y.achievement-y.budget)}">${pctTxt(pct(y.achievement,y.budget))}</span>`:'–')}${td('% vs Rofo',y.rofo?`<span class="bg-pct ${tone(y.achievement-y.rofo)}">${pctTxt(pct(y.achievement,y.rofo))}</span>`:'–')}${td('Budget Setahun',rp(fy.budget))}</tr>`;
+ document.querySelector('#depoTable tbody').innerHTML=D.depos.map(d=>line(d,totals(d,cutoff),totals(d,12),'click',d)).join('')+line('Semua Depo',totals('ALL',cutoff),totals('ALL',12),'tot','ALL');
+ document.querySelectorAll('#depoTable [data-go]').forEach(tr=>tr.addEventListener('click',()=>{setDepo(tr.dataset.go);document.getElementById('monthTable').scrollIntoView({behavior:'smooth',block:'start'})}));
+}
+
+function setDepo(d){depo=d;document.querySelectorAll('[data-depo]').forEach(b=>b.classList.toggle('active',b.dataset.depo===d));render()}
+document.querySelectorAll('[data-depo]').forEach(b=>b.addEventListener('click',()=>setDepo(b.dataset.depo)));
+function render(){kpis();monthTable();depoTable()}
+alerts();render();
+})();
+</script>{% endblock %}

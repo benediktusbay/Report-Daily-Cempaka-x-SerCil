@@ -344,6 +344,14 @@
         Cross Brand
       </a>
 
+      {% if session.get('user_id') %}
+
+        <a class="{% if request.endpoint == 'budget' %}active{% endif %}" href="{{ url_for('budget') }}">
+          Budget
+        </a>
+
+      {% endif %}
+
       {% if session.get('role') == 'admin' %}
 
         <a class="{% if request.endpoint == 'targets' %}active{% endif %}" href="{{ url_for('targets') }}">

@@ -20,7 +20,7 @@ from types import SimpleNamespace
 
 import pandas as pd
 from openpyxl import load_workbook
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, g, has_request_context, get_template_attribute
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, g, has_request_context, get_template_attribute, send_file
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -5307,6 +5307,313 @@ def cross_brand():
         columns=columns, labels=CROSS_BRAND_LABELS, table=table, totals=totals,
         summary=summary, is_admin=is_admin, last_upload=last_upload, latest=latest,
     )
+
+
+# ---------------------------------------------------------------------------
+# Budget: Target Budget (upload tahunan) dan Rofo (= total Target Master bulan
+# itu; bulan tanpa Target Master diisi lewat upload) vs Achievement billing.
+# Per bulan × depo, khusus salesman TSH, nilai tanpa PPN — sama dengan dashboard.
+# ---------------------------------------------------------------------------
+BUDGET_SALESMEN = ('Zefanya Septania Simorangkir', 'Rafhyski Alhasan', 'Ikmah Novtianingrum')
+BUDGET_DEPOS = ('Cempaka', 'Serang', 'Cilegon')
+BUDGET_MONTH_LABELS = ('Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des')
+BUDGET_MONTH_NAMES = {
+    'jan': 1, 'januari': 1, 'january': 1, 'feb': 2, 'februari': 2, 'february': 2,
+    'mar': 3, 'maret': 3, 'march': 3, 'apr': 4, 'april': 4, 'mei': 5, 'may': 5,
+    'jun': 6, 'juni': 6, 'june': 6, 'jul': 7, 'juli': 7, 'july': 7,
+    'agu': 8, 'agt': 8, 'ags': 8, 'agustus': 8, 'aug': 8, 'august': 8,
+    'sep': 9, 'sept': 9, 'september': 9, 'okt': 10, 'oktober': 10, 'oct': 10, 'october': 10,
+    'nov': 11, 'november': 11, 'des': 12, 'desember': 12, 'dec': 12, 'december': 12,
+}
+BUDGET_ALIASES = {
+    'year': ['tahun', 'year'],
+    'month': ['bulan', 'month', 'periode'],
+    'depo': ['depo', 'depot'],
+    'budget': ['budget', 'target budget'],
+    'rofo': ['rofo', 'target rofo', 'rolling forecast'],
+}
+BUDGET_CACHE_SECONDS = 6 * 60 * 60
+_budget_cache = {}
+_budget_cache_lock = Lock()
+
+
+class BudgetPlan(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    year = db.Column(db.Integer, nullable=False, index=True)
+    month = db.Column(db.Integer, nullable=False)
+    depo = db.Column(db.String(80), nullable=False)
+    kind = db.Column(db.String(10), nullable=False)  # 'budget' atau 'rofo'
+    amount = db.Column(db.Float, nullable=False, default=0)
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    uploaded_by = db.Column(db.String(160))
+    __table_args__ = (db.UniqueConstraint('year', 'month', 'depo', 'kind', name='uq_budget_plan_cell'),)
+
+
+def _budget_month_value(value, fallback_year=None):
+    """Bulan dari angka (1–12), nama (Jan/Januari/Okt) atau tanggal Excel; kembalikan (tahun, bulan)."""
+    if isinstance(value, (datetime, dt.date)) or isinstance(value, pd.Timestamp):
+        return value.year, value.month
+    if isinstance(value, (int, float)) and not pd.isna(value) and float(value).is_integer() and 1 <= int(value) <= 12:
+        return fallback_year, int(value)
+    text_value = normalize_text(value).lower()
+    if re.fullmatch(r'\d{1,2}(\.0+)?', text_value) and 1 <= int(float(text_value)) <= 12:
+        return fallback_year, int(float(text_value))
+    m = re.fullmatch(r'(\d{4})[-/](\d{1,2})', text_value)
+    if m and 1 <= int(m.group(2)) <= 12:
+        return int(m.group(1)), int(m.group(2))
+    word = re.sub(r'[^a-z]', '', text_value)
+    if word in BUDGET_MONTH_NAMES:
+        return fallback_year, BUDGET_MONTH_NAMES[word]
+    return fallback_year, None
+
+
+def parse_budget_upload(stream):
+    """Baca Excel Tahun | Bulan | Depo | Budget | Rofo. Minimal salah satu kolom Budget/Rofo."""
+    try:
+        frame = pd.read_excel(stream, dtype=object)
+    except Exception as exc:
+        raise ValueError(f'File Excel tidak dapat dibaca ({exc}).') from None
+    normalized = {normalize_col(c): c for c in frame.columns}
+    columns = {}
+    for key, choices in BUDGET_ALIASES.items():
+        columns[key] = next((normalized[normalize_col(a)] for a in choices if normalize_col(a) in normalized), None)
+    missing = [label for key, label in (('year', 'Tahun'), ('month', 'Bulan'), ('depo', 'Depo')) if not columns[key]]
+    if missing:
+        raise ValueError('Kolom wajib tidak ditemukan: ' + ', '.join(missing) + '.')
+    if not columns['budget'] and not columns['rofo']:
+        raise ValueError('Perlu minimal kolom Budget atau Rofo.')
+    cells, errors = {}, []
+    for index, row in frame.iterrows():
+        line = index + 2
+        raw_year = row[columns['year']]
+        if all(pd.isna(row[c]) or not normalize_text(row[c]) for c in columns.values() if c):
+            continue
+        year = int(to_num(raw_year, 0)) if not pd.isna(raw_year) else 0
+        year, month = _budget_month_value(row[columns['month']], year)
+        depo = canonical_depo(row[columns['depo']])
+        if not year or not 2000 <= year <= 2100:
+            errors.append(f'baris {line}: Tahun tidak valid')
+            continue
+        if not month:
+            errors.append(f'baris {line}: Bulan tidak valid')
+            continue
+        if depo not in BUDGET_DEPOS:
+            errors.append(f'baris {line}: Depo "{normalize_text(row[columns["depo"]])}" bukan Cempaka/Serang/Cilegon')
+            continue
+        for kind in ('budget', 'rofo'):
+            column = columns[kind]
+            if not column:
+                continue
+            value = row[column]
+            if pd.isna(value) or not normalize_text(value):
+                continue  # sel kosong tidak menghapus data lama
+            cells[(year, month, depo, kind)] = to_num(value, 0)
+    if errors:
+        raise ValueError('Periksa file: ' + '; '.join(errors[:8]) + ('…' if len(errors) > 8 else '') + '.')
+    if not cells:
+        raise ValueError('Tidak ada angka Budget atau Rofo yang terbaca.')
+    return cells
+
+
+def _budget_cache_key(year):
+    billing_upload = db.session.query(db.func.max(UploadLog.id)).filter(
+        or_(UploadLog.upload_mode.is_(None), UploadLog.upload_mode != 'cross_brand')).scalar()
+    target_upload = db.session.query(db.func.max(TargetUploadLog.id)).scalar()
+    plan_stamp = db.session.query(db.func.max(BudgetPlan.uploaded_at), db.func.count(BudgetPlan.id)).filter(
+        BudgetPlan.year == year).one()
+    return (year, billing_upload, target_upload, tuple(plan_stamp))
+
+
+def build_budget_data(year):
+    """Budget, Rofo dan Achievement per bulan × depo untuk satu tahun."""
+    empty = lambda: {d: 0.0 for d in BUDGET_DEPOS}
+    budget = {m: empty() for m in range(1, 13)}
+    rofo_manual = {m: {} for m in range(1, 13)}
+    has_budget = {m: set() for m in range(1, 13)}
+    for p in BudgetPlan.query.filter_by(year=year).all():
+        if p.depo not in BUDGET_DEPOS or not 1 <= p.month <= 12:
+            continue
+        if p.kind == 'budget':
+            budget[p.month][p.depo] = float(p.amount or 0)
+            has_budget[p.month].add(p.depo)
+        elif p.kind == 'rofo':
+            rofo_manual[p.month][p.depo] = float(p.amount or 0)
+
+    # Rofo = total Target Master (Device + MacBook + ACC) salesman TSH per depo.
+    rofo_tm = {m: empty() for m in range(1, 13)}
+    tm_months = set()
+    targets = db.session.query(
+        MonthlyTarget.month, MonthlyTarget.depo, MonthlyTarget.salesman,
+        MonthlyTarget.device_target, MonthlyTarget.macbook_target, MonthlyTarget.acc_target,
+    ).filter(MonthlyTarget.month.like(f'{year}-%')).all()
+    for t in targets:
+        try:
+            month = int(str(t.month)[5:7])
+        except ValueError:
+            continue
+        if canonical_salesman(t.salesman) not in BUDGET_SALESMEN:
+            continue
+        depo = canonical_depo(t.depo)
+        if depo not in BUDGET_DEPOS:
+            continue
+        tm_months.add(month)
+        rofo_tm[month][depo] += float(t.device_target or 0) + float(t.macbook_target or 0) + float(t.acc_target or 0)
+
+    # Achievement: aturan pemilik/depo sama dengan dashboard (resolve_billing_owner),
+    # diringkas per tanggal × dealer di database supaya transfer data kecil.
+    start, end = dt.date(year, 1, 1), dt.date(year, 12, 31)
+    amount = db.func.sum(Billing.nett_amount).label('amount')
+    rows = db.session.query(
+        Billing.billing_date, Billing.salesman, Billing.sold_to_code, Billing.sold_to_name,
+        Billing.cust_location, amount,
+    ).filter(
+        Billing.billing_date >= start, Billing.billing_date <= end,
+        Billing.category.in_(('Device', 'Macbook', 'ACC')),
+        db.func.lower(db.func.trim(Billing.salesman)).in_(tuple(s.lower() for s in BUDGET_SALESMEN)),
+    ).group_by(Billing.billing_date, Billing.salesman, Billing.sold_to_code,
+               Billing.sold_to_name, Billing.cust_location).all()
+    achievement = {m: empty() for m in range(1, 13)}
+    other = {m: 0.0 for m in range(1, 13)}
+    lookups = {}
+    latest = None
+    for r in rows:
+        month_key = r.billing_date.strftime('%Y-%m')
+        if month_key not in lookups:
+            _, lookups[month_key] = target_lookup_for_month(month_key)
+        owner, depo, _, _ = resolve_billing_owner(r, lookups[month_key])
+        if canonical_salesman(owner) not in BUDGET_SALESMEN:
+            continue
+        value = float(r.amount or 0)
+        if depo in BUDGET_DEPOS:
+            achievement[r.billing_date.month][depo] += value
+        else:
+            other[r.billing_date.month] += value  # depo belum diketahui: hanya masuk total
+        if latest is None or r.billing_date > latest:
+            latest = r.billing_date
+
+    months = []
+    for m in range(1, 13):
+        use_tm = m in tm_months
+        rofo = rofo_tm[m] if use_tm else {d: rofo_manual[m].get(d, 0.0) for d in BUDGET_DEPOS}
+        if latest is None or m > latest.month:
+            status = 'future'
+        elif m == latest.month:
+            status = 'mtd'
+        else:
+            status = 'done'
+        months.append(dict(
+            month=m, label=BUDGET_MONTH_LABELS[m - 1], status=status,
+            rofo_source='Target Master' if use_tm else ('Upload' if rofo_manual[m] else ''),
+            has_budget=sorted(has_budget[m]), other=other[m],
+            depos={d: dict(budget=budget[m][d], rofo=rofo[d], achievement=achievement[m][d])
+                   for d in BUDGET_DEPOS},
+        ))
+    return dict(year=year, depos=list(BUDGET_DEPOS), months=months,
+                latest=latest.isoformat() if latest else None,
+                cutoff=latest.month if latest else 0)
+
+
+@app.route('/budget')
+@login_required
+def budget():
+    now = datetime.now(STOCK_TIMEZONE)
+    try:
+        year = int(request.args.get('year', now.year))
+    except (TypeError, ValueError):
+        year = now.year
+    year = min(max(year, 2020), 2100)
+    key = _budget_cache_key(year)
+    clock = time.time()
+    with _budget_cache_lock:
+        hit = _budget_cache.get(key)
+        data = hit['data'] if hit and hit['expires'] > clock else None
+    if data is None:
+        data = build_budget_data(year)
+        with _budget_cache_lock:
+            for stale in [k for k, v in _budget_cache.items() if v['expires'] <= clock or k[0] == year]:
+                _budget_cache.pop(stale, None)
+            _budget_cache[key] = {'data': data, 'expires': clock + BUDGET_CACHE_SECONDS}
+    plan_years = {y for (y,) in db.session.query(BudgetPlan.year).distinct()}
+    years = sorted(plan_years | {now.year, now.year + 1, year})
+    last_plan = (BudgetPlan.query.filter_by(year=year)
+                 .order_by(BudgetPlan.uploaded_at.desc()).first())
+    return render_template('budget.html', data=data, year=year, years=years,
+                           is_admin=session.get('role') == 'admin', last_plan=last_plan)
+
+
+@app.route('/budget/upload', methods=['POST'])
+@admin_required
+def budget_upload():
+    upload = request.files.get('budget_file')
+    year = request.form.get('year') or ''
+    if not upload or not upload.filename:
+        flash('Pilih file Excel Budget/Rofo.', 'danger')
+        return redirect(url_for('budget', year=year))
+    if not upload.filename.lower().endswith(('.xlsx', '.xls')):
+        flash('Gunakan file Excel (.xlsx).', 'danger')
+        return redirect(url_for('budget', year=year))
+    try:
+        cells = parse_budget_upload(io.BytesIO(upload.read()))
+        stamp = datetime.utcnow()
+        actor = session.get('username') or ''
+        existing = {(p.year, p.month, p.depo, p.kind): p for p in BudgetPlan.query.filter(
+            BudgetPlan.year.in_({k[0] for k in cells})).all()}
+        for (y, m, depo, kind), value in cells.items():
+            plan = existing.get((y, m, depo, kind))
+            if plan is None:
+                plan = BudgetPlan(year=y, month=m, depo=depo, kind=kind)
+                db.session.add(plan)
+            plan.amount = value
+            plan.uploaded_at = stamp
+            plan.uploaded_by = actor
+        db.session.commit()
+        counts = {kind: sum(1 for k in cells if k[3] == kind) for kind in ('budget', 'rofo')}
+        years_text = ', '.join(str(y) for y in sorted({k[0] for k in cells}))
+        flash(f'Upload {years_text} berhasil: {counts["budget"]} angka Budget, {counts["rofo"]} angka Rofo.', 'success')
+        year = year or min(k[0] for k in cells)
+    except ValueError as exc:
+        db.session.rollback()
+        flash(f'Upload Budget gagal: {exc}', 'danger')
+    return redirect(url_for('budget', year=year))
+
+
+@app.route('/budget/template')
+@admin_required
+def budget_template():
+    try:
+        year = int(request.args.get('year', datetime.now(STOCK_TIMEZONE).year))
+    except (TypeError, ValueError):
+        year = datetime.now(STOCK_TIMEZONE).year
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Budget'
+    ws.append(['Tahun', 'Bulan', 'Depo', 'Budget', 'Rofo'])
+    for cell in ws[1]:
+        cell.font = Font(bold=True, color='FFFFFF')
+        cell.fill = PatternFill('solid', fgColor='0B2545')
+    for m in range(1, 13):
+        for depo in BUDGET_DEPOS:
+            ws.append([year, m, depo, None, None])
+    for column, width in zip('ABCDE', (8, 7, 11, 20, 20)):
+        ws.column_dimensions[column].width = width
+    for row in ws.iter_rows(min_row=2, min_col=4, max_col=5):
+        for cell in row:
+            cell.number_format = '#,##0'
+    note = wb.create_sheet('Petunjuk')
+    for line in ('Isi angka tanpa PPN, total semua kategori per depo per bulan.',
+                 'Budget: target budget tahunan dipecah per bulan.',
+                 'Rofo: cukup diisi untuk bulan yang belum ada di Target Master.',
+                 'Bulan yang sudah ada Target Master selalu memakai Target Master.',
+                 'Sel kosong tidak menghapus data yang sudah ada.'):
+        note.append([line])
+    note.column_dimensions['A'].width = 70
+    out = io.BytesIO()
+    wb.save(out)
+    out.seek(0)
+    return send_file(out, as_attachment=True, download_name=f'Template_Budget_{year}.xlsx',
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 
 if __name__ == '__main__':
