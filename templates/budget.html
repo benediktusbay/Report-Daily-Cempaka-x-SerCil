@@ -44,7 +44,7 @@
 {% block body %}
 <div class="bg">
 <h1>Budget</h1>
-<p class="bg-sub">Target <b>Budget</b> dan <b>Rofo</b> dibanding Achievement billing per bulan. Rofo = total Target Master bulan itu (bulan tanpa Target Master diisi lewat upload). Khusus Rafhyski, Zefanya, Ikmah · tanpa PPN, sama dengan dashboard.</p>
+<p class="bg-sub">Target <b>Budget</b> dan <b>Rofo</b> dibanding Achievement billing per bulan. Rofo = total Target Master bulan itu (bulan tanpa Target Master diisi lewat upload). Achievement per depo, tanpa PPN, sama dengan dashboard.</p>
 
 <div class="bg-bar">
  <form method="get" action="{{ url_for('budget') }}"><select name="year" aria-label="Tahun" onchange="this.form.submit()">{% for y in years %}<option value="{{ y }}" {{ 'selected' if y == year }}>{{ y }}</option>{% endfor %}</select></form>
@@ -62,10 +62,11 @@
    <a class="bg-link" href="{{ url_for('budget_template', year=year) }}">Download template {{ year }}</a>
    {% if last_plan %}<span class="bg-dim">Terakhir diupload {{ last_plan.uploaded_by or '' }} · <span id="lastUpload" data-utc="{{ last_plan.uploaded_at.strftime('%Y-%m-%dT%H:%M:%SZ') }}">{{ last_plan.uploaded_at.strftime('%d/%m/%Y %H:%M') }} UTC</span></span>{% endif %}
   </form>
-  <div><b>Format kolom:</b> <code>Tahun</code> <code>Bulan</code> <code>Depo</code> <code>Budget</code> <code>Rofo</code>
-   <ul><li>Satu baris = satu bulan × satu depo (Cempaka/Serang/Cilegon), angka total tanpa PPN.</li>
-   <li><b>Budget</b> diisi untuk 12 bulan. <b>Rofo</b> cukup untuk bulan yang belum ada Target Master.</li>
-   <li>Bulan yang sudah ada Target Master selalu memakai Target Master.</li>
+  <div><b>Dua format diterima</b> (angka total tanpa PPN):
+   <ul><li><b>Lebar</b> — seperti file Breakdown Budget: kolom <code>Depo</code> + bulan menyamping (<code>1</code>–<code>12</code> / Jan–Des). Kalau ada kolom <code>Brand</code>, hanya baris APPLE yang diambil. Tahun dari nama file (mis. …2026.xlsx). Dibaca sebagai Budget, atau Rofo jika nama file/sheet mengandung "Rofo".</li>
+   <li><b>Panjang</b> — template: <code>Tahun</code> <code>Bulan</code> <code>Depo</code> <code>Budget</code> <code>Rofo</code>.</li>
+   <li>Hanya Cempaka, Serang, Cilegon; depo lain dan baris total dilewati.</li>
+   <li><b>Rofo</b> cukup untuk bulan yang belum ada Target Master — bulan yang sudah ada selalu memakai Target Master.</li>
    <li>Upload ulang mengganti angka di sel yang sama; sel kosong tidak menghapus data lama.</li></ul></div>
  </div>
 </details></div>{% endif %}

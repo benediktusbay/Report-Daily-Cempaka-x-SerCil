@@ -5367,52 +5367,127 @@ def _budget_month_value(value, fallback_year=None):
     return fallback_year, None
 
 
-def parse_budget_upload(stream):
-    """Baca Excel Tahun | Bulan | Depo | Budget | Rofo. Minimal salah satu kolom Budget/Rofo."""
+def _budget_header_month(value):
+    """Header kolom bulan pada format lebar: 1–12, 'Jan'/'Januari', '2026-01' atau tanggal."""
+    if value is None or (not isinstance(value, str) and pd.isna(value)):
+        return None, None
+    year, month = _budget_month_value(value, None)
+    return (year, month) if month else (None, None)
+
+
+def _budget_amount(value):
+    if value is None or (not isinstance(value, str) and pd.isna(value)) or not normalize_text(value):
+        return None
+    return to_num(value, 0)
+
+
+def parse_budget_upload(stream, filename='', default_year=None):
+    """Baca file Budget/Rofo dalam dua bentuk dan kembalikan (cells, info).
+
+    - Format panjang: Tahun | Bulan | Depo | Budget | Rofo.
+    - Format lebar: [Brand] | Depo | 1..12 (atau Jan..Des) | [Grand Total].
+      Hanya baris APPLE (jika ada kolom Brand) dan depo Cempaka/Serang/Cilegon;
+      baris total/ringkasan dilewati. Dibaca sebagai Budget, atau Rofo bila
+      nama sheet/file mengandung kata "rofo". Tahun: kolom Tahun → nama file →
+      tahun yang sedang dipilih.
+    """
     try:
-        frame = pd.read_excel(stream, dtype=object)
+        sheets = pd.read_excel(stream, sheet_name=None, header=None, dtype=object)
     except Exception as exc:
         raise ValueError(f'File Excel tidak dapat dibaca ({exc}).') from None
-    normalized = {normalize_col(c): c for c in frame.columns}
-    columns = {}
-    for key, choices in BUDGET_ALIASES.items():
-        columns[key] = next((normalized[normalize_col(a)] for a in choices if normalize_col(a) in normalized), None)
-    missing = [label for key, label in (('year', 'Tahun'), ('month', 'Bulan'), ('depo', 'Depo')) if not columns[key]]
-    if missing:
-        raise ValueError('Kolom wajib tidak ditemukan: ' + ', '.join(missing) + '.')
-    if not columns['budget'] and not columns['rofo']:
-        raise ValueError('Perlu minimal kolom Budget atau Rofo.')
+    name_year = re.search(r'(20\d{2})', filename or '')
+    file_year = int(name_year.group(1)) if name_year else default_year
     cells, errors = {}, []
-    for index, row in frame.iterrows():
-        line = index + 2
-        raw_year = row[columns['year']]
-        if all(pd.isna(row[c]) or not normalize_text(row[c]) for c in columns.values() if c):
+    skipped = set()
+    used_format = set()
+
+    def put(key, value, where):
+        if key in cells:
+            errors.append(f'{where}: {key[2]} bulan {key[1]} {key[0]} muncul lebih dari sekali')
+            return
+        cells[key] = value
+
+    for sheet_name, raw in sheets.items():
+        raw = raw.dropna(how='all').dropna(axis=1, how='all')
+        if raw.empty:
             continue
-        year = int(to_num(raw_year, 0)) if not pd.isna(raw_year) else 0
-        year, month = _budget_month_value(row[columns['month']], year)
-        depo = canonical_depo(row[columns['depo']])
-        if not year or not 2000 <= year <= 2100:
-            errors.append(f'baris {line}: Tahun tidak valid')
+        rows = raw.values.tolist()
+        header_index, layout = None, None
+        for i, row in enumerate(rows[:20]):
+            names = {normalize_col(v): j for j, v in enumerate(row)
+                     if v is not None and not (not isinstance(v, str) and pd.isna(v))}
+            has = lambda key: next((names[normalize_col(a)] for a in BUDGET_ALIASES[key] if normalize_col(a) in names), None)
+            if has('depo') is not None and has('month') is not None and (has('budget') is not None or has('rofo') is not None):
+                header_index, layout = i, 'long'
+                break
+            month_cols = [j for j, v in enumerate(row) if _budget_header_month(v)[1]]
+            if has('depo') is not None and len(month_cols) >= 6:
+                header_index, layout = i, 'wide'
+                break
+        if layout is None:
             continue
-        if not month:
-            errors.append(f'baris {line}: Bulan tidak valid')
-            continue
-        if depo not in BUDGET_DEPOS:
-            errors.append(f'baris {line}: Depo "{normalize_text(row[columns["depo"]])}" bukan Cempaka/Serang/Cilegon')
-            continue
-        for kind in ('budget', 'rofo'):
-            column = columns[kind]
-            if not column:
+        used_format.add(layout)
+        header = rows[header_index]
+        index = {normalize_col(v): j for j, v in enumerate(header)
+                 if v is not None and not (not isinstance(v, str) and pd.isna(v))}
+        col = lambda key: next((index[normalize_col(a)] for a in BUDGET_ALIASES[key] if normalize_col(a) in index), None)
+        c_year, c_depo = col('year'), col('depo')
+        c_brand = index.get('brand')
+        kind_wide = 'rofo' if 'rofo' in f'{sheet_name} {filename}'.lower() else 'budget'
+        for offset, row in enumerate(rows[header_index + 1:], start=header_index + 2):
+            where = f'sheet {sheet_name} baris {offset}'
+            depo_raw = row[c_depo] if c_depo is not None and c_depo < len(row) else None
+            depo_text = normalize_text(depo_raw) if depo_raw is not None and not (
+                not isinstance(depo_raw, str) and pd.isna(depo_raw)) else ''
+            if not depo_text:
                 continue
-            value = row[column]
-            if pd.isna(value) or not normalize_text(value):
-                continue  # sel kosong tidak menghapus data lama
-            cells[(year, month, depo, kind)] = to_num(value, 0)
+            if c_brand is not None:
+                brand = normalize_text(row[c_brand]).lower() if row[c_brand] is not None and not (
+                    not isinstance(row[c_brand], str) and pd.isna(row[c_brand])) else ''
+                if 'apple' not in brand or 'total' in brand:
+                    continue
+            depo = canonical_depo(depo_text)
+            if depo not in BUDGET_DEPOS:
+                skipped.add(depo_text)
+                continue
+            row_year = None
+            if c_year is not None and row[c_year] is not None and not (
+                    not isinstance(row[c_year], str) and pd.isna(row[c_year])):
+                row_year = int(to_num(row[c_year], 0)) or None
+            if layout == 'long':
+                year, month = _budget_month_value(row[col('month')], row_year or file_year)
+                if not month:
+                    errors.append(f'{where}: Bulan tidak valid')
+                    continue
+                if not year or not 2000 <= year <= 2100:
+                    errors.append(f'{where}: Tahun tidak ditemukan')
+                    continue
+                for kind in ('budget', 'rofo'):
+                    j = col(kind)
+                    value = _budget_amount(row[j]) if j is not None and j < len(row) else None
+                    if value is not None:
+                        put((year, month, depo, kind), value, where)
+            else:
+                for j, head in enumerate(header):
+                    head_year, month = _budget_header_month(head)
+                    if not month or j >= len(row):
+                        continue
+                    value = _budget_amount(row[j])
+                    if value is None:
+                        continue
+                    year = head_year or row_year or file_year
+                    if not year or not 2000 <= year <= 2100:
+                        errors.append(f'{where}: Tahun tidak ditemukan (beri kolom Tahun atau tahun di nama file)')
+                        break
+                    put((year, month, depo, kind_wide), value, where)
     if errors:
         raise ValueError('Periksa file: ' + '; '.join(errors[:8]) + ('…' if len(errors) > 8 else '') + '.')
+    if not used_format:
+        raise ValueError('Tabel tidak dikenali. Perlu kolom Depo dan kolom bulan (1–12 / Jan–Des), '
+                         'atau kolom Tahun | Bulan | Depo | Budget | Rofo.')
     if not cells:
-        raise ValueError('Tidak ada angka Budget atau Rofo yang terbaca.')
-    return cells
+        raise ValueError('Tidak ada angka Budget/Rofo untuk Cempaka, Serang atau Cilegon (brand Apple).')
+    return cells, dict(skipped=sorted(skipped), formats=sorted(used_format))
 
 
 def _budget_cache_key(year):
@@ -5553,7 +5628,11 @@ def budget_upload():
         flash('Gunakan file Excel (.xlsx).', 'danger')
         return redirect(url_for('budget', year=year))
     try:
-        cells = parse_budget_upload(io.BytesIO(upload.read()))
+        try:
+            default_year = int(year)
+        except (TypeError, ValueError):
+            default_year = datetime.now(STOCK_TIMEZONE).year
+        cells, info = parse_budget_upload(io.BytesIO(upload.read()), upload.filename, default_year)
         stamp = datetime.utcnow()
         actor = session.get('username') or ''
         existing = {(p.year, p.month, p.depo, p.kind): p for p in BudgetPlan.query.filter(
@@ -5567,9 +5646,18 @@ def budget_upload():
             plan.uploaded_at = stamp
             plan.uploaded_by = actor
         db.session.commit()
-        counts = {kind: sum(1 for k in cells if k[3] == kind) for kind in ('budget', 'rofo')}
-        years_text = ', '.join(str(y) for y in sorted({k[0] for k in cells}))
-        flash(f'Upload {years_text} berhasil: {counts["budget"]} angka Budget, {counts["rofo"]} angka Rofo.', 'success')
+        parts = []
+        for kind, label in (('budget', 'Budget'), ('rofo', 'Rofo')):
+            keys = [k for k in cells if k[3] == kind]
+            if not keys:
+                continue
+            per_depo = ', '.join(f'{d} {sum(1 for k in keys if k[2] == d)} bulan'
+                                 for d in BUDGET_DEPOS if any(k[2] == d for k in keys))
+            total = sum(cells[k] for k in keys)
+            parts.append(f'{label} {", ".join(str(y) for y in sorted({k[0] for k in keys}))}: '
+                         f'{per_depo} (total {rupiah(total)})')
+        note = f' Dilewati (bukan depo TSH): {", ".join(info["skipped"])}.' if info['skipped'] else ''
+        flash('Upload berhasil. ' + '; '.join(parts) + '.' + note, 'success')
         year = year or min(k[0] for k in cells)
     except ValueError as exc:
         db.session.rollback()
