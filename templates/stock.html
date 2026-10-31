@@ -1,40 +1,21 @@
-<!doctype html>
-<html lang="id">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/dashboard-logo.svg') }}">
+{% extends "base.html" %}
+{% block title %}Stock · Daily Monitoring{% endblock %}
+{% block head %}
   <meta name="format-detection" content="telephone=no,date=no,address=no,email=no,url=no">
-  <title>Stock · Daily Monitoring</title>
   <style>
-    *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,sans-serif;background:#f3f6fa;color:#14213a}a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important;font:inherit!important}.page{max-width:1500px;margin:auto;padding:22px}
-    .topbar{display:flex;justify-content:space-between;align-items:center;gap:18px;background:#fff;border:1px solid #dfe6ef;border-radius:16px;padding:16px 18px;margin-bottom:18px}.brand{display:flex;align-items:center;gap:12px}.logo{width:40px;height:40px;border-radius:11px;background:#0b315b;color:#fff;display:grid;place-items:center;font-size:21px}.brand h1{font-size:21px;margin:0}.brand p{font-size:12px;color:#64748b;margin:3px 0 0}.account{text-align:right;font-size:13px}.account-links{display:flex;justify-content:flex-end;gap:12px}.account a{color:#b42318;text-decoration:none;font-weight:800}.account a.dashboard-link{color:#0b315b}.account div{color:#64748b;margin-bottom:4px}
-    .flash{padding:12px 14px;border-radius:10px;margin-bottom:14px;font-size:13px}.flash-danger{background:#fee2e2;color:#991b1b}.flash-success{background:#dcfce7;color:#166534}
+    a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important;font:inherit!important}
     details{background:#fff;border:1px solid #dfe6ef;border-radius:14px;margin-bottom:18px;overflow:hidden}summary{cursor:pointer;padding:15px 17px;font-weight:850;color:#0b315b}details[open] summary{border-bottom:1px solid #e5e7eb}.input-panel{padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:16px}.input-box{background:#f8fafc;border-radius:12px;padding:15px}.input-box h3{margin:0 0 5px;font-size:16px}.input-box p{margin:0 0 13px;color:#64748b;font-size:12px;line-height:1.45}.field{margin-bottom:10px}.field label{display:block;font-size:11px;font-weight:850;text-transform:uppercase;letter-spacing:.04em;color:#64748b;margin-bottom:6px}.field input,.field textarea,.field select{width:100%;border:1px solid #cbd5e1;border-radius:9px;padding:10px 11px;background:#fff;color:#14213a;font:inherit}.field textarea{min-height:150px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;white-space:pre}.btn{border:0;border-radius:9px;padding:11px 15px;background:#0b315b;color:#fff;font-weight:850;cursor:pointer}.btn.secondary{background:#e7eef7;color:#0b315b}
     .toolbar{display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap;margin-bottom:13px}.tabs{display:flex;gap:8px}.tab{border:1px solid #cbd5e1;background:#fff;color:#334155;border-radius:9px;padding:10px 16px;font-weight:850;cursor:pointer}.tab.active{background:#0b315b;color:#fff;border-color:#0b315b}.tools{display:flex;align-items:end;gap:10px;flex-wrap:wrap}.tools .field{margin:0}.tools input{min-width:240px}.copy-actions{display:flex;gap:8px;flex-wrap:wrap}.copy-btn{background:#16834b}.copy-btn.no-qty{background:#526078}.copy-btn.copied{background:#166534}.meta{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:#64748b;font-size:13px;margin:0 2px 12px}.meta strong{color:#14213a}
     .table-shell{background:#fff;border:1px solid #dfe6ef;border-radius:14px;overflow:hidden}.table-scroll{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:760px}th{background:#eaf2fb;color:#183451;text-transform:uppercase;letter-spacing:.03em;font-size:11px;padding:11px 12px;text-align:left;white-space:nowrap}td{padding:10px 12px;border-bottom:1px solid #edf1f6;font-size:13px}td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}.total-row td{background:#eaf2fb;font-weight:900;border-top:2px solid #b9c9dc}.empty{padding:32px;text-align:center;color:#64748b}.hidden{display:none!important}
     .mobile-list{display:none}.mobile-item{background:#fff;border:1px solid #dfe6ef;border-radius:13px;padding:14px;margin-bottom:10px}.mobile-desc{font-size:15px;font-weight:900;line-height:1.35}.mobile-material{font-size:11px;color:#64748b;margin:4px 0 12px}.metric-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.metric{background:#f3f6fa;border-radius:9px;padding:9px;min-width:0}.metric span{display:block;font-size:9px;color:#64748b;text-transform:uppercase;font-weight:850;margin-bottom:4px}.metric strong{display:block;font-size:14px;word-break:break-word}.mobile-grand{display:flex;justify-content:space-between;gap:12px;background:#eaf2fb;border-radius:12px;padding:14px;font-weight:900;margin-top:12px}
-    @media(max-width:760px){.page{padding:12px}.topbar{align-items:flex-start}.account div{display:none}.input-panel{grid-template-columns:1fr}.toolbar{align-items:stretch}.tabs,.tools,.tools .field,.copy-actions{width:100%}.tab{flex:1}.tools input{min-width:0}.tools .field:first-child{flex:1}.tools .field:nth-child(2){width:100%}.copy-btn{width:100%}.table-shell{display:block;border-radius:12px}.mobile-list{display:none}.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}table{border-collapse:separate;border-spacing:0;min-width:850px}th{position:sticky;top:0;z-index:3}th,td{padding:8px 6px;font-size:10px}th.num,td.num{min-width:78px}.cempaka-table{width:100%;min-width:328px;table-layout:fixed}.cempaka-table th.num{width:auto;min-width:78px;max-width:none;text-align:center;font-size:9px}.cempaka-table td.num{width:auto;min-width:78px;max-width:none;text-align:center;font-size:10px}.cempaka-table td.num strong{font-size:10px;font-weight:700}.sticky-material{width:70px;min-width:70px;max-width:70px;background:#fff;z-index:2;border-right:1px solid #dfe6ef;font-size:8px;overflow-wrap:anywhere}.sticky-description{position:sticky;left:0;width:180px;min-width:180px;max-width:180px;background:#fff;z-index:2;border-right:1px solid #dfe6ef;box-shadow:5px 0 8px rgba(20,33,58,.06);white-space:normal;font-size:10px;line-height:1.25}.sticky-material.sticky-head,.sticky-description.sticky-head{background:#eaf2fb;font-size:9px}.total-row .sticky-material,.total-row .sticky-description{background:#eaf2fb}.brand h1{font-size:19px}.input-box{padding:13px}}
+    @media(max-width:760px){.input-panel{grid-template-columns:1fr}.toolbar{align-items:stretch}.tabs,.tools,.tools .field,.copy-actions{width:100%}.tab{flex:1}.tools input{min-width:0}.tools .field:first-child{flex:1}.tools .field:nth-child(2){width:100%}.copy-btn{width:100%}.table-shell{display:block;border-radius:12px}.mobile-list{display:none}.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}table{border-collapse:separate;border-spacing:0;min-width:850px}th{position:sticky;top:0;z-index:3}th,td{padding:8px 6px;font-size:10px}th.num,td.num{min-width:78px}.cempaka-table{width:100%;min-width:328px;table-layout:fixed}.cempaka-table th.num{width:auto;min-width:78px;max-width:none;text-align:center;font-size:9px}.cempaka-table td.num{width:auto;min-width:78px;max-width:none;text-align:center;font-size:10px}.cempaka-table td.num strong{font-size:10px;font-weight:700}.sticky-material{width:70px;min-width:70px;max-width:70px;background:#fff;z-index:2;border-right:1px solid #dfe6ef;font-size:8px;overflow-wrap:anywhere}.sticky-description{position:sticky;left:0;width:180px;min-width:180px;max-width:180px;background:#fff;z-index:2;border-right:1px solid #dfe6ef;box-shadow:5px 0 8px rgba(20,33,58,.06);white-space:normal;font-size:10px;line-height:1.25}.sticky-material.sticky-head,.sticky-description.sticky-head{background:#eaf2fb;font-size:9px}.total-row .sticky-material,.total-row .sticky-description{background:#eaf2fb}.input-box{padding:13px}}
     @media(max-width:760px){.sticky-material{font-size:9px;font-weight:400;font-variant-numeric:tabular-nums;white-space:nowrap;overflow-wrap:normal;text-decoration:none}tbody td,tbody td strong{font-weight:400}.total-row td,.total-row td strong{font-weight:900}}
     @media(max-width:380px){.metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
     /* Dashboard theme */
-    :root{--navy:#0b2545;--blue:#2563eb;--border:#dbe5f1;--muted:#64748b;--bg:#f4f7fb}
-    body{background:var(--bg);color:#10213d}
-    .page{width:min(1500px,calc(100% - 36px));max-width:1500px;margin:0 auto 50px;padding:0}
-    .topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;background:transparent;border:0;border-radius:0;padding:0;margin:18px 0 20px}
-    .brand{display:flex;align-items:center;gap:14px;min-width:330px}
-    .brand-logo{width:52px;height:52px;flex:0 0 52px;overflow:visible;display:grid;place-items:center}
-    .brand-logo img{width:100%;height:100%;display:block;overflow:visible}
-    .brand-title{font-size:25px;line-height:1.1;font-weight:850;letter-spacing:-.025em;color:var(--navy)}
-    .brand-subtitle{font-size:12px;color:var(--muted);margin-top:5px}
-    .user-area{display:flex;align-items:center;gap:12px;margin-left:auto}
-    .user-info{text-align:right;font-size:12px;line-height:1.25;color:var(--muted)}
-    .logout{display:inline-flex;align-items:center;min-height:40px;padding:9px 14px;border:1px solid #c8d6e7;border-radius:12px;color:var(--navy);font-weight:800;text-decoration:none;background:#fff}
-    .navlinks{order:3;flex:1 0 100%;display:flex;align-items:center;gap:6px;overflow-x:auto;padding:7px;background:#fff;border:1px solid var(--border);border-radius:16px;box-shadow:0 8px 24px rgba(15,35,65,.05);scrollbar-width:none}
-    .navlinks::-webkit-scrollbar{display:none}.navlinks a{flex:0 0 auto;padding:10px 17px;border-radius:11px;color:#53647e;text-decoration:none;font-size:14px;font-weight:800;white-space:nowrap}.navlinks a.active{background:var(--blue);color:#fff;box-shadow:0 7px 16px rgba(37,99,235,.22)}
+    .stock-page{--navy:#0b2545;--blue:#2563eb;--border:#dbe5f1;--muted:#64748b;color:#10213d;font-family:Inter,system-ui,-apple-system,sans-serif}
     .page-heading{margin:22px 0 18px}.page-heading h1{margin:0;color:var(--navy);font-size:28px;line-height:1.1;letter-spacing:-.02em}.page-heading p{margin:6px 0 0;color:var(--muted);font-size:13px}
-    @media(max-width:760px){.page{width:100%;padding:12px}.topbar{margin:4px 0 14px;gap:12px;align-items:center}.brand{min-width:0;flex:1;gap:10px}.brand-logo{width:42px;height:42px;flex-basis:42px}.brand-title{font-size:17px;white-space:nowrap}.brand-subtitle{font-size:10px}.user-info{display:block;font-size:10px;line-height:1.2}.logout{min-height:36px;padding:7px 10px;font-size:12px}.navlinks{padding:6px;border-radius:14px}.navlinks a{padding:9px 12px;font-size:12px}.page-heading{margin:18px 2px 14px}.page-heading h1{font-size:23px}.page-heading p{font-size:12px}}
+    @media(max-width:760px){.page-heading{margin:18px 2px 14px}.page-heading h1{font-size:23px}.page-heading p{font-size:12px}}
     /* Keep Material Description and location headers visible while the table scrolls. */
     .table-scroll{max-height:70vh;overflow:auto;overscroll-behavior:contain}
     .table-scroll table{border-collapse:separate;border-spacing:0}
@@ -67,6 +48,10 @@
       #panel-cempaka th:nth-child(1),#panel-cempaka td:nth-child(1){width:17%}
       #panel-cempaka th:nth-child(2),#panel-cempaka td:nth-child(2){width:55%}
       #panel-cempaka th:nth-child(3),#panel-cempaka td:nth-child(3){width:28%}
+      #panel-sercil table{min-width:760px}
+      #panel-sercil th:nth-child(1),#panel-sercil td:nth-child(1){width:15%}
+      #panel-sercil th:nth-child(2),#panel-sercil td:nth-child(2){width:43%}
+      #panel-sercil th:nth-child(n+3),#panel-sercil td:nth-child(n+3){width:14%}
       #panel-r5 table{min-width:1000px}
       #panel-r5 th:nth-child(1),#panel-r5 td:nth-child(1){width:10%}
       #panel-r5 th:nth-child(2),#panel-r5 td:nth-child(2){width:32%}
@@ -81,30 +66,19 @@
       .tools{flex:1 0 100%;width:100%;justify-content:stretch}
       .tools .field{flex:1 0 100%;max-width:none}
     }
+    /* base.html: th/td diberi border & padding global — samakan dengan tampilan Stock sebelumnya */
+    .stock-page th{border-bottom:0}
+    .stock-page button{font-size:13.333px}
+    @media(max-width:760px){
+      .stock-page .sercil-table{width:100%;min-width:0;table-layout:fixed}
+      .stock-page .sercil-table .sticky-description{width:auto;min-width:0;max-width:none}
+      .stock-page .sercil-table th.num,.stock-page .sercil-table td.num{width:50px;min-width:0;text-align:center;padding-left:3px;padding-right:3px}
+      .stock-page .sercil-table th.num{font-size:8.5px;white-space:normal}
+    }
   </style>
-</head>
-<body>
-<main class="page">
-  <header class="topbar">
-    <div class="brand">
-      <div class="brand-logo" aria-hidden="true"><img src="{{ url_for('static', filename='img/dashboard-logo.svg') }}" alt=""></div>
-      <div><div class="brand-title">Daily Monitoring Dashboard</div></div>
-    </div>
-    <div class="user-area">
-      {% if stock_is_admin %}<div class="user-info"><strong>{{ session.get('username', '') }}</strong><br>admin</div><a class="logout" href="{{ url_for('logout') }}">Logout</a>{% else %}<a class="logout" href="{{ url_for('login') }}">Login</a>{% endif %}
-    </div>
-    <nav class="navlinks" aria-label="Menu utama">
-      <a href="{{ url_for('dashboard') }}">Dashboard</a>
-      <a class="active" href="{{ url_for('stock') }}">Stock</a>
-      <a href="{{ url_for('program') }}">Program</a>
-      <a href="{{ url_for('pricelist') }}">Pricelist</a>
-      <a href="{{ url_for('incentive') }}">Incentive</a>
-      <a href="{{ url_for('pjp') }}">PJP</a>
-      <a href="{{ url_for('closing') }}">Closing</a>
-      {% if stock_is_admin %}<a href="{{ url_for('targets') }}">Target Master</a><a href="{{ url_for('users') }}">Users</a>{% endif %}
-    </nav>
-  </header>
-
+{% endblock %}
+{% block body %}
+<div class="stock-page">
   <section class="page-heading">
     <div><h1>Stock</h1><p>Cempaka &amp; R5 Daily Stock</p></div>
     <div class="stock-header-side">
@@ -128,11 +102,10 @@
     </div>
   </section>
 
-  {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div class="flash flash-{{ category }}">{{ message }}</div>{% endfor %}{% endwith %}
-
   <div class="toolbar">
     <div class="tabs">
       <button class="tab active" type="button" data-tab="cempaka">Cempaka</button>
+      <button class="tab" type="button" data-tab="sercil">SerCil</button>
       <button class="tab" type="button" data-tab="r5">R5</button>
     </div>
     <div class="tools">
@@ -153,6 +126,17 @@
     </div>
   </section>
 
+  <section id="panel-sercil" class="stock-panel hidden">
+    <div class="table-shell"><div class="table-scroll"><table class="sercil-table"><thead><tr><th class="sticky-material sticky-head">Material</th><th class="sticky-description sticky-head">Material Description</th><th class="num">Serang</th><th class="num">Cilegon</th><th class="num">Total SerCil</th></tr></thead><tbody>
+      {% for row in r5_rows if row.Serang or row.Cilegon %}<tr class="search-row" data-search="{{ row.material|lower }} {{ row.description|lower }}"><td class="sticky-material">{{ row.material }}</td><td class="sticky-description">{{ row.description }}</td><td class="num">{{ row.Serang|number_id }}</td><td class="num">{{ row.Cilegon|number_id }}</td><td class="num"><strong>{{ (row.Serang + row.Cilegon)|number_id }}</strong></td></tr>{% endfor %}
+      <tr class="total-row"><td class="sticky-material"></td><td class="sticky-description">GRAND TOTAL</td><td class="num">{{ totals.Serang|number_id }}</td><td class="num">{{ totals.Cilegon|number_id }}</td><td class="num">{{ (totals.Serang + totals.Cilegon)|number_id }}</td></tr>
+    </tbody></table></div></div>
+    <div class="mobile-list">
+      {% for row in r5_rows if row.Serang or row.Cilegon %}<article class="mobile-item search-row" data-search="{{ row.material|lower }} {{ row.description|lower }}"><div class="mobile-desc">{{ row.description }}</div><div class="mobile-material">Material {{ row.material }}</div><div class="metric-grid"><div class="metric"><span>Serang</span><strong>{{ row.Serang|number_id }}</strong></div><div class="metric"><span>Cilegon</span><strong>{{ row.Cilegon|number_id }}</strong></div><div class="metric"><span>Total SerCil</span><strong>{{ (row.Serang + row.Cilegon)|number_id }}</strong></div></div></article>{% endfor %}
+      <div class="mobile-grand"><span>Grand total SerCil</span><strong>{{ (totals.Serang + totals.Cilegon)|number_id }} unit</strong></div>
+    </div>
+  </section>
+
   <section id="panel-r5" class="stock-panel hidden">
     <div class="table-shell"><div class="table-scroll"><table><thead><tr><th class="sticky-material sticky-head">Material</th><th class="sticky-description sticky-head">Material Description</th><th class="num">Cempaka</th><th class="num">Cilegon</th><th class="num">Roxy</th><th class="num">Serang</th><th class="num">Tangerang</th><th class="num">Grand Total</th></tr></thead><tbody>
       {% for row in r5_rows %}<tr class="search-row" data-search="{{ row.material|lower }} {{ row.description|lower }}"><td class="sticky-material">{{ row.material }}</td><td class="sticky-description">{{ row.description }}</td><td class="num">{{ row.Cempaka|number_id }}</td><td class="num">{{ row.Cilegon|number_id }}</td><td class="num">{{ row.Roxy|number_id }}</td><td class="num">{{ row.Serang|number_id }}</td><td class="num">{{ row.Tangerang|number_id }}</td><td class="num"><strong>{{ row.grand_total|number_id }}</strong></td></tr>{% endfor %}
@@ -164,18 +148,15 @@
     </div>
   </section>
   {% else %}<div class="empty">Belum ada data stock. Buka “Update Stock” untuk upload Excel.</div>{% endif %}
-</main>
+</div>
+{% endblock %}
+{% block scripts %}
 <script>
   const stockUpdatedAt=document.getElementById('stockUpdatedAt');
   if(stockUpdatedAt){
     const parts=new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(stockUpdatedAt.dataset.utc));
     const value=type=>parts.find(part=>part.type===type)?.value||'';
     stockUpdatedAt.textContent=`Terakhir diperbarui: ${value('day')} ${value('month')} ${value('year')} ${value('hour')}:${value('minute')} WIB`;
-  }
-  const stockNav=document.querySelector('.navlinks');
-  const stockActiveNav=stockNav?.querySelector('a.active');
-  if(stockNav&&stockActiveNav&&stockNav.scrollWidth>stockNav.clientWidth){
-    stockNav.scrollLeft=stockActiveNav.offsetLeft-stockNav.offsetLeft-(stockNav.clientWidth-stockActiveNav.offsetWidth)/2;
   }
   const tabs=document.querySelectorAll('[data-tab]');
   const search=document.getElementById('stockSearch');
@@ -187,12 +168,16 @@
     totals:{{ totals|tojson }}
   };
   const formatStockNumber=value=>new Intl.NumberFormat('id-ID',{maximumFractionDigits:2}).format(Number(value||0));
+  const sercilRows=()=>stockCopyData.r5.filter(row=>Number(row.Serang||0)!==0||Number(row.Cilegon||0)!==0);
   function whatsappStockText(includeQuantity){
     const active=document.querySelector('[data-tab].active')?.dataset.tab||'cempaka';
     const lines=[`*STOCK APPLE - ${active.toUpperCase()}*`,`_Tanggal ${stockCopyData.date}_`,''];
     if(!includeQuantity){
-      const rows=active==='cempaka'?stockCopyData.cempaka:stockCopyData.r5;
+      const rows=active==='cempaka'?stockCopyData.cempaka:active==='sercil'?sercilRows():stockCopyData.r5;
       rows.forEach(row=>lines.push(`${row.description}`));
+    }else if(active==='sercil'){
+      sercilRows().forEach(row=>lines.push(`${row.description}\nSRG ${formatStockNumber(row.Serang)} | CLG ${formatStockNumber(row.Cilegon)} | TOTAL ${formatStockNumber(Number(row.Serang||0)+Number(row.Cilegon||0))}`));
+      lines.push('',`*GRAND TOTAL SERCIL: ${formatStockNumber(Number(stockCopyData.totals.Serang||0)+Number(stockCopyData.totals.Cilegon||0))} unit*`);
     }else if(active==='cempaka'){
       stockCopyData.cempaka.forEach(row=>lines.push(`${row.description} - ${formatStockNumber(row.Cempaka)}`));
       lines.push('',`*GRAND TOTAL: ${formatStockNumber(stockCopyData.totals.Cempaka)} unit*`);
@@ -214,5 +199,4 @@
   tabs.forEach(tab=>tab.addEventListener('click',()=>{tabs.forEach(x=>x.classList.toggle('active',x===tab));document.querySelectorAll('.stock-panel').forEach(panel=>panel.classList.add('hidden'));document.getElementById('panel-'+tab.dataset.tab)?.classList.remove('hidden');applySearch();}));
   search?.addEventListener('input',applySearch);
 </script>
-</body>
-</html>
+{% endblock %}
