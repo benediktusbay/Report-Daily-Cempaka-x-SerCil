@@ -44,7 +44,7 @@
 {% block body %}
 <div class="bg">
 <h1>Budget</h1>
-<p class="bg-sub">Target <b>Budget</b> dan <b>Rofo</b> dibanding Achievement billing per bulan. Rofo = total Target Master bulan itu (bulan tanpa Target Master diisi lewat upload). Achievement per depo, tanpa PPN, sama dengan dashboard.</p>
+<p class="bg-sub">Target <b>Budget</b> dan <b>Rofo</b> dibanding Achievement billing per bulan. Rofo = total Target Master bulan itu (bulan tanpa Target Master diisi lewat upload). Achievement = salesman area per depo (aturan sama dengan dashboard: dealer tanpa Target Master ikut depo salesman yang memproses; modern channel/salesman depo lain tidak dihitung), tanpa PPN.</p>
 
 <div class="bg-bar">
  <form method="get" action="{{ url_for('budget') }}"><select name="year" aria-label="Tahun" onchange="this.form.submit()">{% for y in years %}<option value="{{ y }}" {{ 'selected' if y == year }}>{{ y }}</option>{% endfor %}</select></form>

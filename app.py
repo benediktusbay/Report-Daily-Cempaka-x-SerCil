@@ -1427,6 +1427,12 @@ class TargetLookup(dict):
                     valid_from=start, valid_to=end)]
         for intervals in self.assignments.values():
             intervals.sort(key=lambda a: a.valid_from)
+        # Depo tempat salesman punya dealer/target bulan ini (untuk dealer tanpa master).
+        self.salesman_depos = {}
+        for t in list(targets) + list(assignments):
+            depo = canonical_depo(t.depo)
+            if depo and depo != 'Unmapped':
+                self.salesman_depos.setdefault(canonical_salesman(t.salesman), set()).add(depo)
 
     def active(self, bp, date):
         return next((a for a in self.assignments.get(bp, [])
@@ -1443,6 +1449,66 @@ def target_lookup_for_month(month):
     result = targets, TargetLookup(month, targets, assignments)
     cache[month] = result
     return result
+
+
+# Depo salesman untuk bulan yang belum punya Target Master (riwayat penugasan).
+# Format: (salesman, berlaku dari, berlaku sampai, depo-depo). None = tanpa batas.
+SALESMAN_DEPO_HISTORY = (
+    ('Michael Serafin Sidik', None, dt.date(2026, 3, 31), ('Cempaka',)),
+    ('Michael Serafin Sidik', dt.date(2026, 4, 1), None, ('Roxy',)),
+    ('Rafhyski Alhasan', None, None, ('Cempaka',)),
+    ('Zefanya Septania Simorangkir', None, None, ('Cempaka',)),
+    ('Isroudin', None, None, ('Serang',)),
+    ('Ikmah Novtianingrum', None, None, ('Serang', 'Cilegon')),
+    ('Andy Varandy', None, None, ('Roxy',)),
+)
+
+
+def _bp_location_depos():
+    """Depo lokasi dealer dari Cust.Location billing lain (cadangan bila baris ini kosong)."""
+    cache = g.setdefault('_bp_location_depos', None) if has_request_context() else None
+    if cache is not None:
+        return cache
+    result = {}
+    for code, location in (db.session.query(Billing.sold_to_code, Billing.cust_location)
+                           .filter(Billing.cust_location.isnot(None)).distinct()):
+        depo = depo_from_cust_location(location)
+        if depo:
+            result.setdefault(normalize_bp(code), depo)
+    # Cadangan berikutnya: depo dealer di Target Master (bulan terbaru).
+    for bp, depo in (db.session.query(MonthlyTarget.bp, MonthlyTarget.depo)
+                     .order_by(MonthlyTarget.month.desc())):
+        depo = canonical_depo(depo)
+        if depo and depo != 'Unmapped':
+            result.setdefault(normalize_bp(bp), depo)
+    if has_request_context():
+        g._bp_location_depos = result
+    return result
+
+
+def salesman_depo_for(salesman, row, target_by_bp):
+    """Depo untuk dealer tanpa Target Master: ikut depo salesman yang memproses.
+
+    1. Depo salesman di Target Master bulan itu; kalau belum ada, riwayat penugasan.
+    2. Salesman dengan satu depo -> depo itu, di mana pun lokasi dealernya.
+    3. Salesman dengan beberapa depo (mis. Ikmah: Serang/Cilegon) atau salesman
+       tak dikenal -> lokasi dealer (Cust.Location; bila kosong, lokasi dealer yang
+       sama dari billing lain).
+    """
+    depos = set(getattr(target_by_bp, 'salesman_depos', {}).get(salesman, ()))
+    if not depos:
+        date = getattr(row, 'billing_date', None)
+        for name, start, end, history_depos in SALESMAN_DEPO_HISTORY:
+            if name == salesman and date and (start is None or date >= start) and (end is None or date <= end):
+                depos.update(history_depos)
+    if len(depos) == 1:
+        return next(iter(depos))
+    location = depo_from_cust_location(getattr(row, 'cust_location', None))
+    if not location:
+        location = _bp_location_depos().get(normalize_bp(getattr(row, 'sold_to_code', '')))
+    if location and (not depos or location in depos):
+        return location
+    return 'Unmapped'
 
 
 def resolve_billing_owner(row, target_by_bp):
@@ -1489,11 +1555,11 @@ def resolve_billing_owner(row, target_by_bp):
     if billing_salesman not in LOCKED_SALESMEN:
         return '', 'Unmapped', normalize_text(row.sold_to_name), None
 
-    # BP belum ada di Target Master: depo mengikuti Cust.Location dari
-    # Billing (master customer SAP, sama dengan Area Depo di Power BI).
+    # BP belum ada di Target Master: pencapaian milik salesman yang memproses,
+    # dan masuk depo salesman itu (bukan lokasi dealer). Lihat salesman_depo_for.
     return (
         billing_salesman,
-        depo_from_cust_location(getattr(row, 'cust_location', None)) or 'Unmapped',
+        salesman_depo_for(billing_salesman, row, target_by_bp),
         normalize_text(row.sold_to_name),
         None,
     )
@@ -5314,7 +5380,11 @@ def cross_brand():
 # itu; bulan tanpa Target Master diisi lewat upload) vs Achievement billing.
 # Per bulan × depo, khusus salesman TSH, nilai tanpa PPN — sama dengan dashboard.
 # ---------------------------------------------------------------------------
-BUDGET_SALESMEN = ('Zefanya Septania Simorangkir', 'Rafhyski Alhasan', 'Ikmah Novtianingrum')
+# Salesman area TSH, termasuk riwayat: Michael (Cempaka s/d Mar 2026), Isroudin (Serang Jan 2026).
+# Depo tiap transaksi mengikuti aturan dashboard (resolve_billing_owner / salesman_depo_for),
+# jadi Michael setelah pindah ke Roxy dan modern channel (Agres, Andy) tidak terhitung.
+BUDGET_SALESMEN = ('Zefanya Septania Simorangkir', 'Rafhyski Alhasan', 'Ikmah Novtianingrum',
+                   'Michael Serafin Sidik', 'Isroudin')
 BUDGET_DEPOS = ('Cempaka', 'Serang', 'Cilegon')
 BUDGET_MONTH_LABELS = ('Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des')
 BUDGET_MONTH_NAMES = {
@@ -5490,6 +5560,12 @@ def parse_budget_upload(stream, filename='', default_year=None):
     return cells, dict(skipped=sorted(skipped), formats=sorted(used_format))
 
 
+def _budget_salesman_keys():
+    keys = {s.lower() for s in BUDGET_SALESMEN}
+    keys.update(alias for alias, name in SALESMAN_ALIASES.items() if name in BUDGET_SALESMEN)
+    return tuple(sorted(keys))
+
+
 def _budget_cache_key(year):
     billing_upload = db.session.query(db.func.max(UploadLog.id)).filter(
         or_(UploadLog.upload_mode.is_(None), UploadLog.upload_mode != 'cross_brand')).scalar()
@@ -5544,7 +5620,7 @@ def build_budget_data(year):
     ).filter(
         Billing.billing_date >= start, Billing.billing_date <= end,
         Billing.category.in_(('Device', 'Macbook', 'ACC')),
-        db.func.lower(db.func.trim(Billing.salesman)).in_(tuple(s.lower() for s in BUDGET_SALESMEN)),
+        db.func.lower(db.func.trim(Billing.salesman)).in_(_budget_salesman_keys()),
     ).group_by(Billing.billing_date, Billing.salesman, Billing.sold_to_code,
                Billing.sold_to_name, Billing.cust_location).all()
     achievement = {m: empty() for m in range(1, 13)}
@@ -5555,14 +5631,21 @@ def build_budget_data(year):
         month_key = r.billing_date.strftime('%Y-%m')
         if month_key not in lookups:
             _, lookups[month_key] = target_lookup_for_month(month_key)
-        owner, depo, _, _ = resolve_billing_owner(r, lookups[month_key])
+        owner, depo, _, target = resolve_billing_owner(r, lookups[month_key])
+        billing_salesman = canonical_salesman(r.salesman)
+        if not owner and target is None and billing_salesman not in LOCKED_SALESMEN \
+                and billing_salesman in BUDGET_SALESMEN:
+            # Salesman area di luar tim dashboard (mis. Isroudin): aturan depo yang sama.
+            owner, depo = billing_salesman, salesman_depo_for(billing_salesman, r, lookups[month_key])
         if canonical_salesman(owner) not in BUDGET_SALESMEN:
             continue
         value = float(r.amount or 0)
         if depo in BUDGET_DEPOS:
             achievement[r.billing_date.month][depo] += value
-        else:
+        elif depo == 'Unmapped':
             other[r.billing_date.month] += value  # depo belum diketahui: hanya masuk total
+        else:
+            continue  # salesman area yang sedang bertugas di depo lain (mis. Michael di Roxy)
         if latest is None or r.billing_date > latest:
             latest = r.billing_date
 
