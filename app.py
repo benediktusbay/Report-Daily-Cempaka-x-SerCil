@@ -5386,6 +5386,11 @@ def cross_brand():
 BUDGET_SALESMEN = ('Zefanya Septania Simorangkir', 'Rafhyski Alhasan', 'Ikmah Novtianingrum',
                    'Michael Serafin Sidik', 'Isroudin')
 BUDGET_DEPOS = ('Cempaka', 'Serang', 'Cilegon')
+# Koreksi depo dealer KHUSUS menu Budget (achievement saja; Rofo, dashboard,
+# Closing dan Incentive tetap mengikuti Target Master). Format: 'BP': 'Depo'.
+BUDGET_DEALER_DEPO_OVERRIDE = {
+    '10076476': 'Serang',  # Plaza Cell: lokasi Serang, di Target Master Agu–Okt 2026 tercatat Cilegon
+}
 BUDGET_MONTH_LABELS = ('Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des')
 BUDGET_MONTH_NAMES = {
     'jan': 1, 'januari': 1, 'january': 1, 'feb': 2, 'februari': 2, 'february': 2,
@@ -5639,6 +5644,7 @@ def build_budget_data(year):
             owner, depo = billing_salesman, salesman_depo_for(billing_salesman, r, lookups[month_key])
         if canonical_salesman(owner) not in BUDGET_SALESMEN:
             continue
+        depo = BUDGET_DEALER_DEPO_OVERRIDE.get(normalize_bp(r.sold_to_code), depo)
         value = float(r.amount or 0)
         if depo in BUDGET_DEPOS:
             achievement[r.billing_date.month][depo] += value
