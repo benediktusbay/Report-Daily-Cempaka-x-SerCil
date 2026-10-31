@@ -22,8 +22,8 @@
 .bg-badge{display:inline-block;margin-top:7px;border-radius:999px;padding:3px 10px;font-size:12.5px;font-weight:800}.bg-badge.up{background:var(--good-bg);color:var(--good)}.bg-badge.down{background:var(--bad-bg);color:var(--bad)}
 .bg-prog{height:6px;border-radius:999px;background:#e2e8f0;margin-top:10px;overflow:hidden}.bg-prog i{display:block;height:100%;background:var(--blue);border-radius:999px}
 .bg-wrap{overflow-x:auto}.bg-table{width:100%;border-collapse:collapse;font-size:13px}
-.bg-table th{background:var(--soft);color:#52647e;font-size:11px;text-transform:uppercase;letter-spacing:.03em;padding:10px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
-.bg-table td{padding:10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.bg-table th{background:var(--soft);color:#52647e;font-size:11px;text-transform:uppercase;letter-spacing:.03em;padding:10px;text-align:left;white-space:nowrap;border-bottom:1px solid var(--line)}
+.bg-table td{padding:10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
 .bg-table th:first-child,.bg-table td:first-child{text-align:left}
 .bg-table tr.future td{color:#94a3b8}.bg-table tr.sum td{background:#f1f5f9;font-weight:800}.bg-table tr.tot td{background:var(--ink);color:#fff;font-weight:900;border-bottom:0}
 .bg-table tr.click{cursor:pointer}.bg-table tr.click:hover td{background:#f8fbff}
@@ -76,7 +76,6 @@
 
 <div class="bg-card">
  <h2 class="bg-h2">Per Bulan <span class="bg-dim" id="scopeLabel"></span></h2>
- <p class="bg-note">Bulan berjalan ditandai <span class="bg-tag">berjalan</span> — achievement-nya baru sebagian bulan. Bulan yang belum berjalan berwarna abu-abu.</p>
  <div class="bg-wrap"><table class="bg-table bg-stack" id="monthTable"><thead><tr><th>Bulan</th><th>Budget</th><th>Rofo</th><th>Achievement</th><th>% vs Budget</th><th>% vs Rofo</th><th>Selisih vs Budget</th><th>Selisih vs Rofo</th></tr></thead><tbody></tbody></table></div>
 </div>
 
@@ -144,7 +143,7 @@ function row(label,c,cls,src,isFuture){
  const ach=isFuture?'–':rp(c.achievement);
  const pill=(p,a,t)=>isFuture||p==null?'–':`<span class="bg-pct ${tone(a-t)}">${pctTxt(p)}</span>`;
  const gap=(a,t)=>isFuture||!t?'–':`<span class="${tone(a-t)}">${signed(a-t)}</span>`;
- return `<tr class="${cls||''}">${td('',label)}${td('Budget',c.budget?rp(c.budget):'–')}${td('Rofo',(c.rofo?rp(c.rofo):'–')+(src?`<span class="bg-src">${esc(src)}</span>`:''))}${td('Achievement',ach)}${td('% vs Budget',pill(pb,c.achievement,c.budget))}${td('% vs Rofo',pill(pr,c.achievement,c.rofo))}${td('Selisih vs Budget',gap(c.achievement,c.budget))}${td('Selisih vs Rofo',gap(c.achievement,c.rofo))}</tr>`;
+ return `<tr class="${cls||''}">${td('',label)}${td('Budget',c.budget?rp(c.budget):'–')}${td('Rofo',c.rofo?rp(c.rofo):'–')}${td('Achievement',ach)}${td('% vs Budget',pill(pb,c.achievement,c.budget))}${td('% vs Rofo',pill(pr,c.achievement,c.rofo))}${td('Selisih vs Budget',gap(c.achievement,c.budget))}${td('Selisih vs Rofo',gap(c.achievement,c.rofo))}</tr>`;
 }
 
 function monthTable(){
@@ -153,7 +152,7 @@ function monthTable(){
   return row(label,c,m.status==='future'?'future':'',m.rofo_source,m.status==='future')}).join('');
  if(cutoff)html+=row('YTD '+esc(ytdLabel),totals(depo,cutoff),'sum');
  const fy=totals(depo,12);
- html+=`<tr class="tot">${td('','Setahun '+D.year)}${td('Budget',rp(fy.budget))}${td('Rofo',rp(fy.rofo)+'<span class="bg-src">Rofo yang sudah ada</span>')}${td('Achievement',rp(fy.achievement))}${td('% vs Budget',`<span class="bg-pct ${tone(fy.achievement-fy.budget)}">${pctTxt(pct(fy.achievement,fy.budget))}</span>`)}${td('% vs Rofo','–')}${td('Selisih vs Budget',fy.budget?`<span class="${tone(fy.achievement-fy.budget)}">${signed(fy.achievement-fy.budget)}</span>`:'–')}${td('Selisih vs Rofo','–')}</tr>`;
+ html+=`<tr class="tot">${td('','Setahun '+D.year)}${td('Budget',rp(fy.budget))}${td('Rofo',rp(fy.rofo))}${td('Achievement',rp(fy.achievement))}${td('% vs Budget',`<span class="bg-pct ${tone(fy.achievement-fy.budget)}">${pctTxt(pct(fy.achievement,fy.budget))}</span>`)}${td('% vs Rofo','–')}${td('Selisih vs Budget',fy.budget?`<span class="${tone(fy.achievement-fy.budget)}">${signed(fy.achievement-fy.budget)}</span>`:'–')}${td('Selisih vs Rofo','–')}</tr>`;
  document.querySelector('#monthTable tbody').innerHTML=html;
 }
 
