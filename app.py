@@ -2383,25 +2383,46 @@ def closing():
     state = _closing_state(key, month)
     error = None
     if request.method == 'POST':
-        incoming = {name: f for name, f in request.files.items() if f and f.filename}
-        if not incoming:
+        # Satu slot bisa berisi beberapa file (mis. SO/DO 30 Okt + DO 31 Okt BC22).
+        # File baru ditambahkan ke slot; file dengan isi sama diganti, bukan dihitung dua kali.
+        incoming = {name: [f for f in request.files.getlist(name) if f and f.filename]
+                    for name in request.files}
+        incoming = {name: files for name, files in incoming.items() if files}
+        clear_slot = request.form.get('clear_slot', '')
+        if not incoming and not clear_slot:
             error = 'Pilih Billing Baseline atau file SO/DO untuk diupload.'
-        elif any(not f.filename.lower().endswith('.xlsx') for f in incoming.values()):
+        elif any(not f.filename.lower().endswith('.xlsx') for files in incoming.values() for f in files):
             error = 'Gunakan file Excel .xlsx.'
         else:
             try:
                 baseline = state['baseline']
                 slots = dict(state['slots'])
+                stamp = datetime.now(STOCK_TIMEZONE).strftime('%d/%m/%Y %H:%M')
+                if clear_slot == 'billing':
+                    baseline = None
+                elif clear_slot in slots:
+                    slots.pop(clear_slot)
                 if 'billing' in incoming:
-                    parsed = parse_billing(io.BytesIO(incoming['billing'].read()), month,
+                    upload = incoming['billing'][-1]
+                    parsed = parse_billing(io.BytesIO(upload.read()), month,
                                            classify, canonical_salesman, canonical_depo)
-                    baseline = dict(parsed=parsed, filename=secure_filename(incoming['billing'].filename),
-                                    uploaded_at=datetime.now(STOCK_TIMEZONE).strftime('%d/%m/%Y %H:%M'))
+                    baseline = dict(parsed=parsed, filename=secure_filename(upload.filename), uploaded_at=stamp)
                 for slot in CLOSING_SLOTS:
-                    if slot in incoming:
-                        parsed = parse_so(io.BytesIO(incoming[slot].read()), slot, month, canonical_salesman)
-                        slots[slot] = dict(parsed=parsed, filename=secure_filename(incoming[slot].filename),
-                                           uploaded_at=datetime.now(STOCK_TIMEZONE).strftime('%d/%m/%Y %H:%M'))
+                    if slot not in incoming:
+                        continue
+                    files = list(slots.get(slot, {}).get('files', []))
+                    for upload in incoming[slot]:
+                        content = upload.read()
+                        digest = hashlib.sha1(content).hexdigest()
+                        parsed = parse_so(io.BytesIO(content), slot, month, canonical_salesman)
+                        files = [f for f in files if f['digest'] != digest]
+                        files.append(dict(digest=digest, filename=secure_filename(upload.filename),
+                                          uploaded_at=stamp, parsed=parsed))
+                    rows = [row for f in files for row in f['parsed']['rows']]
+                    merged = dict(rows=rows, row_count=len(rows),
+                                  so_count=len({row['so'] for row in rows}))
+                    slots[slot] = dict(files=files, parsed=merged, uploaded_at=stamp,
+                                       filename=', '.join(f['filename'] for f in files))
                 result = None
                 if baseline and slots:
                     start, end = month_range(month)
@@ -2412,7 +2433,9 @@ def closing():
                             tuple(name.lower() for name in ('Zefanya Septania Simorangkir',
                                                              'Rafhyski Alhasan', 'Ikmah Novtianingrum')))
                     ).with_entities(Billing.billing_date, Billing.salesman, Billing.sold_to_code,
-                                    Billing.article, Billing.item_group, Billing.nett_amount).all()
+                                    Billing.sold_to_name, Billing.article, Billing.item_group,
+                                    Billing.quantity, Billing.nett_amount,
+                                    Billing.nett_amount_with_tax).all()
                     result = calculate(baseline['parsed'], {k: v['parsed'] for k, v in slots.items()},
                                        targets, billing_rows, classify, canonical_salesman, canonical_depo)
                 with _closing_cache_lock:

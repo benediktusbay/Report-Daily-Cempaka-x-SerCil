@@ -57,7 +57,23 @@ SO_COLUMNS = {
     'salesman': ('Salesman Name',), 'qty': ('Quantity', 'Qty'),
     'sales': ('TTL Sales Price',), 'discount': ('TTL Discount',),
     'date': ('Order Date',), 'site': ('Plant', 'Site Code'),
+    'amount': ('Amount',), 'ppn': ('PPN',),
 }
+PPN_RATE = Decimal('1.11')
+SALESMAN_ORDER = ('Rafhyski Alhasan', 'Zefanya Septania Simorangkir', 'Ikmah Novtianingrum')
+DEPOT_GROUP = {'Cempaka': 'Cempaka', 'Serang': 'Sercil', 'Cilegon': 'Sercil'}
+GROUP_LABEL = (('Cempaka', 'Cempaka'), ('Sercil', 'Serang & Cilegon'), ('Lainnya', 'Depo belum diketahui'))
+
+
+def model_name(description):
+    """Nama model ringkas untuk tampilan: 'iPhone 18 Pro Max', 'iPad 11 (A16)'."""
+    text = re.sub(r'\s+', ' ', clean(description))
+    m = re.match(r'(?i)^(iphone\s+\S+(?:\s+(?:pro|max|plus|mini))*)', text)
+    if m:
+        return re.sub(r'(?i)^iphone', 'iPhone', m.group(1))
+    m = re.match(r'(?i)^(.*?)(?=[\s/]+(?:wi-?fi|cell(?:ular)?|\d+\s?(?:gb|tb))\b)', text)
+    result = (m.group(1) if m and m.group(1) else text).strip()
+    return result[:48] or 'Produk'
 
 def clean(value):
     if value is None:
@@ -266,7 +282,15 @@ def parse_so(stream, slot, month, canonical_salesman):
         discount = money(row['discount'], f'SO/DO {label} baris {line} TTL Discount', True)
         bp = normalize_id(row['bp'])
         article = normalize_id(row['article_code'])
-        records.append(dict(so=so, so_display=clean(row['so']), do=normalize_so(row['do']),
+        nett = sales + discount
+        if clean(row.get('amount')):
+            with_tax = money(row['amount'], f'SO/DO {label} baris {line} Amount', True)
+        elif clean(row.get('ppn')):
+            with_tax = nett + money(row['ppn'], f'SO/DO {label} baris {line} PPN', True)
+        else:
+            with_tax = (nett * PPN_RATE).quantize(Decimal(1))
+        records.append(dict(nett_ppn=with_tax, order_date=day.isoformat() if day else '',
+                            so=so, so_display=clean(row['so']), do=normalize_so(row['do']),
                             item=normalize_id(row['item']), article=article,
                             description=clean(row['description']), bp=bp,
                             dealer=clean(row['dealer']), salesman=owner, qty=clean(row['qty']),
@@ -337,6 +361,43 @@ def calculate(baseline, slots, targets, billing_rows, classify, canonical_salesm
         return depot, source, cross
     actual = defaultdict(Decimal)
     baseline_actual = defaultdict(Decimal)
+    # Per salesman × depo × kategori (non-PPN dan PPN) + detail dealer per model.
+    s_target = defaultdict(Decimal)
+    s_actual, s_actual_ppn = defaultdict(Decimal), defaultdict(Decimal)
+    s_pending, s_pending_ppn = defaultdict(Decimal), defaultdict(Decimal)
+    s_nodo, s_nodo_ppn = defaultdict(Decimal), defaultdict(Decimal)
+    dealers = {}
+
+    def dealer_entry(bp, salesman, depot, supplied=''):
+        entry = dealers.get(bp)
+        if entry is None:
+            entry = dealers[bp] = dict(bp=bp, dealer=dealer_name(bp, supplied), salesman=salesman,
+                                       depot=depot, billing={}, do={}, no_do={}, owner=None, no_do_owner=None)
+        return entry
+
+    def add_model(bucket, cat, desc, qty, nett, with_tax, day='', so=''):
+        name = model_name(desc)
+        item = bucket.setdefault(f'{cat}|{name}', dict(category=cat, model=name, qty=0.0, nett=0.0,
+                                                       ppn=0.0, dates=[], so=[]))
+        try:
+            item['qty'] += float(qty or 0)
+        except (TypeError, ValueError):
+            pass
+        item['nett'] += float(nett)
+        item['ppn'] += float(with_tax)
+        if day and day not in item['dates']:
+            item['dates'].append(day)
+        if so and so not in item['so']:
+            item['so'].append(so)
+
+    for t in targets:
+        salesman = canonical_salesman(t.salesman)
+        if salesman not in TSH or not normalize_id(t.bp):
+            continue
+        depot = target_depot(t, canonical_depo)
+        depot = depot if depot in DEPOTS else 'Unassigned'
+        for cat, field in (('Device', 'device_target'), ('Macbook', 'macbook_target'), ('ACC', 'acc_target')):
+            s_target[(salesman, depot, cat)] += money(getattr(t, field) or 0, 'Target', True)
     dashboard_date = None
     for row in billing_rows:
         day = row.billing_date
@@ -350,7 +411,15 @@ def calculate(baseline, slots, targets, billing_rows, classify, canonical_salesm
             continue
         bp = normalize_id(row.sold_to_code)
         depot, _, _ = home(bp)
-        actual[(depot, cat)] += money(row.nett_amount or 0, 'Actual Dashboard', True)
+        value = money(row.nett_amount or 0, 'Actual Dashboard', True)
+        actual[(depot, cat)] += value
+        with_tax = money(getattr(row, 'nett_amount_with_tax', None) or 0, 'Actual Dashboard PPN', True) \
+            or (value * PPN_RATE).quantize(Decimal(1))
+        key = (salesman, depot, cat)
+        s_actual[key] += value
+        s_actual_ppn[key] += with_tax
+        entry = dealer_entry(bp, salesman, depot, getattr(row, 'sold_to_name', ''))
+        add_model(entry['billing'], cat, row.article, getattr(row, 'quantity', 0) or 0, value, with_tax)
     for row in baseline['actual_rows']:
         depot, source, cross = home(row['bp'], row['site'], supplied_dealer=row['dealer'])
         baseline_actual[(depot, row['category'])] += row['value']
@@ -404,19 +473,34 @@ def calculate(baseline, slots, targets, billing_rows, classify, canonical_salesm
                    dealer=row['dealer'], bp=row['bp'], so=row['so_display'], normalized_so=row['so'],
                    do=row['do'] or '-', article=row['article'], description=row['description'],
                    category=row['category'] or 'Unmapped', qty=row['qty'],
-                   nett=float(row['nett']), status=row['status'], flags=', '.join(row['flags']))
+                   nett=float(row['nett']), nett_ppn=float(row['nett_ppn']),
+                   order_date=row['order_date'], status=row['status'], flags=', '.join(row['flags']))
+        key = (row['salesman'], row['depot'], row['category'])
         if row['billed']:
             detail['billed'].append(out)
             excluded_amount += row['nett']
         elif not row['do']:
             detail['no_do'].append(out)
             no_do_amount += row['nett']
+            if row['category']:
+                s_nodo[key] += row['nett']
+                s_nodo_ppn[key] += row['nett_ppn']
+                entry = dealer_entry(row['bp'], row['salesman'], row['depot'], row['dealer'])
+                entry['no_do_owner'] = entry['no_do_owner'] or (row['salesman'], row['depot'])
+                add_model(entry['no_do'], row['category'], row['description'], row['qty'],
+                          row['nett'], row['nett_ppn'], row['order_date'], row['so_display'])
         elif row['product'] == 'Unmapped' or not row['category']:
             detail['unmapped'].append(out)
             unmapped_amount += row['nett']
         else:
             detail['pending'].append(out)
             pending_amount[(row['depot'], row['category'])] += row['nett']
+            s_pending[key] += row['nett']
+            s_pending_ppn[key] += row['nett_ppn']
+            entry = dealer_entry(row['bp'], row['salesman'], row['depot'], row['dealer'])
+            entry['owner'] = entry['owner'] or (row['salesman'], row['depot'])
+            add_model(entry['do'], row['category'], row['description'], row['qty'],
+                      row['nett'], row['nett_ppn'], row['order_date'], row['so_display'])
     summary = {}
     for depot in ('ALL', *DEPOTS):
         summary[depot] = {}
@@ -430,6 +514,21 @@ def calculate(baseline, slots, targets, billing_rows, classify, canonical_salesm
             summary[depot][category] = dict(actual=float(a), pending=float(p), estimated=float(e),
                                              target=float(t), pct=float(e/t*100) if t else 0,
                                              gap=float(e-t))
+    salesman_view = build_salesman_view(s_target, s_actual, s_actual_ppn, s_pending, s_pending_ppn,
+                                        s_nodo, s_nodo_ppn)
+    dealer_list = []
+    for entry in dealers.values():
+        if not (entry['do'] or entry['no_do']):
+            continue  # detail dealer hanya untuk dealer yang punya SO/DO belum billing
+        out = dict(entry)
+        for bucket in ('billing', 'do', 'no_do'):
+            out[bucket] = sorted(entry[bucket].values(),
+                                 key=lambda m: (CATEGORIES.index(m['category']) if m['category'] in CATEGORIES else 9,
+                                                -m['nett']))
+        owner = entry['owner'] or entry['no_do_owner'] or (entry['salesman'], entry['depot'])
+        out['owner'] = f'{owner[0]}|{owner[1]}'
+        out['no_do_owner'] = f'{entry["no_do_owner"][0]}|{entry["no_do_owner"][1]}' if entry['no_do_owner'] else ''
+        dealer_list.append(out)
     dashboard_total = sum(actual.values(), Decimal(0))
     baseline_total = sum(baseline_actual.values(), Decimal(0))
     difference = dashboard_total - baseline_total
@@ -469,4 +568,54 @@ def calculate(baseline, slots, targets, billing_rows, classify, canonical_salesm
                  warning_items=warning_items,
                  reconciliation=reconciliation,
                  target_reference_differences=target_reference_differences)
-    return dict(summary=summary, detail=detail, audit=audit)
+    return dict(summary=summary, detail=detail, audit=audit, salesman_view=salesman_view, dealers=dealer_list)
+
+
+def build_salesman_view(s_target, s_actual, s_actual_ppn, s_pending, s_pending_ppn, s_nodo, s_nodo_ppn):
+    """Baris per salesman × depo, subtotal per kelompok depo, dan Total Area untuk tiap kategori."""
+    combos = {(k[0], k[1]) for source in (s_target, s_actual, s_pending, s_nodo) for k, v in source.items() if v}
+
+    def group_of(depot):
+        return DEPOT_GROUP.get(depot, 'Lainnya')
+
+    def metrics(include):
+        values = {}
+        for category in (*CATEGORIES, 'TOTAL'):
+            cats = CATEGORIES if category == 'TOTAL' else (category,)
+            keys = [(s, d, c) for (s, d) in combos if include(s, d) for c in cats]
+            total = {name: sum((src[k] for k in keys), Decimal(0)) for name, src in (
+                ('target', s_target), ('actual', s_actual), ('actual_ppn', s_actual_ppn),
+                ('pending', s_pending), ('pending_ppn', s_pending_ppn),
+                ('no_do', s_nodo), ('no_do_ppn', s_nodo_ppn))}
+            estimated = total['actual'] + total['pending']
+            target = total['target']
+            values[category] = {**{k: float(v) for k, v in total.items()},
+                                'estimated': float(estimated),
+                                'estimated_ppn': float(total['actual_ppn'] + total['pending_ppn']),
+                                'actual_pct': float(total['actual'] / target * 100) if target else None,
+                                'pct': float(estimated / target * 100) if target else None,
+                                'gap': float(estimated - target)}
+        return values
+
+    def order(combo):
+        salesman, depot = combo
+        rank = SALESMAN_ORDER.index(salesman) if salesman in SALESMAN_ORDER else 9
+        return (rank, DEPOTS.index(depot) if depot in DEPOTS else 9)
+
+    rows, cards = [], []
+    for group, label in GROUP_LABEL:
+        members = sorted((c for c in combos if group_of(c[1]) == group), key=order)
+        if not members:
+            continue
+        for salesman, depot in members:
+            rows.append(dict(kind='salesman', key=f'{salesman}|{depot}', salesman=salesman,
+                             short=salesman.split()[0], depot=depot, group=group,
+                             values=metrics(lambda s, d, a=salesman, b=depot: (s, d) == (a, b))))
+        group_values = metrics(lambda s, d, g=group: group_of(d) == g)
+        if len(members) > 1:
+            rows.append(dict(kind='group', key=group, label=f'Total {label}', group=group, values=group_values))
+        cards.append(dict(key=group, label=label, values=group_values))
+    total_values = metrics(lambda s, d: True)
+    rows.append(dict(kind='total', key='ALL', label='Total Area', group='ALL', values=total_values))
+    cards.insert(0, dict(key='ALL', label='Total Area', values=total_values))
+    return dict(rows=rows, cards=cards)

@@ -1,61 +1,285 @@
 {% extends "base.html" %}
 {% block title %}Closing Achievement · Daily Monitoring{% endblock %}
 {% block head %}<style>
-.closing-hero{margin-bottom:18px}.closing-hero h1{margin:0 0 5px;font-size:28px}.closing-hero p{margin:0;color:#64748b}
-.closing-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 3px 14px rgba(15,23,42,.05);padding:18px;margin-bottom:18px}
-.closing-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.closing-field label{display:block;font-size:12px;font-weight:800;color:#52647e;margin-bottom:6px}.closing-field input{box-sizing:border-box;width:100%;border:1px solid #d1d5db;border-radius:9px;padding:9px;background:#fff;font:inherit;font-size:13px}.closing-slot{border:1px solid #e2e8f0;border-radius:10px;padding:12px}.closing-slot small{display:block;margin-top:6px;color:#64748b;line-height:1.4}.closing-loaded{color:#15803d;font-weight:800}.closing-missing{color:#b45309;font-weight:800}.closing-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px}.closing-actions button{border:0;border-radius:9px;background:#0b2545;color:#fff;padding:11px 16px;font-weight:800;cursor:pointer}.closing-actions span{font-size:12px;color:#64748b}.closing-error,.closing-warning{padding:12px 14px;border-radius:10px;margin-bottom:18px}.closing-error{background:#fff1f2;border:1px solid #fecdd3;color:#9f1239}.closing-warning{background:#fffbeb;border:1px solid #fde68a;color:#92400e}
-.closing-filter{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px}.closing-filter button{border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#334155;padding:8px 13px;font-weight:800;cursor:pointer}.closing-filter button.active{background:#1769e8;border-color:#1769e8;color:#fff}.closing-table-wrap{overflow-x:auto}.closing-table{width:100%;min-width:850px;border-collapse:collapse}.closing-table th,.closing-table td{padding:13px 12px;border-bottom:1px solid #e5e7eb;text-align:left;white-space:nowrap;font-size:13px}.closing-table th{text-align:center}.closing-table th{background:#f8fafc;color:#52647e;font-size:11px;text-transform:uppercase}.closing-table tr:last-child{font-weight:900;background:#f8fbff}.closing-estimated{font-size:15px;color:#1769e8;font-weight:900}.closing-pending{border:0;background:none;color:#1769e8;text-decoration:underline;text-underline-offset:3px;font:inherit;font-weight:800;cursor:pointer;padding:0}.closing-source{font-size:12px;color:#64748b;margin:-7px 0 18px}
-.closing-audit summary{cursor:pointer;font-weight:900;color:#0b2545}.closing-audit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}.closing-audit-grid div{border:1px solid #e2e8f0;border-radius:9px;padding:11px;font-size:12px}.closing-audit-grid strong{display:block;margin-top:5px;font-size:15px}.closing-audit ul{margin:10px 0 0;padding-left:19px;font-size:13px}.closing-audit li{margin:5px 0}.closing-audit-example{color:#64748b;font-size:11px}.closing-audit-button{border:1px solid #cbd5e1;border-radius:8px;background:#fff;padding:7px 10px;font-weight:800;cursor:pointer}
-.closing-modal{position:fixed;inset:0;background:rgba(11,37,69,.56);display:none;place-items:center;z-index:100;padding:16px}.closing-modal.open{display:grid}.closing-dialog{background:#fff;border-radius:16px;width:min(1250px,100%);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 55px rgba(0,0,0,.25)}.closing-modal-head{padding:18px 20px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;gap:12px}.closing-modal-head h2{margin:0;font-size:20px}.closing-modal-head p{margin:4px 0 0;color:#64748b;font-size:13px}.closing-close{border:0;background:#f1f5f9;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:20px}.closing-tabs{display:flex;gap:7px;flex-wrap:wrap;padding:12px 20px}.closing-tabs button{border:1px solid #cbd5e1;border-radius:8px;background:#fff;padding:7px 10px;cursor:pointer;font-weight:800}.closing-tabs button.active{background:#1769e8;color:#fff;border-color:#1769e8}.closing-stats{display:flex;flex-wrap:wrap;gap:18px;padding:0 20px 14px;border-bottom:1px solid #e5e7eb;font-size:13px}.closing-modal-scroll{overflow:auto}.closing-detail{border-collapse:collapse;width:100%;min-width:1450px}.closing-detail th,.closing-detail td{padding:9px 10px;border-bottom:1px solid #e5e7eb;text-align:left;font-size:12px;white-space:nowrap}.closing-detail th{position:sticky;top:0;background:#f8fafc;color:#52647e;text-align:center}.closing-empty{padding:24px;color:#64748b}
-@media(max-width:900px){.closing-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.closing-grid,.closing-audit-grid{grid-template-columns:1fr}.closing-hero h1{font-size:24px}.closing-card{padding:14px}}
+.cl{--ink:#0b2545;--muted:#64748b;--line:#e5e7eb;--soft:#f8fafc;--blue:#1769e8;--good:#15803d;--good-bg:#dcfce7;--bad:#b91c1c;--bad-bg:#fee2e2;--warn:#92400e;--warn-bg:#fffbeb;color:#1e293b}
+.cl h1{margin:0 0 4px;font-size:26px;color:var(--ink)}.cl-sub{margin:0 0 16px;color:var(--muted);font-size:14px}
+.cl-card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 3px 14px rgba(15,23,42,.05);padding:16px;margin-bottom:16px}
+.cl-h2{margin:0 0 4px;font-size:17px;color:var(--ink)}.cl-note{margin:0 0 12px;color:var(--muted);font-size:12.5px;line-height:1.45}
+/* Status & upload */
+.cl-status{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;font-size:13px}.cl-status b{color:var(--ink)}
+.cl-chip{display:inline-flex;align-items:center;gap:5px;border:1px solid #cbd5e1;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700;background:#fff}
+.cl-chip.ok{border-color:#86efac;background:#f0fdf4;color:var(--good)}.cl-chip.no{border-color:#fde68a;background:var(--warn-bg);color:var(--warn)}
+.cl-upload>summary{cursor:pointer;list-style:none;display:inline-flex;margin-left:auto;border:0;border-radius:9px;background:var(--ink);color:#fff;padding:8px 14px;font-weight:800;font-size:13px}
+.cl-upload>summary::-webkit-details-marker{display:none}.cl-upload[open]>summary{background:#334155}
+.cl-upload-body{margin-top:14px;border-top:1px solid var(--line);padding-top:14px}
+.cl-slots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.cl-slot{border:1px solid #e2e8f0;border-radius:10px;padding:12px;font-size:13px}.cl-slot label{display:block;font-weight:800;color:#334155;margin-bottom:6px}
+.cl-slot input[type=file],.cl-slot input[type=month]{box-sizing:border-box;width:100%;border:1px solid #d1d5db;border-radius:8px;padding:7px;background:#fff;font:inherit;font-size:12.5px}
+.cl-files{margin:8px 0 0;padding:0;list-style:none;font-size:12px;color:var(--muted)}.cl-files li{margin:3px 0;word-break:break-all}.cl-files li b{color:var(--good)}
+.cl-clear{margin-top:8px;border:1px solid #fecaca;background:#fff;color:var(--bad);border-radius:7px;padding:4px 9px;font-size:12px;font-weight:700;cursor:pointer}
+.cl-actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:14px}.cl-actions button{border:0;border-radius:9px;background:var(--blue);color:#fff;padding:10px 16px;font-weight:800;cursor:pointer}.cl-actions span{font-size:12px;color:var(--muted)}
+.cl-alert{padding:12px 14px;border-radius:10px;margin-bottom:16px;font-size:13.5px}.cl-alert.err{background:#fff1f2;border:1px solid #fecdd3;color:#9f1239}.cl-alert.warn{background:var(--warn-bg);border:1px solid #fde68a;color:var(--warn)}
+/* Tabs */
+.cl-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}.cl-tabs button{border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#334155;padding:8px 14px;font-weight:800;cursor:pointer;font-size:13px}.cl-tabs button.active{background:var(--ink);border-color:var(--ink);color:#fff}
+/* KPI cards */
+.cl-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.cl-kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:0 3px 14px rgba(15,23,42,.05)}
+.cl-kpi.main{background:var(--ink);color:#fff;border-color:var(--ink)}.cl-kpi.main .cl-kpi-lbl,.cl-kpi.main .cl-kpi-foot{color:#cbd5e1}
+.cl-kpi-lbl{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.cl-kpi-pct{font-size:32px;font-weight:900;margin:4px 0 0;line-height:1.1}.cl-kpi-val{font-size:13px;margin-top:2px}
+.cl-badge{display:inline-block;margin-top:8px;border-radius:999px;padding:3px 10px;font-size:12.5px;font-weight:800}.cl-badge.up{background:var(--good-bg);color:var(--good)}.cl-badge.down{background:var(--bad-bg);color:var(--bad)}
+.cl-kpi-foot{margin-top:8px;font-size:12px;color:var(--muted);line-height:1.5}
+.cl-bar{height:6px;border-radius:999px;background:#e2e8f0;margin-top:10px;overflow:hidden}.cl-kpi.main .cl-bar{background:rgba(255,255,255,.2)}.cl-bar i{display:block;height:100%;border-radius:999px;background:var(--blue)}.cl-bar i.full{background:#22c55e}
+/* Tables */
+.cl-wrap{overflow-x:auto}.cl-table{width:100%;border-collapse:collapse;font-size:13px}
+.cl-table th{background:var(--soft);color:#52647e;font-size:11px;text-transform:uppercase;letter-spacing:.03em;padding:10px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+.cl-table th:first-child,.cl-table td:first-child{text-align:left}
+.cl-table td{padding:11px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;vertical-align:top}
+.cl-table td.wrap{white-space:normal;text-align:left;min-width:200px}
+.cl-table tr.grp td{background:#f1f5f9;font-weight:800}.cl-table tr.tot td{background:var(--ink);color:#fff;font-weight:900;border-bottom:0}
+.cl-table tr.click{cursor:pointer}.cl-table tr.click:hover td{background:#f8fbff}
+.cl-table tfoot td{font-weight:900;background:var(--soft)}
+.cl-name{font-weight:800;color:var(--ink)}.cl-depo{display:inline-block;margin-left:6px;font-size:11px;font-weight:700;color:var(--muted);background:#f1f5f9;border-radius:6px;padding:1px 6px}
+.cl-est{font-weight:900;color:var(--blue)}.cl-table tr.tot .cl-est{color:#fff}
+.up{color:var(--good);font-weight:800}.down{color:var(--bad);font-weight:800}.cl-table tr.tot .up{color:#86efac}.cl-table tr.tot .down{color:#fca5a5}.cl-table tr.tot .cl-pct.up{color:#14532d}.cl-table tr.tot .cl-pct.down{color:#7f1d1d}
+.cl-pct{display:inline-block;min-width:58px;border-radius:7px;padding:2px 7px;font-weight:900}.cl-pct.up{background:var(--good-bg)}.cl-pct.down{background:var(--bad-bg)}
+.cl-dealer{border:0;background:none;padding:0;font:inherit;font-weight:800;color:var(--blue);cursor:pointer;text-align:left;text-decoration:underline;text-underline-offset:3px}
+.cl-dim{color:var(--muted);font-size:12px}
+/* Salesman sections */
+.cl-sec{border:1px solid var(--line);border-radius:12px;margin-bottom:10px;overflow:hidden}
+.cl-sec>summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:12px 14px;background:#fff}
+.cl-sec>summary::-webkit-details-marker{display:none}.cl-sec>summary::before{content:'▸';color:var(--muted);font-size:13px}.cl-sec[open]>summary::before{content:'▾'}
+.cl-sec[open]>summary{border-bottom:1px solid var(--line);background:var(--soft)}
+.cl-sec-meta{margin-left:auto;font-size:12.5px;color:var(--muted)}.cl-sec-meta b{color:var(--ink)}
+.cl-empty{padding:16px;color:var(--muted);font-size:13px}
+/* Audit */
+.cl-audit>summary{cursor:pointer;font-weight:900;color:var(--ink)}
+.cl-audit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}.cl-audit-grid div{border:1px solid #e2e8f0;border-radius:9px;padding:10px;font-size:12px}.cl-audit-grid strong{display:block;margin-top:4px;font-size:14px}
+.cl-audit ul{margin:10px 0 0;padding-left:19px;font-size:13px}.cl-audit li{margin:6px 0}.cl-btn{border:1px solid #cbd5e1;border-radius:8px;background:#fff;padding:7px 11px;font-weight:800;cursor:pointer;font-size:12.5px;margin:4px 6px 0 0}
+/* Modal */
+.cl-modal{position:fixed;inset:0;background:rgba(11,37,69,.56);display:none;place-items:center;z-index:100;padding:14px}.cl-modal.open{display:grid}
+.cl-dialog{background:#fff;border-radius:16px;width:min(980px,100%);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 55px rgba(0,0,0,.25)}.cl-dialog.wide{width:min(1200px,100%)}
+.cl-mhead{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px}.cl-mhead h2{margin:0;font-size:19px;color:var(--ink)}.cl-mhead p{margin:4px 0 0;color:var(--muted);font-size:13px}
+.cl-close{border:0;background:#f1f5f9;border-radius:8px;padding:4px 11px;cursor:pointer;font-size:20px;height:36px}
+.cl-mbody{overflow:auto;padding:14px 18px}
+.cl-boxes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}.cl-box{border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--muted)}.cl-box b{display:block;font-size:16px;color:var(--ink);margin-top:3px}.cl-box.hl{border-color:var(--blue);background:#eff6ff}.cl-box.hl b{color:var(--blue)}
+.cl-table tr.sub td{background:#f1f5f9;font-weight:800;color:#334155;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
+.cl-table tr.muted td{color:var(--muted)}
+.cl-mtabs{display:flex;gap:6px;flex-wrap:wrap;padding:10px 18px 0}.cl-mtabs button{border:1px solid #cbd5e1;border-radius:8px;background:#fff;padding:6px 10px;cursor:pointer;font-weight:800;font-size:12.5px}.cl-mtabs button.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+@media(max-width:900px){.cl-slots{grid-template-columns:repeat(2,minmax(0,1fr))}.cl-kpis{grid-template-columns:1fr 1fr}.cl-kpi.main{grid-column:1/-1}}
+@media(max-width:640px){
+ .cl h1{font-size:22px}.cl-card{padding:12px}.cl-slots,.cl-kpis,.cl-audit-grid,.cl-boxes{grid-template-columns:1fr}.cl-kpi-pct{font-size:28px}
+ .cl-stack thead{display:none}.cl-stack,.cl-stack tbody,.cl-stack tfoot,.cl-stack tr,.cl-stack td{display:block;width:100%;box-sizing:border-box}
+ .cl-stack tr{border-bottom:1px solid var(--line);padding:6px 0}.cl-stack td{border:0;padding:4px 10px;display:flex;justify-content:space-between;gap:12px;text-align:right;white-space:normal}
+ .cl-stack td::before{content:attr(data-label);color:var(--muted);font-size:12px;font-weight:700;text-align:left}
+ .cl-stack td:first-child{text-align:left;padding-top:8px}.cl-stack td:first-child::before{content:none}
+ .cl-stack td.wrap{min-width:0}.cl-stack tr.tot td::before{color:#cbd5e1}
+}
 </style>{% endblock %}
 {% block body %}
-<div class="closing-hero"><h1>Closing Achievement</h1><p>Estimasi akhir bulan untuk Zefanya, Rafhyski, dan Ikmah. Kepemilikan depo mengikuti depo asal dealer.</p></div>
-<form class="closing-card" method="post" enctype="multipart/form-data">
- <div class="closing-grid">
-  <div class="closing-field"><label for="closingMonth">Periode Closing</label><input id="closingMonth" name="month" type="month" value="{{ month }}" required></div>
-  <div class="closing-field closing-slot"><label for="closingBilling">Billing Baseline</label><input id="closingBilling" name="billing" type="file" accept=".xlsx"><small>{% if status.billing %}<span class="closing-loaded">Loaded</span> · {{ status.billing.filename }} · {{ status.billing.uploaded_at }}<br>{{ status.billing.parsed.rows }} baris · {{ status.billing.parsed.so_count }} SO{% else %}<span class="closing-missing">Belum Loaded</span>{% endif %}</small></div>
-  {% for slot, spec in slots.items() %}<div class="closing-field closing-slot"><label for="{{ slot }}">SO/DO {{ spec[0] }} — {{ spec[1] }}</label><input id="{{ slot }}" name="{{ slot }}" type="file" accept=".xlsx"><small>{% if status.get(slot) %}<span class="closing-loaded">Loaded</span> · {{ status[slot].filename }} · {{ status[slot].uploaded_at }}<br>{{ status[slot].parsed.row_count }} baris · {{ status[slot].parsed.so_count }} SO{% else %}<span class="closing-missing">Belum Loaded</span>{% endif %}</small></div>{% endfor %}
+<div class="cl">
+<h1>Closing Achievement</h1>
+<p class="cl-sub">Estimasi akhir bulan Rafhyski, Zefanya, dan Ikmah = Billing dashboard + SO yang sudah ada DO tapi belum billing. Depo ikut dealer, dari plant mana pun order-nya.</p>
+
+{# ---------- Status + upload ---------- #}
+<div class="cl-card">
+ <details class="cl-upload" id="uploadPanel" {% if not result or error %}open{% endif %}>
+  <summary>Upload / Ubah File</summary>
+  <form method="post" enctype="multipart/form-data" class="cl-upload-body">
+   <div class="cl-slots">
+    <div class="cl-slot"><label for="closingMonth">Periode</label><input id="closingMonth" name="month" type="month" value="{{ month }}" required></div>
+    <div class="cl-slot"><label for="closingBilling">Billing Detail (untuk cek SO sudah billing)</label>
+     <input id="closingBilling" name="billing" type="file" accept=".xlsx">
+     {% if status.billing %}<ul class="cl-files"><li><b>✓</b> {{ status.billing.filename }} · {{ status.billing.parsed.rows|number_id }} baris · {{ status.billing.uploaded_at }}</li></ul>
+     <button class="cl-clear" type="submit" name="clear_slot" value="billing" formnovalidate>Kosongkan</button>{% endif %}
+    </div>
+    {% for slot, spec in slots.items() %}<div class="cl-slot"><label for="{{ slot }}">SO/DO {{ spec[0] }} · {{ spec[1] }}</label>
+     <input id="{{ slot }}" name="{{ slot }}" type="file" accept=".xlsx" multiple>
+     {% set info = status.get(slot) %}{% if info %}<ul class="cl-files">
+      {% for f in info.get('files') or [info] %}<li><b>✓</b> {{ f.filename }} · {{ f.parsed.row_count|number_id }} baris · {{ f.uploaded_at }}</li>{% endfor %}
+     </ul><button class="cl-clear" type="submit" name="clear_slot" value="{{ slot }}" formnovalidate>Kosongkan slot</button>{% endif %}
+    </div>{% endfor %}
+   </div>
+   <div class="cl-actions"><button type="submit">Proses &amp; Hitung</button>
+    <span>File baru ditambahkan ke slot (boleh lebih dari satu, mis. SO/DO 30 Okt + DO 31 Okt). Baris yang sama hanya dihitung sekali. Data hilang jika server restart.</span></div>
+  </form>
+ </details>
+ <div class="cl-status" style="margin-top:10px">
+  <span>Periode <b>{{ month }}</b></span>
+  {% if result %}<span>Billing dashboard s/d <b id="dashDate">{{ result.audit.dashboard_date }}</b></span>{% endif %}
+  <span class="cl-chip {{ 'ok' if status.billing else 'no' }}">Billing Detail {{ '✓' if status.billing else 'belum' }}</span>
+  {% for slot, spec in slots.items() %}{% set info = status.get(slot) %}<span class="cl-chip {{ 'ok' if info else '' }}">{{ spec[0] }}{% if info %} · {{ (info.get('files') or [info])|length }} file{% endif %}</span>{% endfor %}
  </div>
- <div class="closing-actions"><button type="submit">Proses Upload / Hitung Closing</button><span>Upload ulang satu slot akan mengganti slot tersebut. Data sementara dapat hilang saat server restart.</span></div>
-</form>
-{% if error %}<div class="closing-error" role="alert">{{ error }}</div>{% endif %}
-{% if not result %}<div class="closing-warning">Belum loaded untuk perhitungan. Upload Billing Baseline dan minimal satu file SO/DO. Jika server restart, silakan upload ulang.</div>{% else %}
-{% if result.audit.dashboard_date != result.audit.baseline_date %}<div class="closing-error">Tanggal Billing Baseline berbeda dari Dashboard. Dashboard sampai {{ result.audit.dashboard_date }}, Billing Baseline sampai {{ result.audit.baseline_date }}. Lihat Pemeriksaan Data.</div>{% endif %}
-<div class="closing-filter" aria-label="Filter depo">{% for depot in ['ALL','Cempaka','Serang','Cilegon'] %}<button type="button" data-depot="{{ depot }}" class="{% if loop.first %}active{% endif %}">{{ depot }}</button>{% endfor %}{% if result.summary.Unassigned.TOTAL.actual or result.summary.Unassigned.TOTAL.pending or result.summary.Unassigned.TOTAL.target %}<button type="button" data-depot="Unassigned">Depo belum diketahui</button>{% endif %}</div>
-<div class="closing-card closing-table-wrap"><table class="closing-table"><thead><tr><th>Category</th><th>Actual</th><th>Pending</th><th>Estimated</th><th>Target</th><th>Achievement %</th><th>Gap</th></tr></thead><tbody>{% for cat,label in [('Device','Device'),('Macbook','MacBook'),('ACC','Accessories'),('TOTAL','TOTAL')] %}<tr data-category="{{ cat }}"><td>{{ label }}</td><td data-field="actual"></td><td><button type="button" class="closing-pending" data-pending="{{ cat }}" aria-label="Lihat Pending {{ label }}"></button></td><td class="closing-estimated" data-field="estimated"></td><td data-field="target"></td><td data-field="pct"></td><td data-field="gap"></td></tr>{% endfor %}</tbody></table></div>
-<p class="closing-source">Sumber Actual: {{ result.audit.source }}. Filter depo mengikuti depo asal dealer. SO tanpa No DO tidak masuk Pending maupun Estimated.</p>
-<details class="closing-card closing-audit"><summary>Pemeriksaan Data</summary>
-<p>Bagian ini membantu memeriksa apakah data yang dipakai Closing sudah sesuai. Angka yang belum memenuhi syarat tidak dimasukkan ke Pending.</p>
-<div class="closing-audit-grid">
- <div>Data Dashboard sampai<strong>{{ result.audit.dashboard_date }}</strong></div>
- <div>Billing Baseline sampai<strong>{{ result.audit.baseline_date }}</strong></div>
- <div>Perbandingan Actual<strong>{% if result.audit.difference == 0 %}Cocok{% else %}Selisih {{ result.audit.difference|rupiah }}{% endif %}</strong></div>
- <div>SO sudah Billing — tidak dihitung ulang<strong>{{ result.audit.excluded|rupiah }}</strong></div>
- <div>SO tanpa DO — belum dihitung<strong>{{ result.audit.no_do_so }} SO · {{ result.audit.no_do|rupiah }}</strong></div>
- <div>Produk belum dikenali — belum dihitung<strong>{{ result.audit.unmapped|rupiah }}</strong></div>
 </div>
-{% if result.audit.warning_items %}<ul>{% for item in result.audit.warning_items %}<li><strong>{{ item.title }}: {{ item.count }} {{ item.unit }}</strong><div>{{ item.explanation }}</div>{% if item.dealers %}<div class="closing-audit-example">Contoh dealer: {{ item.dealers|join('; ') }}</div>{% endif %}</li>{% endfor %}</ul>{% else %}<p>Tidak ada hal yang perlu diperiksa.</p>{% endif %}
-{% if result.audit.reconciliation %}<p><strong>Selisih Actual menurut depo dan kategori</strong></p><div class="closing-table-wrap"><table class="closing-table"><thead><tr><th>Depo</th><th>Kategori</th><th>Dashboard − Billing Baseline</th></tr></thead><tbody>{% for row in result.audit.reconciliation %}<tr><td>{{ row.depot }}</td><td>{{ row.category }}</td><td>{{ row.difference|rupiah }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
-{% if result.audit.target_reference_differences %}<p><strong>Target Master dibanding acuan September 2026</strong> (acuan hanya untuk pemeriksaan, tidak dipakai menghitung Closing):</p><div class="closing-table-wrap"><table class="closing-table"><thead><tr><th>Depo</th><th>Kategori</th><th>Target Master</th><th>Acuan</th><th>Selisih</th></tr></thead><tbody>{% for row in result.audit.target_reference_differences %}<tr><td>{{ row.depot }}</td><td>{{ row.category }}</td><td>{{ row.actual|rupiah }}</td><td>{{ row.expected|rupiah }}</td><td>{{ row.difference|rupiah }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
-{% if result.detail.unmapped %}<button type="button" class="closing-audit-button" id="showUnmapped">Lihat produk yang belum dikenali</button>{% endif %}
+
+{% if error %}<div class="cl-alert err" role="alert">{{ error }}</div>{% endif %}
+{% if not result %}<div class="cl-alert warn">Belum ada hasil. Upload Billing Detail dan minimal satu file SO/DO, lalu klik <b>Proses &amp; Hitung</b>.</div>{% else %}
+{% if result.audit.dashboard_date != result.audit.baseline_date %}<div class="cl-alert err">Tanggal tidak sama: dashboard s/d {{ result.audit.dashboard_date }}, Billing Detail yang diupload s/d {{ result.audit.baseline_date }}. SO yang sudah billing bisa terhitung dua kali — upload Billing Detail terbaru.</div>{% endif %}
+
+<div class="cl-tabs" role="tablist" aria-label="Kategori">
+ {% for cat,label in [('Device','Device'),('Macbook','MacBook'),('ACC','Accessories'),('TOTAL','Total')] %}<button type="button" data-cat="{{ cat }}" class="{{ 'active' if cat=='Device' }}">{{ label }}</button>{% endfor %}
+</div>
+
+<div class="cl-kpis" id="kpis"></div>
+
+<div class="cl-card">
+ <h2 class="cl-h2">Per Salesman</h2>
+ <p class="cl-note"><b>Est. Closing</b> = Billing s/d tanggal dashboard + DO belum billing. Nilai tanpa PPN, sama dengan dashboard. Klik baris salesman untuk melihat dealernya.</p>
+ <div class="cl-wrap"><table class="cl-table cl-stack" id="salesTable"><thead><tr><th>Salesman</th><th>Target</th><th>Billing</th><th>DO belum billing</th><th>Est. Closing</th><th>%</th><th>Selisih</th></tr></thead><tbody></tbody></table></div>
+</div>
+
+<div class="cl-card">
+ <h2 class="cl-h2">DO Belum Billing per Dealer</h2>
+ <p class="cl-note">SO yang sudah ada DO tapi belum masuk billing — inilah yang menambah Est. Closing. Klik nama dealer untuk rincian billing + DO.</p>
+ <div id="sections"></div>
+</div>
+
+<div class="cl-card">
+ <h2 class="cl-h2">SO Belum Ada DO <span class="cl-dim">(tidak dihitung)</span></h2>
+ <p class="cl-note">Masih SO saja, belum ada DO. Tidak masuk Est. Closing sampai DO-nya terbit — perlu follow up.</p>
+ <div id="noDo"></div>
+</div>
+
+<details class="cl-card cl-audit"><summary>Pemeriksaan Data</summary>
+ <div class="cl-audit-grid">
+  <div>Billing dashboard s/d<strong>{{ result.audit.dashboard_date }}</strong></div>
+  <div>Billing Detail upload s/d<strong>{{ result.audit.baseline_date }}</strong></div>
+  <div>Billing dashboard vs file<strong>{% if result.audit.difference == 0 %}Cocok{% else %}Selisih {{ result.audit.difference|rupiah }}{% endif %}</strong></div>
+  <div>SO sudah billing (tidak dihitung lagi)<strong>{{ result.audit.excluded|rupiah }}</strong></div>
+  <div>SO belum ada DO<strong>{{ result.audit.no_do_so }} SO · {{ result.audit.no_do|rupiah }}</strong></div>
+  <div>Produk belum dikenali<strong>{{ result.audit.unmapped|rupiah }}</strong></div>
+ </div>
+ {% if result.audit.warning_items %}<ul>{% for item in result.audit.warning_items %}<li><strong>{{ item.title }}: {{ item.count }} {{ item.unit }}</strong><div>{{ item.explanation }}</div>{% if item.dealers %}<div class="cl-dim">Contoh: {{ item.dealers|join('; ') }}</div>{% endif %}</li>{% endfor %}</ul>{% else %}<p>Tidak ada yang perlu diperiksa.</p>{% endif %}
+ {% if result.audit.reconciliation %}<p><strong>Selisih billing per depo dan kategori</strong></p><div class="cl-wrap"><table class="cl-table"><thead><tr><th>Depo</th><th>Kategori</th><th>Dashboard − File</th></tr></thead><tbody>{% for row in result.audit.reconciliation %}<tr><td>{{ row.depot }}</td><td style="text-align:left">{{ row.category }}</td><td>{{ row.difference|rupiah }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+ <p class="cl-dim">Lihat semua baris SO per status:</p>
+ <button type="button" class="cl-btn" data-rows="pending">DO belum billing</button><button type="button" class="cl-btn" data-rows="no_do">SO belum ada DO</button><button type="button" class="cl-btn" data-rows="billed">SO sudah billing</button>{% if result.detail.unmapped %}<button type="button" class="cl-btn" data-rows="unmapped">Produk belum dikenali</button>{% endif %}
 </details>
-<div id="closingModal" class="closing-modal" role="dialog" aria-modal="true" aria-labelledby="closingModalTitle"><div class="closing-dialog"><div class="closing-modal-head"><div><h2 id="closingModalTitle">Pending SO Detail</h2><p id="closingModalScope"></p></div><button type="button" class="closing-close" id="closingClose" aria-label="Tutup">×</button></div><div class="closing-tabs"><button type="button" data-tab="pending" class="active">Pending</button><button type="button" data-tab="billed">SO sudah Billing (di-exclude)</button><button type="button" data-tab="no_do">SO tanpa DO (belum dihitung)</button><button type="button" data-tab="unmapped">Unmapped</button></div><div class="closing-stats"><span>Total Value: <strong id="detailTotal"></strong></span><span>Jumlah SO: <strong id="detailSO"></strong></span><span>Jumlah SO tanpa DO: <strong id="detailNoDO"></strong></span></div><div class="closing-modal-scroll"><table class="closing-detail"><thead><tr><th>Depo</th><th>Sumber File</th><th>Salesman</th><th>Dealer</th><th>No SO</th><th>No DO</th><th>Article Code</th><th>Product Description</th><th>Category</th><th>Qty</th><th>Nett No Tax</th><th>Status</th><th>Flag</th></tr></thead><tbody id="detailRows"></tbody></table></div></div></div>
+
+{# Dealer detail #}
+<div id="dealerModal" class="cl-modal" role="dialog" aria-modal="true" aria-labelledby="dealerTitle"><div class="cl-dialog">
+ <div class="cl-mhead"><div><h2 id="dealerTitle"></h2><p id="dealerSub"></p></div><button type="button" class="cl-close" data-close aria-label="Tutup">×</button></div>
+ <div class="cl-mbody"><div class="cl-boxes" id="dealerBoxes"></div><div class="cl-wrap"><table class="cl-table cl-stack" id="dealerTable"><thead><tr><th>Produk</th><th>Tgl Order</th><th>Unit</th><th>Non-PPN</th><th>Dengan PPN</th></tr></thead><tbody></tbody></table></div></div>
+</div></div>
+
+{# Baris SO mentah (pemeriksaan) #}
+<div id="rowsModal" class="cl-modal" role="dialog" aria-modal="true" aria-labelledby="rowsTitle"><div class="cl-dialog wide">
+ <div class="cl-mhead"><div><h2 id="rowsTitle">Baris SO</h2><p id="rowsSub"></p></div><button type="button" class="cl-close" data-close aria-label="Tutup">×</button></div>
+ <div class="cl-mtabs">{% for tab,label in [('pending','DO belum billing'),('no_do','SO belum ada DO'),('billed','SO sudah billing'),('unmapped','Produk belum dikenali')] %}<button type="button" data-rtab="{{ tab }}">{{ label }}</button>{% endfor %}</div>
+ <div class="cl-mbody"><div class="cl-wrap"><table class="cl-table" id="rowsTable"><thead><tr><th>Depo</th><th>Salesman</th><th>Dealer</th><th>No SO</th><th>No DO</th><th>Produk</th><th>Qty</th><th>Non-PPN</th><th>Dengan PPN</th><th>Catatan</th></tr></thead><tbody></tbody></table></div></div>
+</div></div>
 {% endif %}
+</div>
 {% endblock %}
 {% block scripts %}{% if result %}<script>
-const closingData={{ result|tojson }};const labels={Device:'Device',Macbook:'MacBook',ACC:'Accessories',TOTAL:'TOTAL'};let activeDepot='ALL',activeCategory='TOTAL',activeTab='pending';
-const rp=n=>(Number(n)<0?'-':'')+'Rp '+Math.abs(Number(n)||0).toLocaleString('id-ID',{maximumFractionDigits:0});
-const plus=n=>'+'+rp(n);const signed=n=>(Number(n)<0?'-':'+')+rp(Math.abs(n));
-function renderSummary(){document.querySelectorAll('[data-category]').forEach(tr=>{const r=closingData.summary[activeDepot][tr.dataset.category];for(const f of ['actual','estimated','target'])tr.querySelector(`[data-field="${f}"]`).textContent=rp(r[f]);tr.querySelector('[data-pending]').textContent=plus(r.pending);tr.querySelector('[data-field="pct"]').textContent=Number(r.pct).toLocaleString('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';tr.querySelector('[data-field="gap"]').textContent=signed(r.gap)})}
-document.querySelectorAll('[data-depot]').forEach(b=>b.addEventListener('click',()=>{activeDepot=b.dataset.depot;document.querySelectorAll('[data-depot]').forEach(x=>x.classList.toggle('active',x===b));renderSummary()}));
-const modal=document.getElementById('closingModal');function closeModal(){modal.classList.remove('open');document.body.style.overflow=''}
-document.getElementById('closingClose').addEventListener('click',closeModal);modal.addEventListener('click',e=>{if(e.target===modal)closeModal()});document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
-function cell(tr,value){const td=document.createElement('td');td.textContent=value??'';tr.appendChild(td)}
-function renderDetail(){document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===activeTab));const rows=closingData.detail[activeTab].filter(r=>(activeDepot==='ALL'||r.depot===activeDepot)&&(activeCategory==='TOTAL'||r.category===activeCategory));document.getElementById('closingModalTitle').textContent=activeTab==='pending'?'Pending SO Detail':activeTab==='billed'?'SO sudah Billing (di-exclude)':activeTab==='no_do'?'SO tanpa DO (belum dihitung)':'Unmapped Article';document.getElementById('closingModalScope').textContent=`${labels[activeCategory]} • ${activeDepot}`;document.getElementById('detailTotal').textContent=rp(rows.reduce((s,r)=>s+Number(r.nett),0));document.getElementById('detailSO').textContent=new Set(rows.map(r=>r.normalized_so)).size.toLocaleString('id-ID');document.getElementById('detailNoDO').textContent=new Set(rows.filter(r=>r.do==='-').map(r=>r.normalized_so)).size.toLocaleString('id-ID');const body=document.getElementById('detailRows');body.replaceChildren();for(const r of rows){const tr=document.createElement('tr');for(const v of [r.depot,r.source_slot,r.salesman,r.dealer,r.so,r.do,r.article,r.description,labels[r.category]||r.category,r.qty,rp(r.nett),r.status,r.flags])cell(tr,v);body.appendChild(tr)}if(!rows.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=13;td.className='closing-empty';td.textContent='Tidak ada data untuk pilihan ini.';tr.appendChild(td);body.appendChild(tr)}}
-function showDetail(tab,category){activeTab=tab;activeCategory=category;renderDetail();modal.classList.add('open');document.body.style.overflow='hidden';document.getElementById('closingClose').focus()}
-document.querySelectorAll('[data-pending]').forEach(b=>b.addEventListener('click',()=>showDetail('pending',b.dataset.pending)));
-document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{activeTab=b.dataset.tab;renderDetail()}));
-const showUnmapped=document.getElementById('showUnmapped');if(showUnmapped)showUnmapped.addEventListener('click',()=>showDetail('unmapped','TOTAL'));
-renderSummary();
+(function(){
+const D={{ result|tojson }};
+const LABEL={Device:'Device',Macbook:'MacBook',ACC:'Accessories',TOTAL:'Total'};
+const MONTHS=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+let cat='Device';
+const num=v=>Number(v)||0;
+const rp=v=>(num(v)<0?'-':'')+'Rp '+Math.abs(num(v)).toLocaleString('id-ID',{maximumFractionDigits:0});
+const rpS=v=>{const n=Math.abs(num(v)),s=num(v)<0?'-':'';if(n>=1e9)return s+'Rp '+(n/1e9).toLocaleString('id-ID',{maximumFractionDigits:2})+' M';if(n>=1e6)return s+'Rp '+(n/1e6).toLocaleString('id-ID',{maximumFractionDigits:1})+' Jt';return s+rp(n)};
+const signed=v=>(num(v)>=0?'+':'-')+rp(Math.abs(num(v)));
+const pct=v=>v==null?'–':num(v).toLocaleString('id-ID',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
+const qty=v=>num(v).toLocaleString('id-ID',{maximumFractionDigits:0});
+const day=s=>{if(!s)return '–';const p=s.split('-');return p.length===3?(+p[2])+' '+MONTHS[+p[1]-1]:s};
+const days=list=>[...new Set(list||[])].sort().map(day).join(', ')||'–';
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const dashDate=day(D.audit.dashboard_date);
+const dd=document.getElementById('dashDate');if(dd&&D.audit.dashboard_date)dd.textContent=dashDate+' '+D.audit.dashboard_date.slice(0,4);
+const inCat=m=>cat==='TOTAL'||m.category===cat;
+const catTag=m=>cat==='TOTAL'&&m.category!=='Device'?` <span class="cl-dim">(${LABEL[m.category]||m.category})</span>`:'';
+const td=(label,html,cls)=>`<td data-label="${label}"${cls?` class="${cls}"`:''}>${html}</td>`;
+const tone=v=>num(v)>=0?'up':'down';
+
+function kpis(){
+ document.getElementById('kpis').innerHTML=D.salesman_view.cards.map((c,i)=>{const v=c.values[cat];const p=v.pct;
+  const bar=p==null?'':`<div class="cl-bar"><i class="${p>=100?'full':''}" style="width:${Math.min(100,Math.max(0,p))}%"></i></div>`;
+  return `<div class="cl-kpi${i===0?' main':''}"><div class="cl-kpi-lbl">${esc(c.label)} · ${LABEL[cat]}</div>
+   <div class="cl-kpi-pct">${pct(p)}</div><div class="cl-kpi-val">Est. ${rpS(v.estimated)} dari target ${rpS(v.target)}</div>
+   ${v.target?`<span class="cl-badge ${tone(v.gap)}">${num(v.gap)>=0?'Lebih':'Kurang'} ${rpS(Math.abs(v.gap))}</span>`:''}${bar}
+   <div class="cl-kpi-foot">Billing ${rpS(v.actual)} (${pct(v.actual_pct)}) + DO ${rpS(v.pending)}${num(v.no_do)?` · SO belum DO ${rpS(v.no_do)}`:''}</div></div>`}).join('');
+}
+
+function salesTable(){
+ document.querySelector('#salesTable thead th:nth-child(3)').textContent='Billing s/d '+dashDate;
+ document.querySelector('#salesTable tbody').innerHTML=D.salesman_view.rows.map(r=>{const v=r.values[cat];
+  const name=r.kind==='salesman'?`<span class="cl-name">${esc(r.short)}</span><span class="cl-depo">${esc(r.depot)}</span>`:esc(r.label);
+  const cls=r.kind==='salesman'?'click':r.kind==='group'?'grp':'tot';
+  return `<tr class="${cls}" ${r.kind==='salesman'?`data-go="${esc(r.key)}"`:''}>${td('',name)}${td('Target',rp(v.target))}${td('Billing',rp(v.actual)+`<div class="cl-dim">${pct(v.actual_pct)}</div>`)}${td('DO belum billing',num(v.pending)?'+'+rp(v.pending):'–')}${td('Est. Closing',rp(v.estimated),'cl-est')}${td('%',`<span class="cl-pct ${v.pct==null?'':tone(v.gap)}">${pct(v.pct)}</span>`)}${td('Selisih',v.target?`<span class="${tone(v.gap)}">${signed(v.gap)}</span>`:'–')}</tr>`}).join('');
+ document.querySelectorAll('[data-go]').forEach(tr=>tr.addEventListener('click',()=>{const el=document.getElementById('sec-'+tr.dataset.go);if(el){el.open=true;el.scrollIntoView({behavior:'smooth',block:'start'})}}));
+}
+
+function dealerRows(bucket,ownerKey,owner){
+ return D.dealers.filter(d=>(!owner||d[ownerKey]===owner)).map(d=>{const items=d[bucket].filter(inCat);
+  return {d,items,nett:items.reduce((s,m)=>s+m.nett,0),ppn:items.reduce((s,m)=>s+m.ppn,0),unit:items.reduce((s,m)=>s+m.qty,0),dates:items.flatMap(m=>m.dates)}})
+  .filter(x=>x.items.length).sort((a,b)=>b.nett-a.nett);
+}
+const itemText=items=>items.map(m=>`${esc(m.model)} <b>${qty(m.qty)}</b>${catTag(m)}`).join(' · ');
+const dealerBtn=d=>`<button type="button" class="cl-dealer" data-bp="${esc(d.bp)}">${esc(d.dealer)}</button>`;
+
+function sections(){
+ const box=document.getElementById('sections');
+ const rows=D.salesman_view.rows.filter(r=>r.kind==='salesman');
+ box.innerHTML=rows.map(r=>{const list=dealerRows('do','owner',r.key);const v=r.values[cat];
+  const unit=list.reduce((s,x)=>s+x.unit,0),nett=list.reduce((s,x)=>s+x.nett,0),ppn=list.reduce((s,x)=>s+x.ppn,0);
+  const body=list.length?`<div class="cl-wrap"><table class="cl-table cl-stack"><thead><tr><th>Dealer</th><th>Tgl Order</th><th style="text-align:left">Item</th><th>Unit</th><th>Non-PPN</th><th>Dengan PPN</th></tr></thead><tbody>${
+   list.map(x=>`<tr>${td('',dealerBtn(x.d))}${td('Tgl Order',days(x.dates))}${td('Item',itemText(x.items),'wrap')}${td('Unit',qty(x.unit))}${td('Non-PPN',rp(x.nett))}${td('Dengan PPN',rp(x.ppn))}</tr>`).join('')
+  }</tbody><tfoot><tr>${td('','Total '+list.length+' dealer')}${td('Tgl Order','')}${td('Item','','wrap')}${td('Unit',qty(unit))}${td('Non-PPN',rp(nett))}${td('Dengan PPN',rp(ppn))}</tr></tfoot></table></div>`:'<div class="cl-empty">Tidak ada DO belum billing untuk kategori ini.</div>';
+  return `<details class="cl-sec" id="sec-${esc(r.key)}"><summary><span class="cl-name">${esc(r.salesman)}</span><span class="cl-depo">${esc(r.depot)}</span>
+   <span class="cl-sec-meta">${list.length} dealer · ${qty(unit)} unit · <b>${rp(nett)}</b> · Est. <b class="${v.pct==null?'':tone(v.gap)}">${pct(v.pct)}</b></span></summary>${body}</details>`}).join('')||'<div class="cl-empty">Belum ada data.</div>';
+}
+
+function noDo(){
+ const list=dealerRows('no_do');
+ const owner=x=>{const k=(x.d.no_do_owner||x.d.owner||'').split('|');return `${esc((k[0]||'').split(' ')[0])}<span class="cl-depo">${esc(k[1]||'')}</span>`};
+ const nett=list.reduce((s,x)=>s+x.nett,0),ppn=list.reduce((s,x)=>s+x.ppn,0),unit=list.reduce((s,x)=>s+x.unit,0);
+ document.getElementById('noDo').innerHTML=list.length?`<div class="cl-wrap"><table class="cl-table cl-stack"><thead><tr><th>Dealer</th><th>Salesman</th><th>Tgl Order</th><th style="text-align:left">Item</th><th>Unit</th><th>Non-PPN</th><th>Dengan PPN</th></tr></thead><tbody>${
+  list.map(x=>`<tr>${td('',dealerBtn(x.d))}${td('Salesman',owner(x))}${td('Tgl Order',days(x.dates))}${td('Item',itemText(x.items),'wrap')}${td('Unit',qty(x.unit))}${td('Non-PPN',rp(x.nett))}${td('Dengan PPN',rp(x.ppn))}</tr>`).join('')
+ }</tbody><tfoot><tr>${td('','Total')}${td('Salesman','')}${td('Tgl Order','')}${td('Item','','wrap')}${td('Unit',qty(unit))}${td('Non-PPN',rp(nett))}${td('Dengan PPN',rp(ppn))}</tr></tfoot></table></div>`:'<div class="cl-empty">Tidak ada SO tanpa DO untuk kategori ini.</div>';
+}
+
+/* Modal helpers */
+function openModal(id){document.getElementById(id).classList.add('open');document.body.style.overflow='hidden'}
+function closeModals(){document.querySelectorAll('.cl-modal.open').forEach(m=>m.classList.remove('open'));document.body.style.overflow=''}
+document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',closeModals));
+document.querySelectorAll('.cl-modal').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)closeModals()}));
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModals()});
+
+function openDealer(bp){
+ const d=D.dealers.find(x=>x.bp===bp);if(!d)return;
+ const pick=b=>d[b].filter(inCat);const sum=(l,f)=>l.reduce((s,m)=>s+m[f],0);
+ const bill=pick('billing'),dor=pick('do'),nod=pick('no_do');
+ const own=(d.owner||'').split('|');
+ document.getElementById('dealerTitle').textContent=d.dealer;
+ document.getElementById('dealerSub').textContent=`BP ${d.bp} · ${own[0]||d.salesman} · ${own[1]||d.depot} · ${LABEL[cat]}`;
+ const est=sum(bill,'nett')+sum(dor,'nett'),estP=sum(bill,'ppn')+sum(dor,'ppn');
+ const box=(lbl,n,p,hl)=>`<div class="cl-box${hl?' hl':''}">${lbl}<b>${rp(n)}</b>Dengan PPN ${rp(p)}</div>`;
+ document.getElementById('dealerBoxes').innerHTML=box('Billing s/d '+dashDate,sum(bill,'nett'),sum(bill,'ppn'))+box('DO belum billing',sum(dor,'nett'),sum(dor,'ppn'))+box('Estimasi closing',est,estP,true);
+ const line=(m,showDate)=>`<tr>${td('',esc(m.model)+catTag(m))}${td('Tgl Order',showDate?days(m.dates):'')}${td('Unit',qty(m.qty))}${td('Non-PPN',rp(m.nett))}${td('Dengan PPN',rp(m.ppn))}</tr>`;
+ const part=(title,list,showDate,extra)=>list.length?`<tr class="sub"><td colspan="5">${title} — ${qty(sum(list,'qty'))} unit · ${rp(sum(list,'nett'))}${extra||''}</td></tr>`+list.map(m=>line(m,showDate)).join(''):'';
+ let html=part('Billing s/d '+dashDate,bill,false)+part('DO belum billing',dor,true);
+ html+=`<tr class="tot">${td('','Estimasi closing')}${td('Tgl Order','')}${td('Unit',qty(sum(bill,'qty')+sum(dor,'qty')))}${td('Non-PPN',rp(est))}${td('Dengan PPN',rp(estP))}</tr>`;
+ if(nod.length)html+=part('SO belum ada DO',nod,true,' (tidak dihitung)').replace(/<tr>/g,'<tr class="muted">');
+ if(!bill.length&&!dor.length&&!nod.length)html='<tr><td colspan="5" class="cl-empty">Tidak ada data untuk kategori ini.</td></tr>';
+ document.querySelector('#dealerTable tbody').innerHTML=html;
+ openModal('dealerModal');
+}
+document.addEventListener('click',e=>{const b=e.target.closest('.cl-dealer');if(b)openDealer(b.dataset.bp)});
+
+/* Baris SO mentah */
+let rtab='pending';
+function rowsView(){
+ document.querySelectorAll('[data-rtab]').forEach(b=>b.classList.toggle('active',b.dataset.rtab===rtab));
+ const list=(D.detail[rtab]||[]).filter(r=>cat==='TOTAL'||r.category===cat);
+ document.getElementById('rowsSub').textContent=`${LABEL[cat]} · ${list.length} baris · ${new Set(list.map(r=>r.normalized_so)).size} SO · ${rp(list.reduce((s,r)=>s+num(r.nett),0))}`;
+ document.querySelector('#rowsTable tbody').innerHTML=list.map(r=>`<tr><td>${esc(r.depot)}</td><td style="text-align:left">${esc((r.salesman||'').split(' ')[0])}</td><td style="text-align:left">${esc(r.dealer)}</td><td>${esc(r.so)}</td><td>${esc(r.do)}</td><td style="text-align:left">${esc(r.description)}</td><td>${esc(r.qty)}</td><td>${rp(r.nett)}</td><td>${rp(r.nett_ppn)}</td><td style="text-align:left" class="cl-dim">${esc([r.source_slot,r.flags].filter(Boolean).join(' · '))}</td></tr>`).join('')||'<tr><td colspan="10" class="cl-empty">Tidak ada data.</td></tr>';
+}
+document.querySelectorAll('[data-rows]').forEach(b=>b.addEventListener('click',()=>{rtab=b.dataset.rows;rowsView();openModal('rowsModal')}));
+document.querySelectorAll('[data-rtab]').forEach(b=>b.addEventListener('click',()=>{rtab=b.dataset.rtab;rowsView()}));
+
+function render(){kpis();salesTable();sections();noDo()}
+document.querySelectorAll('[data-cat]').forEach(b=>b.addEventListener('click',()=>{cat=b.dataset.cat;document.querySelectorAll('[data-cat]').forEach(x=>x.classList.toggle('active',x===b));render()}));
+render();
+})();
 </script>{% endif %}{% endblock %}
