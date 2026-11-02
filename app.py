@@ -612,6 +612,9 @@ class PricelistItem(db.Model):
     srp_promo = db.Column(db.Float, default=0)
     stp_promo = db.Column(db.Float, default=0)
     period = db.Column(db.String(100), nullable=False)
+    # Harga pembanding periode sebelumnya: NULL = belum ada pembanding, 0 = produk baru.
+    prev_srp_promo = db.Column(db.Float, nullable=True)
+    prev_stp_promo = db.Column(db.Float, nullable=True)
     sort_order = db.Column(db.Integer, default=0)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_by = db.Column(db.String(160))
@@ -1321,6 +1324,11 @@ def initialize_database_schema():
             "ALTER TABLE program_ppg_paa_participant ADD COLUMN billing_bp_aliases VARCHAR(255) NOT NULL DEFAULT ''"
         ))
         db.session.commit()
+    pricelist_columns = {c['name'] for c in inspect(db.engine).get_columns('pricelist_item')}
+    for column in ('prev_srp_promo', 'prev_stp_promo'):
+        if column not in pricelist_columns:
+            db.session.execute(text(f'ALTER TABLE pricelist_item ADD COLUMN {column} FLOAT'))
+            db.session.commit()
     if User.query.count() == 0:
         username = os.environ.get('ADMIN_USERNAME', 'admin')
         password = os.environ.get('ADMIN_PASSWORD', 'admin123')
@@ -4352,7 +4360,24 @@ def pricelist_manual_admin_required(fn):
 
 def pricelist_item_json(item):
     return {key: getattr(item, key) for key in
-            ('id', 'category', 'model', 'srp_promo', 'stp_promo', 'period')}
+            ('id', 'category', 'model', 'srp_promo', 'stp_promo', 'period',
+             'prev_srp_promo', 'prev_stp_promo')}
+
+
+def pricelist_previous_prices(old, row):
+    """Harga pembanding untuk catatan naik/turun di halaman Pricelist.
+
+    old = baris lama dengan model yang sama (None kalau produk baru).
+    Upload ulang di periode promo yang sama (koreksi) mempertahankan pembanding lama,
+    supaya catatan naik/turun tidak hilang.
+    """
+    if old is None:
+        return 0, 0
+    same_promo_period = (row['period'].casefold() != PRICELIST_NORMAL_PRICE.casefold()
+                         and normalize_text(old.period).casefold() == row['period'].casefold())
+    if same_promo_period and old.prev_srp_promo is not None:
+        return old.prev_srp_promo, old.prev_stp_promo
+    return old.srp_promo, old.stp_promo
 
 
 @app.route('/pricelist/manual/add', methods=['POST'])
@@ -4387,7 +4412,14 @@ def pricelist_manual_save(item_id=None):
         if item is None:
             item = PricelistItem(category=category,
                                 sort_order=max((x.sort_order or 0 for x in existing), default=-1) + 1)
+            # Produk tambahan manual ditandai "Baru" kalau kategori sudah punya pricelist.
+            if existing:
+                item.prev_srp_promo, item.prev_stp_promo = 0, 0
             db.session.add(item)
+        elif (row['srp_promo'] != round(item.srp_promo or 0)
+              or row['stp_promo'] != round(item.stp_promo or 0)):
+            # Harga diedit: harga sebelum edit jadi pembanding.
+            item.prev_srp_promo, item.prev_stp_promo = item.srp_promo, item.stp_promo
         for key, value in row.items():
             setattr(item, key, value)
         item.updated_at = datetime.utcnow()
@@ -4466,12 +4498,20 @@ def upload_pricelist_image():
 
     try:
         now = datetime.utcnow()
-        rows_replaced = PricelistItem.query.filter_by(category=category).count()
+        old_items = PricelistItem.query.filter_by(category=category).all()
+        old_by_model = {normalize_text(old.model).casefold(): old for old in old_items}
+        rows_replaced = len(old_items)
+        previous = {}
+        for key, row in cleaned.items():
+            # Kategori belum pernah punya pricelist: belum ada pembanding (NULL).
+            previous[key] = pricelist_previous_prices(old_by_model.get(key), row) if old_items else (None, None)
         PricelistItem.query.filter_by(category=category).delete(synchronize_session=False)
-        for sort_order, row in enumerate(cleaned.values()):
+        for sort_order, (key, row) in enumerate(cleaned.items()):
+            prev_srp, prev_stp = previous[key]
             db.session.add(PricelistItem(
                 category=category, sort_order=sort_order,
-                updated_at=now, updated_by=session.get('username'), **row,
+                updated_at=now, updated_by=session.get('username'),
+                prev_srp_promo=prev_srp, prev_stp_promo=prev_stp, **row,
             ))
         db.session.add(PricelistUploadLog(
             category=category, filename=filename, rows_loaded=len(cleaned),

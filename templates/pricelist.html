@@ -94,6 +94,19 @@
   .price-edit-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .price-edit-grid input{min-height:40px}
 }
+/* Catatan naik/turun vs periode sebelumnya */
+.price-table th.price-note-col,.price-table td.price-note{text-align:left;white-space:nowrap;padding-left:28px}
+.price-note-item{display:inline-block;margin-right:8px;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+.price-note-item.up{color:#b42318}.price-note-item.down{color:#167044}
+.price-note-new{display:inline-block;padding:2px 8px;border-radius:999px;background:#e0ecff;color:#1d4ed8;font-size:11px;font-weight:800}
+.price-note-inline{display:none}
+.price-change-summary b.up{color:#b42318}.price-change-summary b.down{color:#167044}.price-change-summary b.new{color:#1d4ed8}
+@media(max-width:720px){
+  .price-table th.price-note-col,.price-table td.price-note{display:none}
+  .price-note-inline{display:block;margin-top:3px;white-space:normal}
+  .price-table-admin th:nth-child(5){width:14%}
+  .price-note-inline .price-note-item{font-size:11px;margin-right:6px}
+}
 </style>
 {% endblock %}
 
@@ -183,7 +196,7 @@
 
 <div class="card price-table-wrap">
   <table class="price-table {% if session.get('role') == 'admin' %}price-table-admin{% endif %}">
-    <thead><tr><th id="priceFirstHead">Kapasitas</th><th class="num">STP (Rp)</th><th class="num">SRP (Rp)</th>{% if session.get('role') == 'admin' %}<th class="price-actions">AKSI</th>{% endif %}</tr></thead>
+    <thead><tr><th id="priceFirstHead">Kapasitas</th><th class="num">STP (Rp)</th><th class="num">SRP (Rp)</th><th class="price-note-col">Catatan</th>{% if session.get('role') == 'admin' %}<th class="price-actions">AKSI</th>{% endif %}</tr></thead>
     <tbody id="priceTableBody"></tbody>
   </table>
 </div>
@@ -191,7 +204,7 @@
 <div class="price-progress" id="priceManualFeedback" role="status" aria-live="polite"></div>
 <script id="pricelistData" type="application/json">{
 {% for key,label in category_labels.items() %}
-  "{{ key }}":[{% for row in grouped[key] %}{"id":{{ row.id|tojson }},"category":{{ row.category|tojson }},"model":{{ row.model|tojson }},"srp_promo":{{ row.srp_promo or 0 }},"stp_promo":{{ row.stp_promo or 0 }},"period":{{ row.period|tojson }}}{% if not loop.last %},{% endif %}{% endfor %}]{% if not loop.last %},{% endif %}
+  "{{ key }}":[{% for row in grouped[key] %}{"id":{{ row.id|tojson }},"category":{{ row.category|tojson }},"model":{{ row.model|tojson }},"srp_promo":{{ row.srp_promo or 0 }},"stp_promo":{{ row.stp_promo or 0 }},"period":{{ row.period|tojson }},"prev_srp_promo":{{ (row.prev_srp_promo if row.prev_srp_promo is defined else none)|tojson }},"prev_stp_promo":{{ (row.prev_stp_promo if row.prev_stp_promo is defined else none)|tojson }}}{% if not loop.last %},{% endif %}{% endfor %}]{% if not loop.last %},{% endif %}
 {% endfor %}
 }</script>
 {% endblock %}
@@ -236,13 +249,38 @@
     const parts=[];
     if(info.periods&&info.periods.length)parts.push('<span><b>Berlaku</b> '+info.periods.map(esc).join(' · ')+'</span>');
     if(info.updated)parts.push('<span><b>Diupdate</b> '+esc(info.updated)+'</span>');
+    const dirs={up:0,down:0,new:0};
+    (data[active]||[]).forEach(r=>{const d=changeDir(r);if(d)dirs[d]++;});
+    if(dirs.up||dirs.down||dirs.new){
+      const bits=[];
+      if(dirs.up)bits.push('<b class="up">'+dirs.up+' naik</b>');
+      if(dirs.down)bits.push('<b class="down">'+dirs.down+' turun</b>');
+      if(dirs.new)bits.push('<b class="new">'+dirs.new+' baru</b>');
+      parts.push('<span class="price-change-summary">Dibanding periode lalu: '+bits.join(' · ')+'</span>');
+    }
     if((data[active]||[]).some(r=>isNormalPrice(r.period)))parts.push('<span class="price-normal-legend"><i aria-hidden="true"></i>Harga Normal (belum ada promo)</span>');
     metaNode.innerHTML=parts.join('');
     metaNode.hidden=!parts.length;
   }
   // Opsi A: kelompokkan per seri. Seri = nama model tanpa token kapasitas terakhir (mis. 256GB / 1TB).
   const firstHead=document.getElementById('priceFirstHead');
-  const COLS=isAdmin?4:3;
+  const COLS=isAdmin?5:4;
+  // Catatan naik/turun: prev_* null = belum ada pembanding; prev_* 0 = produk baru.
+  function hasPrev(v){return v!==null&&v!==undefined&&v!=='';}
+  function isNewRow(row){return hasPrev(row.prev_srp_promo)&&hasPrev(row.prev_stp_promo)&&!Number(row.prev_srp_promo)&&!Number(row.prev_stp_promo);}
+  function priceDiff(now,prev){return hasPrev(prev)&&Number(prev)?Math.round(Number(now)||0)-Math.round(Number(prev)):0;}
+  function changeDir(row){
+    if(isNewRow(row))return 'new';
+    const d=priceDiff(row.srp_promo,row.prev_srp_promo)||priceDiff(row.stp_promo,row.prev_stp_promo);
+    return d>0?'up':d<0?'down':'';
+  }
+  function noteHtml(row){
+    if(isNewRow(row))return '<span class="price-note-new">Baru</span>';
+    return [['STP',row.stp_promo,row.prev_stp_promo],['SRP',row.srp_promo,row.prev_srp_promo]].map(function(item){
+      const d=priceDiff(item[1],item[2]);
+      return d?'<span class="price-note-item '+(d>0?'up':'down')+'">'+item[0]+' '+(d>0?'▲':'▼')+' '+num(Math.abs(d))+'</span>':'';
+    }).join('');
+  }
   const CAP_RE=/(^|\s)(\d+(?:[.,]\d+)?)\s?(GB|TB)(?=\s|$)/gi;
   function num(value){return Math.round(Number(value)||0).toLocaleString('id-ID');}
   function periodKey(period){return String(period||'').trim().toLowerCase().replace(/\s+/g,' ');}
@@ -305,7 +343,8 @@
 
   function normalCells(row,parts,showPeriod){
     const period=showPeriod&&row.period?'<span class="price-row-period">'+esc(isNormalPrice(row.period)?NORMAL_PRICE:row.period)+'</span>':'';
-    return '<td'+(parts?'':' class="price-model-full"')+'>'+esc(parts?parts.capacity:row.model)+period+'</td><td class="num">'+num(row.stp_promo)+'</td><td class="num srp">'+num(row.srp_promo)+'</td>'+
+    const note=noteHtml(row);
+    return '<td'+(parts?'':' class="price-model-full"')+'>'+esc(parts?parts.capacity:row.model)+period+(note?'<span class="price-note-inline">'+note+'</span>':'')+'</td><td class="num">'+num(row.stp_promo)+'</td><td class="num srp">'+num(row.srp_promo)+'</td><td class="price-note">'+note+'</td>'+
       (isAdmin?'<td class="price-actions"><button type="button" data-action="edit" aria-label="Edit '+esc(row.model)+'">✏<span class="price-edit-label"> Edit</span></button></td>':'');
   }
   if(isAdmin){
@@ -339,7 +378,16 @@
       setBusy(true);
       try{
         const url=action==='delete'?{{ url_for('pricelist_manual_delete',item_id=0)|tojson }}:{{ url_for('pricelist_manual_save',item_id=0)|tojson }};
-        const result=await post(url.replace(/0$/,String(id)),action==='delete'?{}:fields(tr));
+        let payload={};
+        if(action!=='delete'){
+          payload=fields(tr);
+          const toNum=v=>{const d=String(v||'').replace(/[^0-9]/g,'');return d?Number(d):0;};
+          const changed=toNum(payload.srp_promo)!==Math.round(Number(row.srp_promo)||0)||toNum(payload.stp_promo)!==Math.round(Number(row.stp_promo)||0);
+          // Harga diubah: harga sebelum edit jadi pembanding. Tidak diubah: pembanding lama dipertahankan.
+          payload.prev_srp_promo=changed?row.srp_promo:(hasPrev(row.prev_srp_promo)?row.prev_srp_promo:null);
+          payload.prev_stp_promo=changed?row.stp_promo:(hasPrev(row.prev_stp_promo)?row.prev_stp_promo:null);
+        }
+        const result=await post(url.replace(/0$/,String(id)),payload);
         if(action==='delete'){data[category]=data[category].filter(x=>x.id!==id);render();feedback('Produk berhasil dihapus');}
         else{data[category][data[category].findIndex(x=>x.id===id)]=result.item;render();feedback('Pricelist berhasil diperbarui'+(result.warnings.length?' — '+result.warnings.join('; '):''));}
       }catch(error){tr.querySelector('.price-row-error').textContent=error.message;}
@@ -348,7 +396,11 @@
     addButton.addEventListener('click',()=>{form.reset();form.elements.category.value=active;form.hidden=false;document.getElementById('priceManualError').textContent='';form.elements.model.focus();});
     document.getElementById('priceManualCancel').addEventListener('click',()=>{form.hidden=true;form.reset();});
     form.addEventListener('submit',async event=>{
-      event.preventDefault();if(busy)return;const payload=fields(form);setBusy(true);
+      event.preventDefault();if(busy)return;const payload=fields(form);
+      // Produk tambahan manual ditandai "Baru" kalau kategori itu sudah punya pricelist.
+      const hasOld=(data[payload.category]||[]).length>0;
+      payload.prev_srp_promo=hasOld?0:null;payload.prev_stp_promo=hasOld?0:null;
+      setBusy(true);
       try{
         const result=await post({{ url_for('pricelist_manual_save')|tojson }},payload);
         data[result.item.category].push(result.item);
@@ -1073,7 +1125,19 @@
     for(let i=0;i<categories.length;i++){
       const cat=categories[i];
       showWorkflowProgress('Menyimpan '+cat+' ('+(i+1)+'/'+categories.length+')...');
-      const payloadRows=pending[cat].rows.map(r=>({model:r.model,srp_promo:r.srp_promo,stp_promo:r.stp_promo,period:r.period}));
+      // Harga lama dikirim sebagai pembanding (prev_*). Upload ulang di periode promo yang sama
+      // mempertahankan pembanding lama supaya catatan tidak hilang saat koreksi.
+      const oldRows=data[cat]||[];
+      const oldMap=new Map(oldRows.map(o=>[rowKey(o),o]));
+      const payloadRows=pending[cat].rows.map(function(r){
+        const item={model:r.model,srp_promo:r.srp_promo,stp_promo:r.stp_promo,period:r.period,prev_srp_promo:null,prev_stp_promo:null};
+        if(!oldRows.length)return item;
+        const old=oldMap.get(rowKey(r));
+        if(!old){item.prev_srp_promo=0;item.prev_stp_promo=0;}
+        else if(!isNormalPrice(r.period)&&periodKey(old.period)===periodKey(r.period)&&hasPrev(old.prev_srp_promo)){item.prev_srp_promo=old.prev_srp_promo;item.prev_stp_promo=old.prev_stp_promo;}
+        else{item.prev_srp_promo=old.srp_promo;item.prev_stp_promo=old.stp_promo;}
+        return item;
+      });
       try{
         const response=await fetch('{{ url_for("upload_pricelist_image") }}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({category:cat,source:pending[cat].source||'image',filename:pending[cat].filename,rows:payloadRows})});
         const resultJson=await response.json();
