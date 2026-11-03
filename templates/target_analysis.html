@@ -23,8 +23,8 @@
 .ta-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:0}
 .ta-wrap{overflow-x:auto}.ta-table{width:100%;border-collapse:collapse;font-size:13px}
 .ta-table th{background:var(--soft);color:#52647e;font-size:11px;text-transform:uppercase;letter-spacing:.03em;padding:10px;text-align:left;white-space:nowrap;border-bottom:1px solid var(--line)}
-.ta-table td{padding:10px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle}
-.ta-table .r{text-align:right}.ta-table tr.sum td{background:#f1f5f9;font-weight:800}.ta-table tr.tot td{background:var(--ink);color:#fff;font-weight:900;border-bottom:0}
+.ta-table td{padding:10px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle;font-variant-numeric:tabular-nums}
+.ta-table .r{text-align:left}.ta-table tr.sum td{background:#f1f5f9;font-weight:800}.ta-table tr.tot td{background:var(--ink);color:#fff;font-weight:900;border-bottom:0}
 .ta-table tr.click{cursor:pointer}.ta-table tr.click:hover td{background:#f8fbff}.ta-table tr.open td{background:#f8fbff}
 .ta-name{font-weight:800;color:var(--ink);white-space:normal;min-width:190px}.ta-small{display:block;font-size:11.5px;color:var(--muted);font-weight:600;margin-top:2px}
 .ta-pill{display:inline-block;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:800;white-space:nowrap}
@@ -37,26 +37,28 @@
 .ta-search{margin-left:auto;border:1px solid #cbd5e1;border-radius:9px;padding:7px 10px;min-width:220px}
 .ta-spark{display:block}
 .ta-detail td{background:#fbfdff;white-space:normal;padding:14px 16px}
-.ta-detail-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px}
-.ta-mini{width:100%;border-collapse:collapse;font-size:12.5px}.ta-mini th{font-size:10.5px;color:var(--muted);text-transform:uppercase;padding:6px 8px;text-align:right;border-bottom:1px solid var(--line);background:none}.ta-mini th:first-child,.ta-mini td:first-child{text-align:left}
-.ta-mini td{padding:6px 8px;text-align:right;border-bottom:1px solid #eef2f7;white-space:nowrap}
-.ta-hbars{display:flex;flex-direction:column;gap:4px;font-size:12px}
-.ta-hbar{display:grid;grid-template-columns:44px 1fr 92px;align-items:center;gap:8px}.ta-hbar span:first-child{color:var(--muted);font-weight:700}
+.ta-detail-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
+.ta-detail-sec{min-width:0}.ta-detail-ttl{font-size:10.5px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin:0 0 8px}
+.ta-mini{width:100%;border-collapse:collapse;font-size:12.5px}.ta-mini th{font-size:10.5px;color:var(--muted);text-transform:uppercase;padding:6px 8px;text-align:left;border-bottom:1px solid var(--line);background:none}
+.ta-mini td{padding:6px 8px;text-align:left;border-bottom:1px solid #eef2f7;white-space:nowrap}
+.ta-mini td span[title]{cursor:help}
+.ta-hbars{display:flex;flex-direction:column;gap:4px;font-size:12px;max-width:760px}
+.ta-hbar{display:grid;grid-template-columns:56px minmax(0,1fr) 92px;align-items:center;gap:10px}.ta-hbar span:first-child{color:var(--muted);font-weight:700}
 .ta-hbar .track{height:12px;background:#eef2f7;border-radius:4px;position:relative;overflow:hidden}.ta-hbar .track i{position:absolute;left:0;top:0;bottom:0;background:#94a3b8;border-radius:4px}
 .ta-hbar.recent .track i{background:var(--blue)}.ta-hbar.target .track i{background:var(--ink)}.ta-hbar.target span:first-child{color:var(--ink)}
-.ta-hbar .v{text-align:right;font-variant-numeric:tabular-nums;color:#334155}
+.ta-hbar .v{text-align:left;font-variant-numeric:tabular-nums;color:#334155;white-space:nowrap}
 .ta-empty{padding:28px;text-align:center;color:var(--muted)}
 .ta-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}.ta-kw{min-width:170px;max-width:240px;white-space:normal}.ta-kw .ta-small{line-height:1.4}
 .ta-list{list-style:none;margin:0;padding:0}.ta-list li{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}.ta-list li:last-child{border-bottom:0}
 .ta-list .why{font-size:12px;color:var(--muted);margin-top:2px}.ta-list .amt{text-align:right;white-space:nowrap;font-weight:800;color:var(--ink)}
-@media(max-width:1000px){.ta-kpis{grid-template-columns:1fr 1fr}.ta-two,.ta-detail-grid{grid-template-columns:1fr}}
+@media(max-width:1000px){.ta-kpis{grid-template-columns:1fr 1fr}.ta-two{grid-template-columns:1fr}}
 @media(max-width:640px){
  .ta h1{font-size:22px}.ta-card{padding:12px}.ta-kpis,.ta-upload-body{grid-template-columns:1fr}.ta-kpi-big{font-size:26px}.ta-meta{margin-left:0;width:100%}.ta-search{margin-left:0;width:100%;min-width:0}
  .ta-stack thead{display:none}.ta-stack,.ta-stack tbody,.ta-stack tr,.ta-stack td{display:block;width:100%;box-sizing:border-box}
  .ta-stack tr{border-bottom:1px solid var(--line);padding:6px 0}.ta-stack td{border:0;padding:4px 10px;display:flex;justify-content:space-between;gap:12px;white-space:normal;text-align:right}
  .ta-stack td::before{content:attr(data-label);color:var(--muted);font-size:12px;font-weight:700;text-align:left}.ta-stack td:first-child{font-weight:900;padding-top:8px;text-align:left}.ta-stack td:first-child::before{content:none}
  .ta-stack tr.tot td::before{color:#cbd5e1}.ta-stack tr.ta-detail td{display:block}.ta-stack tr.ta-detail td::before{content:none}
- .ta-name{min-width:0}
+ .ta-name{min-width:0}.ta-hbar{grid-template-columns:52px minmax(0,1fr) 80px}
 }
 </style>{% endblock %}
 {% block body %}
@@ -125,6 +127,7 @@ const CATS=[['Device','Device'],['Macbook','MacBook'],['ACC','Accessories']];
 const num=v=>Number(v)||0;
 const rp=v=>(num(v)<0?'-':'')+'Rp '+Math.abs(num(v)).toLocaleString('id-ID',{maximumFractionDigits:0});
 const rpS=v=>{const n=Math.abs(num(v)),s=num(v)<0?'-':'';if(n>=1e9)return s+'Rp '+(n/1e9).toLocaleString('id-ID',{maximumFractionDigits:2})+' M';if(n>=1e6)return s+'Rp '+(n/1e6).toLocaleString('id-ID',{maximumFractionDigits:1})+' Jt';return s+rp(n)};
+const rpT=v=>`<span title="${rp(v)}">${rpS(v)}</span>`;
 const pctTxt=p=>p==null?'–':Math.round(p).toLocaleString('id-ID')+'%';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const mLabel=k=>{if(!k)return '–';const p=k.split('-');return MON[+p[1]-1]+' '+p[0].slice(2)};
@@ -203,15 +206,15 @@ function detail(d){
  const cols=D.mtd_latest?'<th>MTD</th>':'';
  const rows=CATS.map(([k,name])=>{const c=d.cats[k];const lv=labelOf(c.ratio);
   if(!c.target&&!c.last&&!c.avg3&&!c.peak)return '';
-  return `<tr><td>${name}</td><td>${rp(c.target)}</td><td>${rp(c.last)}</td><td>${rp(c.avg3)}</td><td>${rp(c.peak)}</td><td><span class="ta-pct ${lv||''}">${c.target?(c.ratio==null?(c.avg3?'–':'baru'):pctTxt(c.ratio)):'–'}</span></td>${D.mtd_latest?`<td>${rp(c.mtd)}</td>`:''}</tr>`}).join('');
+  return `<tr><td>${name}</td><td>${rpT(c.target)}</td><td>${rpT(c.last)}</td><td>${rpT(c.avg3)}</td><td>${rpT(c.peak)}</td><td><span class="ta-pct ${lv||''}">${c.target?(c.ratio==null?(c.avg3?'–':'baru'):pctTxt(c.ratio)):'–'}</span></td>${D.mtd_latest?`<td>${rpT(c.mtd)}</td>`:''}</tr>`}).join('');
  const max=Math.max(...d.history,d.target,1);
- const bars=D.months.map((m,i)=>`<div class="ta-hbar${i>=D.months.length-3?' recent':''}"><span>${mLabel(m)}</span><div class="track"><i style="width:${d.history[i]/max*100}%"></i></div><span class="v">${rpS(d.history[i])}</span></div>`).join('')+
-  `<div class="ta-hbar target"><span>Target</span><div class="track"><i style="width:${d.target/max*100}%"></i></div><span class="v"><b>${rpS(d.target)}</b></span></div>`;
+ const bars=D.months.map((m,i)=>`<div class="ta-hbar${i>=D.months.length-3?' recent':''}"><span>${mLabel(m)}</span><div class="track"><i style="width:${d.history[i]/max*100}%"></i></div><span class="v" title="${rp(d.history[i])}">${rpS(d.history[i])}</span></div>`).join('')+
+  `<div class="ta-hbar target"><span>Target</span><div class="track"><i style="width:${d.target/max*100}%"></i></div><span class="v" title="${rp(d.target)}"><b>${rpS(d.target)}</b></span></div>`;
  const notes=[];
  if(d.above_peak)notes.push(`Target melebihi bulan tertinggi dealer ini (${rpS(d.peak)} di ${mLabel(d.peak_month)}).`);
  notes.push(`Aktif belanja ${d.active_months} dari ${D.months.length} bulan.`);
  notes.push(`Target BO ${d.bo?'✓':'–'} · QVO ${d.qvo?'✓':'–'}.`);
- return `<div class="ta-detail-grid"><div><table class="ta-mini"><thead><tr><th>Kategori</th><th>Target</th><th>${mLabel(lastKey)}</th><th>Rata-rata 3</th><th>Tertinggi</th><th>vs rata-rata</th>${cols}</tr></thead><tbody>${rows}</tbody></table><p class="ta-note" style="margin:10px 0 0">${notes.join(' ')}</p></div><div><div class="ta-hbars">${bars}</div></div></div>`;
+ return `<div class="ta-detail-grid"><div class="ta-detail-sec"><p class="ta-detail-ttl">Per kategori</p><table class="ta-mini"><thead><tr><th>Kategori</th><th>Target</th><th>${mLabel(lastKey)}</th><th>Rata-rata 3 bln</th><th>Tertinggi</th><th>vs rata-rata</th>${cols}</tr></thead><tbody>${rows}</tbody></table><p class="ta-note" style="margin:10px 0 0">${notes.join(' ')}</p></div><div class="ta-detail-sec"><p class="ta-detail-ttl">History per bulan</p><div class="ta-hbars">${bars}</div></div></div>`;
 }
 
 function filters(){
