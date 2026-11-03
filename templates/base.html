@@ -350,6 +350,10 @@
           Budget
         </a>
 
+        <a class="{% if request.endpoint == 'target_analysis' %}active{% endif %}" href="{{ url_for('target_analysis') }}">
+          Analisa Target
+        </a>
+
       {% endif %}
 
       {% if session.get('role') == 'admin' %}

@@ -5833,6 +5833,344 @@ def budget_template():
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 
+# ---------------------------------------------------------------------------
+# Analisa Target: target bulanan dari ASH (file Target Breakdown) dibandingkan
+# dengan history pembelian dealer. Hanya untuk analisa — TIDAK mengubah Target
+# Master, achievement, insentif atau menu lain.
+# ---------------------------------------------------------------------------
+class TargetAnalysisRow(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    month = db.Column(db.String(7), nullable=False, index=True)
+    depo = db.Column(db.String(80), nullable=False)
+    bp = db.Column(db.String(80), nullable=False)
+    dealer = db.Column(db.String(255), nullable=False)
+    salesman = db.Column(db.String(160), nullable=False, default='')
+    device_target = db.Column(db.Float, default=0)
+    macbook_target = db.Column(db.Float, default=0)
+    acc_target = db.Column(db.Float, default=0)
+    bo_target = db.Column(db.Integer, default=0)
+    qvo_target = db.Column(db.Integer, default=0)
+    source_file = db.Column(db.String(255))
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    uploaded_by = db.Column(db.String(160))
+    __table_args__ = (db.UniqueConstraint('month', 'bp', name='uq_target_analysis_month_bp'),)
+
+
+TARGET_ANALYSIS_DEPOS = ('Cempaka', 'Serang', 'Cilegon')
+# Serang & Cilegon selalu dipegang Ikmah, apa pun SC NAME di file ASH.
+TARGET_ANALYSIS_DEPO_SALESMAN = {'Serang': 'Ikmah Novtianingrum', 'Cilegon': 'Ikmah Novtianingrum'}
+# Label kewajaran: target total dibanding rata-rata 3 bulan terakhir (%).
+TARGET_ANALYSIS_LIMITS = (120, 150)
+TARGET_ANALYSIS_HISTORY_MONTHS = 12
+TARGET_ANALYSIS_CATS = ('Device', 'Macbook', 'ACC')
+TARGET_ANALYSIS_COLUMNS = {
+    'depo': ['depo', 'depot'],
+    'bp': ['bp', 'sold to party code'],
+    'dealer': ['dealer name', 'dealer', 'sold to party name'],
+    'device': ['device total', 'device target', 'target device'],
+    'acc': ['acc total', 'acc target', 'target acc'],
+    'mac': ['mac total', 'macbook total', 'mac target', 'target mac'],
+}
+TARGET_ANALYSIS_OPTIONAL = {
+    'salesman': ['sc name', 'salesman name', 'salesman'],
+    'bo': ['target bo', 'bo target'],
+    'qvo': ['target qvo', 'qvo target'],
+    'brand': ['brand'],
+}
+TARGET_ANALYSIS_CACHE_SECONDS = 6 * 60 * 60
+_target_analysis_cache = {}
+_target_analysis_cache_lock = Lock()
+
+
+def _ta_amount(value):
+    try:
+        n = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    return 0.0 if math.isnan(n) else n
+
+
+def parse_target_analysis_upload(stream):
+    """Baca sheet Detail file Target Breakdown ASH -> {bp: dict}, info."""
+    wb = load_workbook(stream, read_only=True, data_only=True)
+    sheets = sorted(wb.worksheets, key=lambda ws: 0 if normalize_col(ws.title) == 'detail' else 1)
+    for ws in sheets:
+        header_idx, cols, rows = None, None, []
+        for idx, row in enumerate(ws.iter_rows(values_only=True)):
+            if header_idx is None:
+                if idx > 30:
+                    break
+                names = {normalize_col(v): i for i, v in enumerate(row) if v is not None and str(v).strip()}
+                found = {}
+                for key, aliases in {**TARGET_ANALYSIS_COLUMNS, **TARGET_ANALYSIS_OPTIONAL}.items():
+                    for alias in aliases:
+                        if normalize_col(alias) in names:
+                            found[key] = names[normalize_col(alias)]
+                            break
+                if all(k in found for k in TARGET_ANALYSIS_COLUMNS):
+                    header_idx, cols = idx, found
+                continue
+            rows.append(row)
+        if header_idx is None:
+            continue
+        get = lambda row, key: row[cols[key]] if key in cols and cols[key] < len(row) else None
+        result, skipped, duplicates = {}, set(), set()
+        for row in rows:
+            bp = normalize_bp(get(row, 'bp'))
+            if not bp or not re.fullmatch(r'\d+', bp):
+                continue
+            brand = normalize_text(get(row, 'brand')).upper()
+            if brand and brand != 'APPLE':
+                continue
+            depo = canonical_depo(get(row, 'depo'))
+            if depo not in TARGET_ANALYSIS_DEPOS:
+                skipped.add(depo)
+                continue
+            salesman = TARGET_ANALYSIS_DEPO_SALESMAN.get(depo) or canonical_salesman(get(row, 'salesman')) or '—'
+            if bp in result:
+                duplicates.add(result[bp]['dealer'])
+            item = result.setdefault(bp, dict(
+                bp=bp, depo=depo, salesman=salesman, dealer=normalize_text(get(row, 'dealer')) or bp,
+                device=0.0, acc=0.0, mac=0.0, bo=0, qvo=0))
+            item['device'] += _ta_amount(get(row, 'device'))
+            item['acc'] += _ta_amount(get(row, 'acc'))
+            item['mac'] += _ta_amount(get(row, 'mac'))
+            item['bo'] = max(item['bo'], int(_ta_amount(get(row, 'bo'))))
+            item['qvo'] = max(item['qvo'], int(_ta_amount(get(row, 'qvo'))))
+        if result:
+            return result, dict(sheet=ws.title, skipped=sorted(skipped), duplicates=sorted(duplicates))
+    raise ValueError('Format tidak dikenali. Perlu sheet berisi kolom DEPO, BP, Dealer Name, '
+                     'DEVICE TOTAL, ACC TOTAL, MAC TOTAL (format Target Breakdown ASH).')
+
+
+def _ta_label(target, last, avg3, has_history):
+    if target <= 0:
+        return 'nol', None
+    if avg3 <= 0:
+        return ('tidak_aktif' if has_history else 'baru'), None
+    ratio = target / avg3 * 100
+    low, high = TARGET_ANALYSIS_LIMITS
+    if ratio <= low:
+        return 'wajar', ratio
+    if ratio <= high:
+        return 'agak_berat', ratio
+    return 'terlalu_berat', ratio
+
+
+def _ta_cache_key(month):
+    billing_upload = db.session.query(db.func.max(UploadLog.id)).filter(
+        or_(UploadLog.upload_mode.is_(None), UploadLog.upload_mode != 'cross_brand')).scalar()
+    stamp = db.session.query(db.func.max(TargetAnalysisRow.uploaded_at), db.func.count(TargetAnalysisRow.id)).filter(
+        TargetAnalysisRow.month == month).one()
+    return (month, billing_upload, tuple(stamp))
+
+
+def build_target_analysis(month):
+    targets = TargetAnalysisRow.query.filter_by(month=month).all()
+    earliest = db.session.query(db.func.min(Billing.billing_date)).scalar()
+    first_key = earliest.strftime('%Y-%m') if earliest else month
+    months = [m for m in previous_month_keys(month, TARGET_ANALYSIS_HISTORY_MONTHS) if m >= first_key]
+    recent = months[-3:]
+    start = month_range(months[0])[0] if months else month_range(month)[0]
+    end = month_range(month)[1]
+    target_bps = {normalize_bp(t.bp) for t in targets}
+
+    # Ringkas di database per tanggal × salesman × dealer × kategori (transfer kecil).
+    amount = db.func.sum(Billing.nett_amount).label('amount')
+    rows = db.session.query(
+        Billing.billing_date, Billing.salesman, Billing.sold_to_code, Billing.sold_to_name,
+        Billing.cust_location, Billing.category, amount,
+    ).filter(
+        Billing.billing_date >= start, Billing.billing_date <= end,
+        Billing.category.in_(TARGET_ANALYSIS_CATS),
+    ).group_by(Billing.billing_date, Billing.salesman, Billing.sold_to_code, Billing.sold_to_name,
+               Billing.cust_location, Billing.category).all()
+
+    empty = lambda: {m: {c: 0.0 for c in TARGET_ANALYSIS_CATS} for m in months + [month]}
+    hist = {bp: empty() for bp in target_bps}
+    others = {}
+    budget_keys = set(_budget_salesman_keys())
+    lookups = {}
+    latest = None
+    for r in rows:
+        bp = normalize_bp(r.sold_to_code)
+        m = r.billing_date.strftime('%Y-%m')
+        value = float(r.amount or 0)
+        if m == month and (latest is None or r.billing_date > latest):
+            latest = r.billing_date
+        if bp in hist:
+            # Dealer bertarget: semua pembelian Apple dealer ini (kapasitas dealer).
+            hist[bp][m][r.category] += value
+            continue
+        if m not in recent or normalize_text(r.salesman).lower() not in budget_keys:
+            continue
+        # Dealer tanpa target ASH: ikut aturan depo menu Budget/dashboard.
+        if m not in lookups:
+            _, lookups[m] = target_lookup_for_month(m)
+        owner, depo, _, target = resolve_billing_owner(r, lookups[m])
+        billing_salesman = canonical_salesman(r.salesman)
+        if not owner and target is None and billing_salesman not in LOCKED_SALESMEN:
+            owner, depo = billing_salesman, salesman_depo_for(billing_salesman, r, lookups[m])
+        if canonical_salesman(owner) not in BUDGET_SALESMEN:
+            continue
+        depo = BUDGET_DEALER_DEPO_OVERRIDE.get(bp, depo)
+        if depo not in TARGET_ANALYSIS_DEPOS:
+            continue
+        o = others.setdefault(bp, dict(bp=bp, dealer=normalize_text(r.sold_to_name), depo=depo,
+                                       salesman=TARGET_ANALYSIS_DEPO_SALESMAN.get(depo) or canonical_salesman(owner),
+                                       months={k: 0.0 for k in recent}))
+        o['months'][m] += value
+
+    dealers = []
+    for t in targets:
+        bp = normalize_bp(t.bp)
+        h = hist.get(bp) or empty()
+        tgt = {'Device': float(t.device_target or 0), 'Macbook': float(t.macbook_target or 0),
+               'ACC': float(t.acc_target or 0)}
+        tgt_total = sum(tgt.values())
+        totals = [sum(h[m].values()) for m in months]
+        last = totals[-1] if totals else 0.0
+        avg3 = sum(totals[-3:]) / 3 if months else 0.0
+        peak_val, peak_month = 0.0, None
+        for m, v in zip(months, totals):
+            if v > peak_val:
+                peak_val, peak_month = v, m
+        has_history = any(v > 0 for v in totals)
+        label, ratio = _ta_label(tgt_total, last, avg3, has_history)
+        cats = {}
+        for c in TARGET_ANALYSIS_CATS:
+            series = [h[m][c] for m in months]
+            c_avg3 = sum(series[-3:]) / 3 if months else 0.0
+            cats[c] = dict(target=tgt[c], last=series[-1] if series else 0.0, avg3=c_avg3,
+                           peak=max(series) if series else 0.0,
+                           ratio=(tgt[c] / c_avg3 * 100) if c_avg3 > 0 and tgt[c] > 0 else None,
+                           history=series, mtd=h[month][c])
+        dealers.append(dict(
+            bp=bp, dealer=t.dealer, depo=canonical_depo(t.depo), salesman=t.salesman or '—',
+            target=tgt_total, bo=int(t.bo_target or 0), qvo=int(t.qvo_target or 0),
+            last=last, avg3=avg3, peak=peak_val, peak_month=peak_month,
+            vs_last=(tgt_total / last * 100) if last > 0 else None,
+            ratio=ratio, label=label, above_peak=has_history and tgt_total > peak_val,
+            active_months=sum(1 for v in totals if v > 0),
+            history=totals, mtd=sum(h[month].values()), cats=cats,
+        ))
+    dealers.sort(key=lambda d: (TARGET_ANALYSIS_DEPOS.index(d['depo']) if d['depo'] in TARGET_ANALYSIS_DEPOS else 9,
+                                -d['target']))
+
+    untargeted = []
+    for o in others.values():
+        vals = [o['months'][k] for k in recent]
+        active = sum(1 for v in vals if v > 0)
+        if active >= 2:
+            untargeted.append(dict(bp=o['bp'], dealer=o['dealer'], depo=o['depo'], salesman=o['salesman'],
+                                   last=vals[-1], avg3=sum(vals) / 3, active_months=active, history=vals))
+    untargeted.sort(key=lambda d: -d['avg3'])
+
+    last_upload = (TargetAnalysisRow.query.filter_by(month=month)
+                   .order_by(TargetAnalysisRow.uploaded_at.desc()).first())
+    files = sorted({t.source_file for t in targets if t.source_file})
+    return dict(
+        month=month, months=months, recent=recent, depos=list(TARGET_ANALYSIS_DEPOS),
+        limits=list(TARGET_ANALYSIS_LIMITS), dealers=dealers, untargeted=untargeted,
+        mtd_latest=latest.isoformat() if latest else None, files=files,
+        uploaded_at=last_upload.uploaded_at.strftime('%Y-%m-%dT%H:%M:%SZ') if last_upload else None,
+        uploaded_by=last_upload.uploaded_by if last_upload else None,
+    )
+
+
+def _ta_month_param(value, default):
+    value = str(value or '').strip()
+    return value if re.fullmatch(r'20\d{2}-(0[1-9]|1[0-2])', value) else default
+
+
+@app.route('/target-analysis')
+@login_required
+def target_analysis():
+    current = datetime.now(STOCK_TIMEZONE).strftime('%Y-%m')
+    uploaded = [m for (m,) in db.session.query(TargetAnalysisRow.month).distinct()
+                .order_by(TargetAnalysisRow.month.desc())]
+    month = _ta_month_param(request.args.get('month'), uploaded[0] if uploaded else current)
+    data = None
+    if month in uploaded:
+        key = _ta_cache_key(month)
+        clock = time.time()
+        with _target_analysis_cache_lock:
+            hit = _target_analysis_cache.get(key)
+            data = hit['data'] if hit and hit['expires'] > clock else None
+        if data is None:
+            data = build_target_analysis(month)
+            with _target_analysis_cache_lock:
+                for stale in [k for k, v in _target_analysis_cache.items()
+                              if v['expires'] <= clock or k[0] == month]:
+                    _target_analysis_cache.pop(stale, None)
+                _target_analysis_cache[key] = {'data': data, 'expires': clock + TARGET_ANALYSIS_CACHE_SECONDS}
+    months = sorted(set(uploaded) | {month}, reverse=True)
+    return render_template('target_analysis.html', data=data, month=month, months=months,
+                           current_month=current, is_admin=session.get('role') == 'admin')
+
+
+@app.route('/target-analysis/upload', methods=['POST'])
+@admin_required
+def target_analysis_upload():
+    month = _ta_month_param(request.form.get('month'), '')
+    files = [f for f in request.files.getlist('target_files') if f and f.filename]
+    if not month:
+        flash('Pilih bulan target.', 'danger')
+        return redirect(url_for('target_analysis'))
+    if not files:
+        flash('Pilih file target dari ASH.', 'danger')
+        return redirect(url_for('target_analysis', month=month))
+    stamp = datetime.utcnow()
+    actor = session.get('username') or ''
+    notes = []
+    try:
+        for upload in files:
+            if not upload.filename.lower().endswith(('.xlsx', '.xlsm')):
+                raise ValueError(f'{upload.filename}: gunakan file Excel (.xlsx).')
+            try:
+                parsed, info = parse_target_analysis_upload(io.BytesIO(upload.read()))
+            except ValueError as exc:
+                raise ValueError(f'{upload.filename}: {exc}')
+            except Exception:
+                raise ValueError(f'{upload.filename}: file tidak bisa dibaca.')
+            depos = sorted({d['depo'] for d in parsed.values()})
+            # Upload ulang mengganti data depo yang sama di bulan itu (depo lain tetap).
+            TargetAnalysisRow.query.filter(TargetAnalysisRow.month == month,
+                                           TargetAnalysisRow.depo.in_(depos)).delete(synchronize_session=False)
+            TargetAnalysisRow.query.filter(TargetAnalysisRow.month == month,
+                                           TargetAnalysisRow.bp.in_(list(parsed))).delete(synchronize_session=False)
+            for d in parsed.values():
+                db.session.add(TargetAnalysisRow(
+                    month=month, depo=d['depo'], bp=d['bp'], dealer=d['dealer'], salesman=d['salesman'],
+                    device_target=d['device'], macbook_target=d['mac'], acc_target=d['acc'],
+                    bo_target=d['bo'], qvo_target=d['qvo'], source_file=upload.filename[:255],
+                    uploaded_at=stamp, uploaded_by=actor))
+            per_depo = ', '.join(f'{dp} {sum(1 for d in parsed.values() if d["depo"] == dp)} dealer' for dp in depos)
+            total = sum(d['device'] + d['acc'] + d['mac'] for d in parsed.values())
+            skipped = f' (dilewati: {", ".join(info["skipped"])})' if info['skipped'] else ''
+            if info['duplicates']:
+                skipped += f' — BP muncul 2x di file, targetnya dijumlahkan: {", ".join(info["duplicates"])}'
+            notes.append(f'{upload.filename}: {per_depo}, total {rupiah(total)}{skipped}')
+        db.session.commit()
+        flash('Target ASH tersimpan untuk analisa (Target Master tidak berubah). ' + '; '.join(notes) + '.', 'success')
+    except ValueError as exc:
+        db.session.rollback()
+        flash(f'Upload gagal: {exc}', 'danger')
+    return redirect(url_for('target_analysis', month=month))
+
+
+@app.route('/target-analysis/delete', methods=['POST'])
+@admin_required
+def target_analysis_delete():
+    month = _ta_month_param(request.form.get('month'), '')
+    if month:
+        TargetAnalysisRow.query.filter_by(month=month).delete(synchronize_session=False)
+        db.session.commit()
+        flash(f'Data analisa target {month} dihapus.', 'success')
+    return redirect(url_for('target_analysis'))
+
+
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()

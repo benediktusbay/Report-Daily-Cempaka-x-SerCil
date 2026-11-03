@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+{% block title %}Analisa Target · Daily Monitoring{% endblock %}
+{% block head %}<style>
+.ta{--ink:#0b2545;--muted:#64748b;--line:#e5e7eb;--soft:#f8fafc;--blue:#1769e8;--good:#15803d;--good-bg:#dcfce7;--mid:#92400e;--mid-bg:#fef3c7;--bad:#b91c1c;--bad-bg:#fee2e2;--gray:#475569;--gray-bg:#f1f5f9;color:#1e293b}
+.ta h1{margin:0 0 4px;font-size:26px;color:var(--ink)}.ta-sub{margin:0 0 16px;color:var(--muted);font-size:14px;line-height:1.45;max-width:980px}
+.ta-card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 3px 14px rgba(15,23,42,.05);padding:16px;margin-bottom:16px}
+.ta-h2{margin:0 0 4px;font-size:17px;color:var(--ink)}.ta-note{margin:0 0 12px;color:var(--muted);font-size:12.5px;line-height:1.45}
+.ta-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-bottom:14px}
+.ta-bar select{border:1px solid #cbd5e1;border-radius:9px;padding:8px 10px;font-weight:800;background:#fff;color:var(--ink)}
+.ta-tabs{display:flex;gap:6px;flex-wrap:wrap}.ta-tabs button{border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#334155;padding:8px 14px;font-weight:800;cursor:pointer;font-size:13px}.ta-tabs button.active{background:var(--ink);border-color:var(--ink);color:#fff}
+.ta-meta{margin-left:auto;font-size:12.5px;color:var(--muted)}.ta-meta b{color:var(--ink)}
+.ta-upload>summary{cursor:pointer;list-style:none;display:inline-flex;border-radius:9px;background:var(--ink);color:#fff;padding:8px 14px;font-weight:800;font-size:13px}.ta-upload>summary::-webkit-details-marker{display:none}.ta-upload[open]>summary{background:#334155}
+.ta-upload-body{margin-top:14px;border-top:1px solid var(--line);padding-top:14px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;font-size:13px}
+.ta-upload-body form{display:flex;flex-direction:column;gap:10px}.ta-upload-body input{border:1px solid #d1d5db;border-radius:8px;padding:7px;background:#fff}
+.ta-btn{border:0;border-radius:9px;background:var(--blue);color:#fff;padding:10px 16px;font-weight:800;cursor:pointer;align-self:flex-start}.ta-btn.ghost{background:#fff;color:var(--bad);border:1px solid #fecaca;padding:7px 12px;font-size:12.5px}
+.ta-upload-body ul{margin:6px 0 0;padding-left:18px;color:#475569;line-height:1.6}
+.ta-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.ta-kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:0 3px 14px rgba(15,23,42,.05)}.ta-kpi.main{background:var(--ink);border-color:var(--ink);color:#fff}
+.ta-kpi-lbl{font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}.ta-kpi.main .ta-kpi-lbl,.ta-kpi.main .ta-kpi-foot{color:#cbd5e1}
+.ta-kpi-big{font-size:30px;font-weight:900;margin-top:4px;line-height:1.1}.ta-kpi-foot{margin-top:8px;font-size:12px;color:var(--muted);line-height:1.5}
+.ta-mix{display:flex;height:8px;border-radius:999px;overflow:hidden;background:#e2e8f0;margin-top:12px}.ta-mix i{display:block;height:100%}
+.ta-legend{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:8px;font-size:12px;color:var(--muted)}.ta-legend b{color:var(--ink)}
+.ta-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:0}
+.ta-wrap{overflow-x:auto}.ta-table{width:100%;border-collapse:collapse;font-size:13px}
+.ta-table th{background:var(--soft);color:#52647e;font-size:11px;text-transform:uppercase;letter-spacing:.03em;padding:10px;text-align:left;white-space:nowrap;border-bottom:1px solid var(--line)}
+.ta-table td{padding:10px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle}
+.ta-table .r{text-align:right}.ta-table tr.sum td{background:#f1f5f9;font-weight:800}.ta-table tr.tot td{background:var(--ink);color:#fff;font-weight:900;border-bottom:0}
+.ta-table tr.click{cursor:pointer}.ta-table tr.click:hover td{background:#f8fbff}.ta-table tr.open td{background:#f8fbff}
+.ta-name{font-weight:800;color:var(--ink);white-space:normal;min-width:190px}.ta-small{display:block;font-size:11.5px;color:var(--muted);font-weight:600;margin-top:2px}
+.ta-pill{display:inline-block;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:800;white-space:nowrap}
+.ta-pill.wajar{background:var(--good-bg);color:var(--good)}.ta-pill.agak_berat{background:var(--mid-bg);color:var(--mid)}.ta-pill.terlalu_berat{background:var(--bad-bg);color:var(--bad)}
+.ta-pill.tidak_aktif{background:#ffe4e6;color:#9f1239}.ta-pill.baru{background:#e0ecff;color:var(--blue)}.ta-pill.nol{background:var(--gray-bg);color:var(--gray)}
+.ta-pct{font-weight:900}.ta-pct.wajar{color:var(--good)}.ta-pct.agak_berat{color:var(--mid)}.ta-pct.terlalu_berat{color:var(--bad)}
+.ta-flag{display:inline-block;margin-left:6px;font-size:10.5px;font-weight:800;border-radius:6px;padding:1px 6px;background:var(--bad-bg);color:var(--bad);vertical-align:1px}
+.ta-filters{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:12px}
+.ta-chip{border:1px solid #cbd5e1;border-radius:999px;background:#fff;color:#334155;padding:6px 12px;font-weight:800;cursor:pointer;font-size:12.5px}.ta-chip.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+.ta-search{margin-left:auto;border:1px solid #cbd5e1;border-radius:9px;padding:7px 10px;min-width:220px}
+.ta-spark{display:block}
+.ta-detail td{background:#fbfdff;white-space:normal;padding:14px 16px}
+.ta-detail-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px}
+.ta-mini{width:100%;border-collapse:collapse;font-size:12.5px}.ta-mini th{font-size:10.5px;color:var(--muted);text-transform:uppercase;padding:6px 8px;text-align:right;border-bottom:1px solid var(--line);background:none}.ta-mini th:first-child,.ta-mini td:first-child{text-align:left}
+.ta-mini td{padding:6px 8px;text-align:right;border-bottom:1px solid #eef2f7;white-space:nowrap}
+.ta-hbars{display:flex;flex-direction:column;gap:4px;font-size:12px}
+.ta-hbar{display:grid;grid-template-columns:44px 1fr 92px;align-items:center;gap:8px}.ta-hbar span:first-child{color:var(--muted);font-weight:700}
+.ta-hbar .track{height:12px;background:#eef2f7;border-radius:4px;position:relative;overflow:hidden}.ta-hbar .track i{position:absolute;left:0;top:0;bottom:0;background:#94a3b8;border-radius:4px}
+.ta-hbar.recent .track i{background:var(--blue)}.ta-hbar.target .track i{background:var(--ink)}.ta-hbar.target span:first-child{color:var(--ink)}
+.ta-hbar .v{text-align:right;font-variant-numeric:tabular-nums;color:#334155}
+.ta-empty{padding:28px;text-align:center;color:var(--muted)}
+.ta-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}.ta-kw{min-width:170px;max-width:240px;white-space:normal}.ta-kw .ta-small{line-height:1.4}
+.ta-list{list-style:none;margin:0;padding:0}.ta-list li{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}.ta-list li:last-child{border-bottom:0}
+.ta-list .why{font-size:12px;color:var(--muted);margin-top:2px}.ta-list .amt{text-align:right;white-space:nowrap;font-weight:800;color:var(--ink)}
+@media(max-width:1000px){.ta-kpis{grid-template-columns:1fr 1fr}.ta-two,.ta-detail-grid{grid-template-columns:1fr}}
+@media(max-width:640px){
+ .ta h1{font-size:22px}.ta-card{padding:12px}.ta-kpis,.ta-upload-body{grid-template-columns:1fr}.ta-kpi-big{font-size:26px}.ta-meta{margin-left:0;width:100%}.ta-search{margin-left:0;width:100%;min-width:0}
+ .ta-stack thead{display:none}.ta-stack,.ta-stack tbody,.ta-stack tr,.ta-stack td{display:block;width:100%;box-sizing:border-box}
+ .ta-stack tr{border-bottom:1px solid var(--line);padding:6px 0}.ta-stack td{border:0;padding:4px 10px;display:flex;justify-content:space-between;gap:12px;white-space:normal;text-align:right}
+ .ta-stack td::before{content:attr(data-label);color:var(--muted);font-size:12px;font-weight:700;text-align:left}.ta-stack td:first-child{font-weight:900;padding-top:8px;text-align:left}.ta-stack td:first-child::before{content:none}
+ .ta-stack tr.tot td::before{color:#cbd5e1}.ta-stack tr.ta-detail td{display:block}.ta-stack tr.ta-detail td::before{content:none}
+ .ta-name{min-width:0}
+}
+</style>{% endblock %}
+{% block body %}
+<div class="ta">
+<h1>Analisa Target</h1>
+<p class="ta-sub">Target dari ASH dibandingkan dengan history pembelian dealer, untuk menilai apakah targetnya wajar. Data di menu ini <b>tidak mengubah Target Master</b>, achievement, maupun insentif. History = semua billing Apple dealer itu (Device + MacBook + ACC, tanpa PPN). Serang dan Cilegon dihitung sebagai Ikmah.</p>
+
+<div class="ta-bar">
+ <form method="get" action="{{ url_for('target_analysis') }}"><select name="month" aria-label="Bulan target" onchange="this.form.submit()">{% for m in months %}<option value="{{ m }}" {{ 'selected' if m == month }}>Target {{ m }}</option>{% endfor %}</select></form>
+ {% if data %}<div class="ta-tabs" role="tablist" aria-label="Depo"><button type="button" data-depo="ALL" class="active">Semua Depo</button>{% for d in data.depos %}<button type="button" data-depo="{{ d }}">{{ d }}</button>{% endfor %}</div>
+ <span class="ta-meta" id="metaLine"></span>{% endif %}
+</div>
+
+{% if is_admin %}<div class="ta-card"><details class="ta-upload" {{ 'open' if not data }}><summary>Upload Target dari ASH</summary>
+ <div class="ta-upload-body">
+  <form method="post" action="{{ url_for('target_analysis_upload') }}" enctype="multipart/form-data">
+   <label for="taMonth"><b>Bulan target</b></label>
+   <input id="taMonth" name="month" type="month" value="{{ month or current_month }}" required>
+   <label for="taFiles"><b>File Target Breakdown</b> (boleh pilih beberapa file sekaligus)</label>
+   <input id="taFiles" name="target_files" type="file" accept=".xlsx,.xlsm" multiple required>
+   <button class="ta-btn" type="submit">Upload &amp; Analisa</button>
+  </form>
+  <div><b>Format:</b> file Target Breakdown dari ASH apa adanya.
+   <ul><li>Dibaca dari sheet <b>Detail</b>: kolom DEPO, BP, Dealer Name, SC NAME, DEVICE TOTAL, ACC TOTAL, MAC TOTAL, TARGET BO, TARGET QVO.</li>
+   <li>Hanya depo Cempaka, Serang, Cilegon. Serang dan Cilegon otomatis masuk Ikmah.</li>
+   <li>Upload ulang (revisi ASH) mengganti data depo yang sama di bulan itu; depo lain tetap.</li>
+   <li>Kalau target sudah fix, upload ke <b>Target Master</b> seperti biasa — menu ini tidak menyentuhnya.</li></ul>
+   {% if data and data.uploaded_at %}<p class="ta-note" style="margin-top:10px">Terakhir diupload {{ data.uploaded_by or '' }} · <span id="lastUpload" data-utc="{{ data.uploaded_at }}"></span><br>File: {{ data.files|join(', ') }}</p>
+   <form method="post" action="{{ url_for('target_analysis_delete') }}" onsubmit="return confirm('Hapus data analisa target {{ month }}?')"><input type="hidden" name="month" value="{{ month }}"><button class="ta-btn ghost" type="submit">Hapus data {{ month }}</button></form>{% endif %}
+  </div>
+ </div>
+</details></div>{% endif %}
+
+{% if not data %}
+<div class="ta-card ta-empty">Belum ada target ASH untuk {{ month }}.{% if is_admin %} Upload file Target Breakdown di atas.{% else %} Minta Admin mengupload file target dari ASH.{% endif %}</div>
+{% else %}
+<div class="ta-kpis" id="kpis"></div>
+
+<div class="ta-card">
+ <h2 class="ta-h2">Ringkasan per Depo &amp; Salesman</h2>
+ <p class="ta-note" id="sumNote"></p>
+ <div class="ta-wrap"><table class="ta-table ta-stack" id="sumTable"><thead><tr><th>Depo / Salesman</th><th class="r">Dealer</th><th class="r">Target ASH</th><th class="r" id="thLast">Bulan lalu</th><th class="r">Rata-rata 3 bln</th><th class="r">Target vs bulan lalu</th><th class="r">Target vs rata-rata</th><th>Kewajaran dealer</th></tr></thead><tbody></tbody></table></div>
+</div>
+
+<div class="ta-two">
+ <div class="ta-card"><h2 class="ta-h2">Perlu dicek: target di atas kemampuan</h2><p class="ta-note">Target &gt;{{ data.limits[1] }}% dari rata-rata 3 bulan, atau dealer tidak belanja 3 bulan terakhir. Diurutkan dari selisih terbesar.</p><ul class="ta-list" id="checkHigh"></ul></div>
+ <div class="ta-card"><h2 class="ta-h2">Rutin belanja tapi tidak ada target</h2><p class="ta-note">Dealer area yang belanja minimal 2 dari 3 bulan terakhir ({{ data.recent|join(', ') }}) tapi tidak ada di file ASH.</p><ul class="ta-list" id="checkMissing"></ul></div>
+</div>
+
+<div class="ta-card">
+ <h2 class="ta-h2">Per Dealer</h2>
+ <p class="ta-note">Klik baris untuk melihat rincian per kategori dan history per bulan. Kewajaran: Wajar ≤{{ data.limits[0] }}% · Agak berat {{ data.limits[0] }}–{{ data.limits[1] }}% · Terlalu berat &gt;{{ data.limits[1] }}% dari rata-rata 3 bulan terakhir.</p>
+ <div class="ta-filters" id="filters"></div>
+ <div class="ta-wrap"><table class="ta-table ta-stack" id="dealerTable"><thead><tr><th>Dealer</th><th class="r">Target ASH</th><th class="r" id="thLast2">Bulan lalu</th><th class="r">Rata-rata 3 bln</th><th class="r">Tertinggi</th><th class="r">Target vs rata-rata</th><th>Kewajaran</th><th>History</th>{% if data.mtd_latest %}<th class="r">MTD</th>{% endif %}</tr></thead><tbody></tbody></table></div>
+</div>
+{% endif %}
+</div>
+{% endblock %}
+{% block scripts %}{% if data %}<script>
+(function(){
+const D={{ data|tojson }};
+const MON=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+const LABELS={wajar:'Wajar',agak_berat:'Agak berat',terlalu_berat:'Terlalu berat',tidak_aktif:'Tidak aktif 3 bln',baru:'Tidak ada history',nol:'Target 0'};
+const COLORS={wajar:'#16a34a',agak_berat:'#f59e0b',terlalu_berat:'#dc2626',tidak_aktif:'#e11d48',baru:'#3b82f6',nol:'#94a3b8'};
+const ORDER=['wajar','agak_berat','terlalu_berat','tidak_aktif','baru','nol'];
+const CATS=[['Device','Device'],['Macbook','MacBook'],['ACC','Accessories']];
+const num=v=>Number(v)||0;
+const rp=v=>(num(v)<0?'-':'')+'Rp '+Math.abs(num(v)).toLocaleString('id-ID',{maximumFractionDigits:0});
+const rpS=v=>{const n=Math.abs(num(v)),s=num(v)<0?'-':'';if(n>=1e9)return s+'Rp '+(n/1e9).toLocaleString('id-ID',{maximumFractionDigits:2})+' M';if(n>=1e6)return s+'Rp '+(n/1e6).toLocaleString('id-ID',{maximumFractionDigits:1})+' Jt';return s+rp(n)};
+const pctTxt=p=>p==null?'–':Math.round(p).toLocaleString('id-ID')+'%';
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const mLabel=k=>{if(!k)return '–';const p=k.split('-');return MON[+p[1]-1]+' '+p[0].slice(2)};
+const mShort=k=>MON[+k.split('-')[1]-1];
+const td=(label,html,cls)=>`<td data-label="${label}"${cls?` class="${cls}"`:''}>${html}</td>`;
+const lim=D.limits;
+const labelOf=r=>r==null?null:(r<=lim[0]?'wajar':r<=lim[1]?'agak_berat':'terlalu_berat');
+const lastKey=D.months[D.months.length-1];
+let depo='ALL',filter='ALL',query='',openBp=null;
+
+document.getElementById('thLast').textContent='Bulan lalu ('+mLabel(lastKey)+')';
+document.getElementById('thLast2').textContent=mLabel(lastKey);
+const meta=[`Target <b>${mLabel(D.month)}</b>`,`history ${D.months.length?mLabel(D.months[0])+'–'+mLabel(lastKey):'–'}`];
+if(D.mtd_latest){const p=D.mtd_latest.split('-');meta.push(`MTD s/d <b>${+p[2]} ${MON[+p[1]-1]}</b>`)}
+document.getElementById('metaLine').innerHTML=meta.join(' · ');
+const lu=document.getElementById('lastUpload');if(lu){const d=new Date(lu.dataset.utc);lu.textContent=d.toLocaleString('id-ID',{timeZone:'Asia/Jakarta',day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})+' WIB'}
+
+const inScope=d=>depo==='ALL'||d.depo===depo;
+function agg(list){
+ const t={n:list.length,target:0,last:0,avg3:0,counts:{}};
+ list.forEach(d=>{t.target+=d.target;t.last+=d.last;t.avg3+=d.avg3;t.counts[d.label]=(t.counts[d.label]||0)+1});
+ t.vsLast=t.last?t.target/t.last*100:null;t.vsAvg=t.avg3?t.target/t.avg3*100:null;return t;
+}
+function mixBar(counts,n){
+ return `<div class="ta-mix">${ORDER.filter(k=>counts[k]).map(k=>`<i style="width:${counts[k]/n*100}%;background:${COLORS[k]}" title="${LABELS[k]}: ${counts[k]}"></i>`).join('')}</div>`;
+}
+function legend(counts){return `<div class="ta-legend">${ORDER.filter(k=>counts[k]).map(k=>`<span><i class="ta-dot" style="background:${COLORS[k]}"></i>${LABELS[k]} <b>${counts[k]}</b></span>`).join('')}</div>`}
+
+function kpis(){
+ const list=D.dealers.filter(inScope),t=agg(list);
+ const heavy=(t.counts.terlalu_berat||0)+(t.counts.tidak_aktif||0);
+ const lv=labelOf(t.vsAvg);
+ document.getElementById('kpis').innerHTML=
+ `<div class="ta-kpi main"><div class="ta-kpi-lbl">Target ASH · ${esc(depo==='ALL'?'Semua depo':depo)}</div><div class="ta-kpi-big">${rpS(t.target)}</div><div class="ta-kpi-foot">${t.n} dealer bertarget · ${mLabel(D.month)}</div></div>`+
+ `<div class="ta-kpi"><div class="ta-kpi-lbl">vs Bulan lalu (${mLabel(lastKey)})</div><div class="ta-kpi-big">${pctTxt(t.vsLast)}</div><div class="ta-kpi-foot">Pembelian dealer ini bulan lalu: ${rpS(t.last)}</div></div>`+
+ `<div class="ta-kpi"><div class="ta-kpi-lbl">vs Rata-rata 3 bulan</div><div class="ta-kpi-big"><span class="ta-pct ${lv||''}">${pctTxt(t.vsAvg)}</span></div><div class="ta-kpi-foot">Rata-rata ${D.recent.map(mShort).join('–')}: ${rpS(t.avg3)}</div></div>`+
+ `<div class="ta-kpi"><div class="ta-kpi-lbl">Kewajaran per dealer</div><div class="ta-kpi-big">${t.counts.wajar||0}<span style="font-size:15px;color:var(--muted);font-weight:800"> / ${t.n} wajar</span></div>${mixBar(t.counts,t.n||1)}${legend(t.counts)}</div>`;
+}
+
+function sumRow(name,list,cls,sub){
+ const t=agg(list),lv=labelOf(t.vsAvg);
+ return `<tr class="${cls||''}">${td('',esc(name)+(sub?`<span class="ta-small">${esc(sub)}</span>`:''))}${td('Dealer',t.n,'r')}${td('Target ASH',rp(t.target),'r')}${td('Bulan lalu',rp(t.last),'r')}${td('Rata-rata 3 bln',rp(t.avg3),'r')}${td('vs bulan lalu',pctTxt(t.vsLast),'r')}${td('vs rata-rata',`<span class="ta-pct ${cls==='tot'?'':(lv||'')}">${pctTxt(t.vsAvg)}</span>`,'r')}${td('Kewajaran',`<div class="ta-kw">${mixBar(t.counts,t.n||1)}<span class="ta-small">${ORDER.filter(k=>t.counts[k]).map(k=>LABELS[k]+' '+t.counts[k]).join(' · ')}</span></div>`)}</tr>`;
+}
+function summary(){
+ const depos=depo==='ALL'?D.depos:[depo];let html='';
+ depos.forEach(dp=>{
+  const list=D.dealers.filter(d=>d.depo===dp);if(!list.length)return;
+  const sales=[...new Set(list.map(d=>d.salesman))];
+  if(sales.length===1){html+=sumRow(dp,list,'sum',sales[0]);return}
+  html+=sumRow(dp,list,'sum');
+  sales.forEach(s=>{html+=sumRow('↳ '+s,list.filter(d=>d.salesman===s),'')});
+ });
+ const missing=D.depos.filter(dp=>!D.dealers.some(d=>d.depo===dp));
+ if(depo==='ALL')html+=sumRow('Total',D.dealers,'tot');
+ document.querySelector('#sumTable tbody').innerHTML=html;
+ document.getElementById('sumNote').textContent='Target vs rata-rata 3 bulan dipakai sebagai patokan utama; bulan lalu bisa naik-turun karena program/stok.'+(missing.length?` Belum ada target untuk: ${missing.join(', ')}.`:'');
+}
+
+function checks(){
+ const high=D.dealers.filter(d=>inScope(d)&&(d.label==='terlalu_berat'||d.label==='tidak_aktif'))
+  .map(d=>({...d,gap:d.target-d.avg3})).sort((a,b)=>b.gap-a.gap);
+ document.getElementById('checkHigh').innerHTML=high.length?high.slice(0,15).map(d=>`<li><div><b>${esc(d.dealer)}</b><div class="why">${esc(d.depo)} · ${esc(d.salesman)} · ${d.label==='tidak_aktif'?'tidak belanja '+D.recent.map(mShort).join('–')+(d.peak?' (terakhir tertinggi '+rpS(d.peak)+' di '+mLabel(d.peak_month)+')':''):'rata-rata 3 bln '+rpS(d.avg3)+' · tertinggi '+rpS(d.peak)}</div></div><div class="amt">${rpS(d.target)}<div class="why">${d.ratio!=null?pctTxt(d.ratio)+' dari rata-rata':'—'}</div></div></li>`).join('')+(high.length>15?`<li><span class="why">+${high.length-15} dealer lain — lihat tabel Per Dealer (filter Terlalu berat / Tidak aktif).</span></li>`:''):'<li><span class="why">Tidak ada. Semua target masih dalam batas history.</span></li>';
+ const miss=D.untargeted.filter(inScope);
+ document.getElementById('checkMissing').innerHTML=miss.length?miss.slice(0,15).map(d=>`<li><div><b>${esc(d.dealer)}</b><div class="why">${esc(d.depo)} · ${esc(d.salesman)} · BP ${esc(d.bp)} · belanja ${d.active_months} dari 3 bulan</div></div><div class="amt">${rpS(d.avg3)}<div class="why">rata-rata/bulan</div></div></li>`).join('')+(miss.length>15?`<li><span class="why">+${miss.length-15} dealer lain.</span></li>`:''):'<li><span class="why">Tidak ada. Semua dealer rutin sudah diberi target.</span></li>';
+}
+
+function spark(series,target){
+ const w=96,h=26,n=series.length;if(!n)return '';
+ const max=Math.max(...series,target,1),bw=w/(n+1.5);
+ let s=series.map((v,i)=>{const bh=Math.max(v>0?2:0,v/max*h);return `<rect x="${(i*bw).toFixed(1)}" y="${(h-bh).toFixed(1)}" width="${(bw*0.75).toFixed(1)}" height="${bh.toFixed(1)}" rx="1" fill="${i>=n-3?'#1769e8':'#cbd5e1'}"/>`}).join('');
+ const th=target/max*h;s+=`<rect x="${(n*bw+bw*0.5).toFixed(1)}" y="${(h-th).toFixed(1)}" width="${(bw*0.85).toFixed(1)}" height="${Math.max(2,th).toFixed(1)}" rx="1" fill="#0b2545"/>`;
+ return `<svg class="ta-spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-label="History pembelian; batang gelap = target">${s}</svg>`;
+}
+
+function detail(d){
+ const cols=D.mtd_latest?'<th>MTD</th>':'';
+ const rows=CATS.map(([k,name])=>{const c=d.cats[k];const lv=labelOf(c.ratio);
+  if(!c.target&&!c.last&&!c.avg3&&!c.peak)return '';
+  return `<tr><td>${name}</td><td>${rp(c.target)}</td><td>${rp(c.last)}</td><td>${rp(c.avg3)}</td><td>${rp(c.peak)}</td><td><span class="ta-pct ${lv||''}">${c.target?(c.ratio==null?(c.avg3?'–':'baru'):pctTxt(c.ratio)):'–'}</span></td>${D.mtd_latest?`<td>${rp(c.mtd)}</td>`:''}</tr>`}).join('');
+ const max=Math.max(...d.history,d.target,1);
+ const bars=D.months.map((m,i)=>`<div class="ta-hbar${i>=D.months.length-3?' recent':''}"><span>${mLabel(m)}</span><div class="track"><i style="width:${d.history[i]/max*100}%"></i></div><span class="v">${rpS(d.history[i])}</span></div>`).join('')+
+  `<div class="ta-hbar target"><span>Target</span><div class="track"><i style="width:${d.target/max*100}%"></i></div><span class="v"><b>${rpS(d.target)}</b></span></div>`;
+ const notes=[];
+ if(d.above_peak)notes.push(`Target melebihi bulan tertinggi dealer ini (${rpS(d.peak)} di ${mLabel(d.peak_month)}).`);
+ notes.push(`Aktif belanja ${d.active_months} dari ${D.months.length} bulan.`);
+ notes.push(`Target BO ${d.bo?'✓':'–'} · QVO ${d.qvo?'✓':'–'}.`);
+ return `<div class="ta-detail-grid"><div><table class="ta-mini"><thead><tr><th>Kategori</th><th>Target</th><th>${mLabel(lastKey)}</th><th>Rata-rata 3</th><th>Tertinggi</th><th>vs rata-rata</th>${cols}</tr></thead><tbody>${rows}</tbody></table><p class="ta-note" style="margin:10px 0 0">${notes.join(' ')}</p></div><div><div class="ta-hbars">${bars}</div></div></div>`;
+}
+
+function filters(){
+ const list=D.dealers.filter(inScope),counts={};list.forEach(d=>counts[d.label]=(counts[d.label]||0)+1);
+ const chips=[['ALL','Semua',list.length],...ORDER.filter(k=>counts[k]).map(k=>[k,LABELS[k],counts[k]])];
+ if(filter!=='ALL'&&!counts[filter])filter='ALL';
+ document.getElementById('filters').innerHTML=chips.map(([k,l,n])=>`<button type="button" class="ta-chip${filter===k?' active':''}" data-f="${k}">${l} · ${n}</button>`).join('')+`<input class="ta-search" type="search" placeholder="Cari dealer / BP" value="${esc(query)}" aria-label="Cari dealer">`;
+ document.querySelectorAll('#filters [data-f]').forEach(b=>b.addEventListener('click',()=>{filter=b.dataset.f;filters();dealers()}));
+ const s=document.querySelector('#filters .ta-search');s.addEventListener('input',()=>{query=s.value;dealers()});
+}
+
+function dealers(){
+ const q=query.trim().toLowerCase();
+ const list=D.dealers.filter(d=>inScope(d)&&(filter==='ALL'||d.label===filter)&&(!q||d.dealer.toLowerCase().includes(q)||d.bp.includes(q)));
+ const span=D.mtd_latest?9:8;
+ let html='',cur=null;
+ list.forEach(d=>{
+  if(depo==='ALL'&&d.depo!==cur){cur=d.depo;html+=`<tr class="sum"><td colspan="${span}">${esc(cur)}</td></tr>`}
+  html+=`<tr class="click${openBp===d.bp?' open':''}" data-bp="${esc(d.bp)}">${td('',`<div class="ta-name">${esc(d.dealer)}<span class="ta-small">BP ${esc(d.bp)} · ${esc(d.salesman)}</span></div>`)}${td('Target ASH',rp(d.target),'r')}${td(mLabel(lastKey),rp(d.last),'r')}${td('Rata-rata 3 bln',rp(d.avg3),'r')}${td('Tertinggi',d.peak?`${rp(d.peak)}<span class="ta-small">${mLabel(d.peak_month)}</span>`:'–','r')}${td('vs rata-rata',`<span class="ta-pct ${d.label}">${pctTxt(d.ratio)}</span>`,'r')}${td('Kewajaran',`<span class="ta-pill ${d.label}">${LABELS[d.label]}</span>${d.above_peak&&d.label!=='tidak_aktif'?'<span class="ta-flag">di atas rekor</span>':''}`)}${td('History',spark(d.history,d.target))}${D.mtd_latest?td('MTD',rp(d.mtd),'r'):''}</tr>`;
+  if(openBp===d.bp)html+=`<tr class="ta-detail"><td colspan="${span}">${detail(d)}</td></tr>`;
+ });
+ document.querySelector('#dealerTable tbody').innerHTML=html||`<tr><td colspan="${span}" class="ta-empty">Tidak ada dealer.</td></tr>`;
+ document.querySelectorAll('#dealerTable tr[data-bp]').forEach(tr=>tr.addEventListener('click',()=>{openBp=openBp===tr.dataset.bp?null:tr.dataset.bp;dealers()}));
+}
+
+function setDepo(d){depo=d;openBp=null;document.querySelectorAll('[data-depo]').forEach(b=>b.classList.toggle('active',b.dataset.depo===d));render()}
+document.querySelectorAll('[data-depo]').forEach(b=>b.addEventListener('click',()=>setDepo(b.dataset.depo)));
+function render(){kpis();summary();checks();filters();dealers()}
+render();
+})();
+</script>{% endif %}{% endblock %}
