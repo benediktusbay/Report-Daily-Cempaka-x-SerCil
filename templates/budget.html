@@ -210,7 +210,8 @@ document.getElementById('copyBtn').addEventListener('click',async e=>{
  const btn=e.currentTarget;
  const p=v=>v==null?'':(v*100).toLocaleString('id-ID',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
  const n=v=>v==null?'':String(v);
- const lines=[HEAD.join('\t')].concat(exportRows().map(r=>[r.label,n(r.budget),n(r.rofo),n(r.ach),p(r.pb),p(r.pr),n(r.gb),n(r.gr),r.note].join('\t')));
+ const rows=exportRows();
+ const lines=[['',...rows.map(r=>r.label)],['Budget',...rows.map(r=>n(r.budget))],['Rofo',...rows.map(r=>n(r.rofo))],['Achievement',...rows.map(r=>n(r.ach))],['% vs Budget',...rows.map(r=>p(r.pb))],['% vs Rofo',...rows.map(r=>p(r.pr))]].map(l=>l.join('\t'));
  const text=lines.join('\n');
  try{await navigator.clipboard.writeText(text)}catch(_){const t=document.createElement('textarea');t.value=text;t.style.position='fixed';t.style.opacity='0';document.body.appendChild(t);t.select();document.execCommand('copy');t.remove()}
  flash(btn,'Tersalin ✓');
