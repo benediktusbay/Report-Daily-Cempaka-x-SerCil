@@ -357,7 +357,13 @@
         Cross Brand
       </a>
 
-      {% set planning_eps = ['closing', 'budget', 'target_analysis'] %}
+      {% if session.get('user_id') %}
+      <a class="{% if request.endpoint == 'budget' %}active{% endif %}" href="{{ url_for('budget') }}">
+        Budget
+      </a>
+      {% endif %}
+
+      {% set planning_eps = ['closing', 'target_analysis'] %}
       <div class="nav-group">
         <button type="button" class="nav-group-btn{% if request.endpoint in planning_eps %} active{% endif %}" aria-expanded="false">
           Planning <span class="caret" aria-hidden="true">▾</span>
@@ -365,7 +371,6 @@
         <div class="nav-menu">
           <a class="{% if request.endpoint == 'closing' %}active{% endif %}" href="{{ url_for('closing') }}">Closing</a>
           {% if session.get('user_id') %}
-          <a class="{% if request.endpoint == 'budget' %}active{% endif %}" href="{{ url_for('budget') }}">Budget</a>
           <a class="{% if request.endpoint == 'target_analysis' %}active{% endif %}" href="{{ url_for('target_analysis') }}">Analisa Target</a>
           {% endif %}
         </div>

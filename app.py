@@ -3101,6 +3101,7 @@ def _dashboard_context_uncached():
     # Compare the same billing-day window in the preceding calendar month.
     previous_mtd = {'sales': 0.0, 'device': 0.0, 'macbook': 0.0, 'acc': 0.0}
     mtd_growth = {key: None for key in previous_mtd}
+    previous_mtd_by_depo = {}  # periode yang sama bulan lalu, per depo (kartu Achievement per Depo)
     previous_cutoff = None
     if latest_in_scope:
         previous_end = start - timedelta(days=1)
@@ -3121,6 +3122,7 @@ def _dashboard_context_uncached():
                 amount = float(row.nett_amount or 0)
                 previous_mtd['sales'] += amount
                 previous_mtd[row.category.lower() if row.category != 'ACC' else 'acc'] += amount
+                previous_mtd_by_depo[depo or 'Unmapped'] = previous_mtd_by_depo.get(depo or 'Unmapped', 0.0) + amount
         for key, previous_value in previous_mtd.items():
             if previous_value != 0:
                 mtd_growth[key] = (cards[key] - previous_value) / previous_value * 100
@@ -3223,6 +3225,9 @@ def _dashboard_context_uncached():
                 for key, label in (('device', 'Device'), ('macbook', 'MacBook'), ('acc', 'Accessories'))
             ],
             'gap': sales - sales_target if sales_target else None,
+            'prev_sales': previous_mtd_by_depo.get(name, 0.0),
+            'mtd_growth': ((sales - previous_mtd_by_depo[name]) / previous_mtd_by_depo[name] * 100
+                           if previous_mtd_by_depo.get(name) else None),
             'bo': b['bo'], 'bo_target': b['bo_target'], 'bo_pct': _depo_pct(b['bo'], b['bo_target']),
             'qvo': b['qvo'], 'qvo_target': b['qvo_target'], 'qvo_pct': _depo_pct(b['qvo'], b['qvo_target']),
             'projection': sales_projection(

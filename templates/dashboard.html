@@ -1303,8 +1303,10 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   .dpa-device { color:#43a047; } .dpa-device-bg { background:#43a047; }
   .dpa-mac { color:#dc3545; } .dpa-mac-bg { background:#dc3545; }
   .dpa-acc { color:#ea7a2c; } .dpa-acc-bg { background:#ea7a2c; }
-  .dpa-foot { display:flex; justify-content:flex-end; border-top:1px solid #e5e7eb; margin-top:14px; padding-top:10px; font-size:12px; color:#6b7280; font-weight:600; }
+  .dpa-foot { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; border-top:1px solid #e5e7eb; margin-top:14px; padding-top:10px; font-size:12px; color:#6b7280; font-weight:600; }
   .dpa-foot strong { color:#172033; margin-left:4px; }
+  .dpa-mtd { font-size:12px; color:#6b7280; font-weight:600; white-space:nowrap; }
+  .dpa-mtd b { font-weight:800; margin-right:3px; }
   .dpa-neg { color:#dc2626 !important; } .dpa-pos { color:#16a34a !important; }
   .dpa-total { display:flex; justify-content:space-between; align-items:center; gap:10px 18px; flex-wrap:wrap; margin-top:14px; padding:12px 18px; background:#f4f7fb; border-radius:12px; font-size:13px; font-weight:700; color:#172033; }
   .dpa-total .dpa-total-pct { color:#2563eb; font-size:15px; font-weight:800; }
@@ -1337,6 +1339,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 {% macro gap_full(v) %}{% if v is none %}—{% elif v >= 0 %}+{{ v|rupiah }}{% else %}{{ v|rupiah }}{% endif %}{% endmacro %}
 {% macro gap_cls(v) %}{% if v is not none %}{{ 'dpa-neg' if v < 0 else 'dpa-pos' }}{% endif %}{% endmacro %}
 {% macro kpi_text(actual, target) %}{{ actual }}{% if target %} <small>/ {{ target }}</small>{% endif %}{% endmacro %}
+{% macro mtd_text(g, prev) %}<span class="dpa-mtd">{% if g is none %}<b>—</b>vs bulan lalu{% else %}<b class="{{ 'dpa-pos' if g >= 0 else 'dpa-neg' }}">{% if g >= 0 %}↑ +{% else %}↓ {% endif %}{{ g|percent_id }}%</b>vs bulan lalu ({{ prev|rupiah_short }}){% endif %}</span>{% endmacro %}
 {% macro money_or_dash(v) %}{% if v is not none %}{{ v|rupiah }}{% else %}—{% endif %}{% endmacro %}
 
 <section class="dpa-card">
@@ -1369,7 +1372,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
         <div class="dpa-kpi-tile dpa-kpi-qvo"><span>QVO</span><strong>{{ kpi_text(r.qvo, r.qvo_target) }}</strong></div>
       </div>
 
-      <div class="dpa-foot">Est closing <strong>{{ pct_text(r.projection.est_closing_pct) }}</strong></div>
+      <div class="dpa-foot">{{ mtd_text(r.mtd_growth, r.prev_sales) }}<span>Est closing <strong>{{ pct_text(r.projection.est_closing_pct) }}</strong></span></div>
     </div>
     {% endfor %}
   </div>
@@ -1384,6 +1387,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     <span>Gap <span class="{{ gap_cls(total_gap) }}">{{ gap_short(total_gap) }}</span></span>
     <span class="dpa-total-kpi">BO <strong>{{ kpi_text(t_bo, t_bo_tg) }}</strong></span>
     <span class="dpa-total-kpi">QVO <strong>{{ kpi_text(t_qvo, t_qvo_tg) }}</strong></span>
+    {{ mtd_text(mtd_growth.sales, previous_mtd.sales) }}
     <span>Est closing {{ pct_text(projection_summary.est_closing_pct) }}</span>
   </div>
 </section>
