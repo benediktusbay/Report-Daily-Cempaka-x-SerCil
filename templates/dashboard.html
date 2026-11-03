@@ -1275,13 +1275,18 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   .dpa-card { background:#fff; border:1px solid #e5e7eb; border-radius:18px; padding:22px 24px; margin:0 0 14px; box-shadow:0 3px 14px rgba(15,23,42,.05); }
   .dpa-title { font-size:20px; font-weight:800; color:#0b2545; margin-bottom:16px; }
   .dpa-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(270px, 1fr)); gap:14px; }
-  .dpa-depo { border:1px solid #e5e7eb; border-radius:14px; padding:16px 18px; background:#fbfcfe; cursor:pointer; transition:border-color .15s ease, box-shadow .15s ease; }
+  .dpa-depo { border:1px solid #e5e7eb; border-top:5px solid #94a3b8; border-radius:14px; padding:16px 18px; background:#fff; cursor:pointer; transition:border-color .15s ease, box-shadow .15s ease; }
   .dpa-depo:hover, .dpa-depo:focus-visible { border-color:#9fc5ff; box-shadow:0 6px 18px rgba(15,23,42,.08); outline:none; }
-  .dpa-name { display:flex; justify-content:space-between; align-items:center; font-size:15px; font-weight:800; color:#0b2545; }
+  .dpa-name { display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:24px; font-weight:800; color:#0b2545; line-height:1.15; }
+  .dpa-name-right { display:flex; align-items:center; gap:6px; }
+  .dpa-chip { font-size:13px; font-weight:800; padding:3px 11px; border-radius:999px; background:#f1f5f9; color:#475569; white-space:nowrap; }
   .dpa-name svg { width:16px; height:16px; color:#94a3b8; }
   .dpa-main { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-top:8px; }
-  .dpa-pct { font-size:30px; font-weight:800; color:#2563eb; line-height:1.1; }
-  .dpa-amount { font-size:12px; color:#6b7280; font-weight:600; }
+  .dpa-value { font-size:40px; font-weight:900; letter-spacing:-.02em; line-height:1.05; color:#0b2545; white-space:nowrap; }
+  .dpa-target { font-size:16px; color:#7a8496; font-weight:600; white-space:nowrap; }
+  .dpa-st-ok { border-top-color:#43a047; } .dpa-st-ok .dpa-value { color:#2e7d32; } .dpa-st-ok .dpa-chip { background:#e8f5e9; color:#2e7d32; } .dpa-st-ok .dpa-bar > span { background:#43a047; }
+  .dpa-st-mid { border-top-color:#ef8a17; } .dpa-st-mid .dpa-value { color:#b35c00; } .dpa-st-mid .dpa-chip { background:#fff3e0; color:#b35c00; } .dpa-st-mid .dpa-bar > span { background:#ef8a17; }
+  .dpa-st-low { border-top-color:#e53935; } .dpa-st-low .dpa-value { color:#c62828; } .dpa-st-low .dpa-chip { background:#fdecea; color:#c62828; } .dpa-st-low .dpa-bar > span { background:#e53935; }
   .dpa-bar { height:9px; background:#e8edf4; border-radius:6px; margin:12px 0 4px; overflow:hidden; }
   .dpa-bar > span { display:block; height:9px; border-radius:6px; background:#2563eb; }
   .dpa-row { display:grid; grid-template-columns:86px minmax(40px,1fr) 62px 96px; align-items:center; gap:10px; margin-top:9px; font-size:12px; font-weight:700; }
@@ -1309,7 +1314,11 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   .dpa-mtd b { font-weight:800; margin-right:3px; }
   .dpa-neg { color:#dc2626 !important; } .dpa-pos { color:#16a34a !important; }
   .dpa-total { display:flex; justify-content:space-between; align-items:center; gap:10px 18px; flex-wrap:wrap; margin-top:14px; padding:12px 18px; background:#f4f7fb; border-radius:12px; font-size:13px; font-weight:700; color:#172033; }
-  .dpa-total .dpa-total-pct { color:#2563eb; font-size:15px; font-weight:800; }
+  .dpa-total-label { font-size:17px; font-weight:900; color:#0b2545; }
+  .dpa-total-value { font-size:28px; font-weight:900; letter-spacing:-.02em; color:#0b2545; white-space:nowrap; }
+  .dpa-total-value small { font-size:15px; font-weight:600; color:#7a8496; letter-spacing:0; margin-left:4px; }
+  .dpa-total-value.ok { color:#2e7d32; } .dpa-total-value.mid { color:#b35c00; } .dpa-total-value.low { color:#c62828; }
+  .dpa-total .dpa-chip.ok { background:#e8f5e9; color:#2e7d32; } .dpa-total .dpa-chip.mid { background:#fff3e0; color:#b35c00; } .dpa-total .dpa-chip.low { background:#fdecea; color:#c62828; }
   .dpa-dialog { border:1px solid #dce5f2; border-radius:16px; padding:22px; width:min(760px, calc(100vw - 32px)); box-sizing:border-box; color:#102a48; }
   .dpa-dialog::backdrop { background:rgba(15,35,60,.45); }
   .dpa-dialog-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:14px; }
@@ -1326,7 +1335,9 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   @media (max-width:620px) {
     .dpa-card { padding:16px; border-radius:14px; }
     .dpa-title { font-size:17px; }
-    .dpa-pct { font-size:26px; }
+    .dpa-name { font-size:21px; }
+    .dpa-value { font-size:32px; }
+    .dpa-total-value { font-size:23px; }
     .dpa-row { grid-template-columns:76px minmax(30px,1fr) 52px 84px; gap:6px; font-size:11px; }
     .dpa-kpi-tile strong { font-size:18px; }
     .dpa-kpi-tile small { font-size:13px; }
@@ -1340,6 +1351,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 {% macro gap_cls(v) %}{% if v is not none %}{{ 'dpa-neg' if v < 0 else 'dpa-pos' }}{% endif %}{% endmacro %}
 {% macro kpi_text(actual, target) %}{{ actual }}{% if target %} <small>/ {{ target }}</small>{% endif %}{% endmacro %}
 {% macro mtd_text(g, prev) %}<span class="dpa-mtd">{% if g is none %}<b>—</b>vs bulan lalu{% else %}<b class="{{ 'dpa-pos' if g >= 0 else 'dpa-neg' }}">{% if g >= 0 %}↑ +{% else %}↓ {% endif %}{{ g|percent_id }}%</b>vs bulan lalu ({{ prev|rupiah_short }}){% endif %}</span>{% endmacro %}
+{% macro st_key(v) %}{% if v is none %}{% elif v >= 100 %}ok{% elif v >= 80 %}mid{% else %}low{% endif %}{% endmacro %}
 {% macro money_or_dash(v) %}{% if v is not none %}{{ v|rupiah }}{% else %}—{% endif %}{% endmacro %}
 
 <section class="dpa-card">
@@ -1347,13 +1359,14 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 
   <div class="dpa-grid">
     {% for r in depo_achievement %}
-    <div class="dpa-depo" role="button" tabindex="0" aria-haspopup="dialog"
+    {% set st = st_key(r.sales_pct)|trim %}
+    <div class="dpa-depo{% if st %} dpa-st-{{ st }}{% endif %}" role="button" tabindex="0" aria-haspopup="dialog"
          onclick="document.getElementById('dpa-dialog-{{ loop.index }}').showModal()"
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
-      <div class="dpa-name">{{ r.label }}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></div>
+      <div class="dpa-name"><span>{{ r.label }}</span><span class="dpa-name-right"><span class="dpa-chip">{{ pct_text(r.sales_pct) }}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg></span></div>
       <div class="dpa-main">
-        <span class="dpa-pct">{{ pct_text(r.sales_pct) }}</span>
-        <span class="dpa-amount">{{ r.sales|rupiah_short }} / {{ r.sales_target|rupiah_short if r.sales_target else '—' }}</span>
+        <span class="dpa-value">{{ r.sales|rupiah_short }}</span>
+        <span class="dpa-target">/ {{ r.sales_target|rupiah_short if r.sales_target else '—' }}</span>
       </div>
       <div class="dpa-bar"><span style="width:{{ bar_w(r.sales_pct) }}%"></span></div>
 
@@ -1381,9 +1394,10 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   {% set t_bo = depo_achievement|sum(attribute='bo') %}{% set t_bo_tg = depo_achievement|sum(attribute='bo_target') %}
   {% set t_qvo = depo_achievement|sum(attribute='qvo') %}{% set t_qvo_tg = depo_achievement|sum(attribute='qvo_target') %}
   <div class="dpa-total">
-    <span>TOTAL</span>
-    <span>{{ cards.sales|rupiah_short }} / {{ cards.sales_target|rupiah_short if cards.sales_target else '—' }}</span>
-    <span class="dpa-total-pct">{{ pct_text(cards.sales_pct if cards.sales_target else none) }}</span>
+    {% set t_pct = cards.sales_pct if cards.sales_target else none %}{% set t_st = st_key(t_pct)|trim %}
+    <span class="dpa-total-label">TOTAL</span>
+    <span class="dpa-total-value {{ t_st }}">{{ cards.sales|rupiah_short }}<small>/ {{ cards.sales_target|rupiah_short if cards.sales_target else '—' }}</small></span>
+    <span class="dpa-chip {{ t_st }}">{{ pct_text(t_pct) }}</span>
     <span>Gap <span class="{{ gap_cls(total_gap) }}">{{ gap_short(total_gap) }}</span></span>
     <span class="dpa-total-kpi">BO <strong>{{ kpi_text(t_bo, t_bo_tg) }}</strong></span>
     <span class="dpa-total-kpi">QVO <strong>{{ kpi_text(t_qvo, t_qvo_tg) }}</strong></span>
