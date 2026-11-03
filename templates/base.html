@@ -142,6 +142,23 @@
       box-shadow: 0 5px 12px rgba(23,105,232,.2);
     }
 
+    .nav-group { flex: 0 0 auto; }
+    .nav-group-btn {
+      border: 0; background: transparent; cursor: pointer;
+      color: #52647e; padding: 9px 13px; border-radius: 9px;
+      font-size: 14px; font-weight: 800; white-space: nowrap;
+    }
+    .nav-group-btn:hover, .nav-group.open .nav-group-btn { background: #eaf2ff; color: #1769e8; }
+    .nav-group-btn.active, .nav-group.open .nav-group-btn.active { background: #1769e8; color: white; box-shadow: 0 5px 12px rgba(23,105,232,.2); }
+    .nav-group-btn .caret { font-size: 11px; margin-left: 2px; }
+    .nav-menu {
+      display: none; position: fixed; z-index: 50; min-width: 180px;
+      background: white; border: 1px solid #dbe4f0; border-radius: 12px;
+      box-shadow: 0 12px 30px rgba(15,23,42,.14); padding: 6px;
+    }
+    .nav-group.open .nav-menu { display: flex; flex-direction: column; gap: 2px; }
+    .navlinks .nav-menu a { display: block; }
+
     .user-area {
       display: flex;
       align-items: center;
@@ -273,7 +290,7 @@
       .user-info { display: block; font-size: 10px; line-height: 1.2; }
       .logout { padding: 7px 9px; font-size: 11px; }
       .navlinks { padding: 6px; border-radius: 13px; }
-      .navlinks a { padding: 8px 11px; font-size: 12px; white-space: nowrap; }
+      .navlinks a, .nav-group-btn { padding: 8px 11px; font-size: 12px; white-space: nowrap; }
     }
   </style>
 
@@ -336,36 +353,35 @@
         PJP
       </a>
 
-      <a class="{% if request.endpoint == 'closing' %}active{% endif %}" href="{{ url_for('closing') }}">
-        Closing
-      </a>
-
       <a class="{% if request.endpoint == 'cross_brand' %}active{% endif %}" href="{{ url_for('cross_brand') }}">
         Cross Brand
       </a>
 
-      {% if session.get('user_id') %}
-
-        <a class="{% if request.endpoint == 'budget' %}active{% endif %}" href="{{ url_for('budget') }}">
-          Budget
-        </a>
-
-        <a class="{% if request.endpoint == 'target_analysis' %}active{% endif %}" href="{{ url_for('target_analysis') }}">
-          Analisa Target
-        </a>
-
-      {% endif %}
+      {% set planning_eps = ['closing', 'budget', 'target_analysis'] %}
+      <div class="nav-group">
+        <button type="button" class="nav-group-btn{% if request.endpoint in planning_eps %} active{% endif %}" aria-expanded="false">
+          Planning <span class="caret" aria-hidden="true">▾</span>
+        </button>
+        <div class="nav-menu">
+          <a class="{% if request.endpoint == 'closing' %}active{% endif %}" href="{{ url_for('closing') }}">Closing</a>
+          {% if session.get('user_id') %}
+          <a class="{% if request.endpoint == 'budget' %}active{% endif %}" href="{{ url_for('budget') }}">Budget</a>
+          <a class="{% if request.endpoint == 'target_analysis' %}active{% endif %}" href="{{ url_for('target_analysis') }}">Analisa Target</a>
+          {% endif %}
+        </div>
+      </div>
 
       {% if session.get('role') == 'admin' %}
-
-        <a class="{% if request.endpoint == 'targets' %}active{% endif %}" href="{{ url_for('targets') }}">
-          Target Master
-        </a>
-
-        <a class="{% if request.endpoint == 'users' %}active{% endif %}" href="{{ url_for('users') }}">
-          Users
-        </a>
-
+      {% set admin_eps = ['targets', 'users'] %}
+      <div class="nav-group">
+        <button type="button" class="nav-group-btn{% if request.endpoint in admin_eps %} active{% endif %}" aria-expanded="false">
+          Admin <span class="caret" aria-hidden="true">▾</span>
+        </button>
+        <div class="nav-menu">
+          <a class="{% if request.endpoint == 'targets' %}active{% endif %}" href="{{ url_for('targets') }}">Target Master</a>
+          <a class="{% if request.endpoint == 'users' %}active{% endif %}" href="{{ url_for('users') }}">Users</a>
+        </div>
+      </div>
       {% endif %}
 
     </nav>
@@ -400,11 +416,33 @@
 
   {% block scripts %}{% endblock %}
   <script>
-    const activeNav=document.querySelector('.navlinks a.active');
+    const activeNav=document.querySelector('.navlinks > a.active, .navlinks .nav-group-btn.active');
     const navLinks=activeNav?.closest('.navlinks');
     if(navLinks && navLinks.scrollWidth>navLinks.clientWidth){
       navLinks.scrollLeft=activeNav.offsetLeft-navLinks.offsetLeft-(navLinks.clientWidth-activeNav.offsetWidth)/2;
     }
+
+    // Dropdown menu navbar (posisi fixed agar tidak terpotong scroll navbar).
+    const closeNavGroups=except=>document.querySelectorAll('.nav-group.open').forEach(g=>{
+      if(g!==except){g.classList.remove('open');g.querySelector('.nav-group-btn').setAttribute('aria-expanded','false')}
+    });
+    document.querySelectorAll('.nav-group-btn').forEach(btn=>btn.addEventListener('click',e=>{
+      e.stopPropagation();
+      const group=btn.closest('.nav-group'),menu=group.querySelector('.nav-menu');
+      closeNavGroups(group);
+      const open=group.classList.toggle('open');
+      btn.setAttribute('aria-expanded',open?'true':'false');
+      if(open){
+        const r=btn.getBoundingClientRect();
+        menu.style.top=(r.bottom+6)+'px';
+        menu.style.left=Math.max(8,Math.min(r.left,window.innerWidth-menu.offsetWidth-8))+'px';
+      }
+    }));
+    document.addEventListener('click',e=>{if(!e.target.closest('.nav-menu'))closeNavGroups()});
+    window.addEventListener('scroll',()=>closeNavGroups(),{passive:true});
+    window.addEventListener('resize',()=>closeNavGroups());
+    document.querySelector('.navlinks')?.addEventListener('scroll',()=>closeNavGroups(),{passive:true});
+    document.addEventListener('keydown',e=>{if(e.key==='Escape')closeNavGroups()});
   </script>
 
 </body>
