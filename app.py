@@ -3409,6 +3409,54 @@ def _dashboard_context_uncached():
     projection_timegone = projection_elapsed / working_days_total * 100 if working_days_total else 0
 
 
+    # Detail dealer untuk sel Distribution Quality (BO/QVO) dan Speed Distribution (W1–W4).
+    # Aturan sama dengan angka heatmap: BO per (salesman, BP) dari bo_billing,
+    # QVO dari owner_dealers, minggu BO memakai cut-off yang sama dengan Speed.
+    week_cutoffs = {}
+    if latest_in_scope:
+        for w in range(1, 5):
+            if latest_in_scope.day >= WEEK_START_DAY[w]:
+                week_cutoffs[w] = start.replace(day=min(WEEK_END_DAY[w], end.day, latest_in_scope.day))
+    dist = {}
+    for r, owner in sorted(bo_billing, key=lambda x: x[0].billing_date):
+        if owner not in visible_people:
+            continue
+        bp = normalize_bp(r.sold_to_code)
+        meta = bo_dealer_names.get((owner, bp), {})
+        x = dist.setdefault((owner, bp), dict(
+            salesman=owner, bp=bp, dealer=meta.get('dealer') or normalize_text(r.sold_to_name),
+            depo=meta.get('depo') or '', bo_value=0.0, total=0.0, bo_date=None, events=[]))
+        amount = float(r.nett_amount or 0)
+        if r.category in ('Device', 'Macbook'):
+            x['bo_value'] += amount
+            x['events'].append((r.billing_date, amount))
+            if x['bo_date'] is None and is_bo_amounts(x['bo_value'], 0):
+                x['bo_date'] = r.billing_date
+        if r.category in ('Device', 'Macbook', 'ACC'):
+            x['total'] += amount
+    distribution_dealers = []
+    qvo_keys = {(d['salesman'], d['bp']) for d in quality_qvo_dealers}
+    for d in owner_dealers.values():
+        if (d['salesman'], d['bp']) in qvo_keys:
+            x = dist.setdefault((d['salesman'], d['bp']), dict(
+                salesman=d['salesman'], bp=d['bp'], dealer=d['dealer'], depo='',
+                bo_value=0.0, total=0.0, bo_date=None, events=[]))
+            x['depo'] = ', '.join(sorted(d['depos']))
+            x['total'] = sum(d[k] for k in ('Device', 'Macbook', 'ACC'))
+    for key, x in dist.items():
+        weeks = [w for w, cutoff in sorted(week_cutoffs.items())
+                 if is_bo_amounts(sum(a for day, a in x['events'] if day <= cutoff), 0)]
+        bo = key in bo_dealer_keys
+        qvo = key in qvo_keys
+        if not (bo or qvo or weeks):
+            continue
+        distribution_dealers.append(dict(
+            salesman=x['salesman'], bp=x['bp'], dealer=x['dealer'], depo=x['depo'],
+            bo=bo, qvo=qvo, bo_value=x['bo_value'], total=x['total'],
+            bo_date=x['bo_date'].isoformat() if x['bo_date'] else None, weeks=weeks,
+        ))
+    distribution_dealers.sort(key=lambda d: (-d['total'], d['dealer']))
+
     # Client-side filter mapping for instant bidirectional Depo <-> Salesman UI.
     filter_salesman_depos = {
         s: [d for d in all_depos if d in target_depos_by_salesman.get(s, set())]
@@ -3448,6 +3496,9 @@ def _dashboard_context_uncached():
         no_purchase_target_total=no_purchase_target_total,
         previous_mtd=previous_mtd, mtd_growth=mtd_growth, previous_cutoff=previous_cutoff,
         qvo_potential=qvo_potential, qvo_history_months=qvo_history_months,
+        distribution_dealers=distribution_dealers,
+        speed_week_cutoffs={w: c.isoformat() for w, c in week_cutoffs.items()},
+        qvo_threshold_non_ppn=QVO_THRESHOLD,
         timegone_pct=timegone_pct,
         working_days_elapsed=working_days_elapsed,
         working_days_total=working_days_total

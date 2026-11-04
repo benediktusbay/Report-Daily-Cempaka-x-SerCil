@@ -1055,6 +1055,20 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 .heat-total th,.heat-total .heat-cell{font-weight:800}
 @media(max-width:768px){.heat-table thead th{font-size:11px}.heat-sub{font-size:10px}.heat-cell{font-size:13px}}
 
+/* Sel heatmap BO/QVO/W1–W4 bisa diklik untuk melihat daftar dealer */
+.heat-click{cursor:pointer;transition:box-shadow .12s,filter .12s}
+.heat-click:hover{box-shadow:inset 0 0 0 2px currentColor;filter:brightness(.97)}
+.heat-click:focus-visible{outline:2px solid #1769e8;outline-offset:2px}
+.dist-summary{display:flex;flex-wrap:wrap;gap:8px 18px;padding:12px 20px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#475569}
+.dist-summary b{color:#0b2545}
+.dist-table{width:100%;min-width:640px;border-collapse:collapse;font-size:13px}
+.dist-table th{position:sticky;top:0;background:#f8fafc;font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:#52647e;text-align:left;padding:9px 12px;border-bottom:1px solid #e5e7eb;white-space:nowrap}
+.dist-table td{padding:9px 12px;border-bottom:1px solid #eef2f7;text-align:left;vertical-align:top;font-variant-numeric:tabular-nums;white-space:nowrap}
+.dist-table td.dist-name{white-space:normal;font-weight:700;color:#0b2545;min-width:200px}
+.dist-table .dist-sub{display:block;font-size:11.5px;font-weight:600;color:#64748b;margin-top:2px}
+.dist-new{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:10.5px;font-weight:800;vertical-align:1px}
+.dist-empty{padding:28px;text-align:center;color:#94a3b8}
+
 /* Distribution Quality + Speed Distribution dalam satu baris */
 .heat-pair{display:grid;grid-template-columns:minmax(0,45fr) minmax(0,55fr);gap:14px;align-items:stretch}
 .heat-pair>.section{display:flex;flex-direction:column}
@@ -1567,16 +1581,16 @@ document.addEventListener('click',function(event){
         {% set qvo_cls = heat_class(r.qvo, qvo_due) %}
         <tr>
           <th scope="row">{{ heat_name(r.salesman) }}</th>
-          <td class="heat-cell {{ bo_cls }}">{{ r.bo }}{{ heat_status(bo_cls) }}</td>
-          <td class="heat-cell {{ qvo_cls }}">{{ r.qvo }}{{ heat_status(qvo_cls) }}</td>
+          <td class="heat-cell heat-click {{ bo_cls }}" role="button" tabindex="0" data-dist="bo" data-salesman="{{ r.salesman }}">{{ r.bo }}{{ heat_status(bo_cls) }}</td>
+          <td class="heat-cell heat-click {{ qvo_cls }}" role="button" tabindex="0" data-dist="qvo" data-salesman="{{ r.salesman }}">{{ r.qvo }}{{ heat_status(qvo_cls) }}</td>
         </tr>
         {% endfor %}
         {% set bo_total_cls = heat_class(cards.bo, cards.bo_target if cards.bo_target else none) %}
         {% set qvo_total_cls = heat_class(cards.qvo, cards.qvo_target if cards.qvo_target else none) %}
         <tr class="heat-total">
           <th scope="row">Total</th>
-          <td class="heat-cell {{ bo_total_cls }}">{{ cards.bo }}{{ heat_status(bo_total_cls) }}</td>
-          <td class="heat-cell {{ qvo_total_cls }}">{{ cards.qvo }}{{ heat_status(qvo_total_cls) }}</td>
+          <td class="heat-cell heat-click {{ bo_total_cls }}" role="button" tabindex="0" data-dist="bo" data-salesman="">{{ cards.bo }}{{ heat_status(bo_total_cls) }}</td>
+          <td class="heat-cell heat-click {{ qvo_total_cls }}" role="button" tabindex="0" data-dist="qvo" data-salesman="">{{ cards.qvo }}{{ heat_status(qvo_total_cls) }}</td>
         </tr>
       </tbody>
     </table>
@@ -1614,7 +1628,7 @@ document.addEventListener('click',function(event){
           <td class="heat-cell heat-neutral">—<span class="sr-only"> (belum berjalan)</span></td>
           {% else %}
           {% set cls = 'heat-good' if x.actual >= x.target else 'heat-bad' %}
-          <td class="heat-cell {{ cls }}">{{ x.actual }}{% if week_targets|length != 1 %}<span class="heat-sub">/ {{ x.target }}</span>{% endif %}{{ heat_status(cls) }}</td>
+          <td class="heat-cell heat-click {{ cls }}" role="button" tabindex="0" data-dist="w{{ w }}" data-salesman="{{ r.salesman }}">{{ x.actual }}{% if week_targets|length != 1 %}<span class="heat-sub">/ {{ x.target }}</span>{% endif %}{{ heat_status(cls) }}</td>
           {% endif %}
           {% endfor %}
         </tr>
@@ -1628,7 +1642,7 @@ document.addEventListener('click',function(event){
           <td class="heat-cell heat-neutral">—<span class="sr-only"> (belum berjalan)</span></td>
           {% else %}
           {% set cls = 'heat-good' if week_actuals|sum >= week_target_total else 'heat-bad' %}
-          <td class="heat-cell {{ cls }}">{{ week_actuals|sum }}{{ heat_status(cls) }}</td>
+          <td class="heat-cell heat-click {{ cls }}" role="button" tabindex="0" data-dist="w{{ w }}" data-salesman="">{{ week_actuals|sum }}{{ heat_status(cls) }}</td>
           {% endif %}
           {% endfor %}
         </tr>
@@ -1850,6 +1864,17 @@ document.addEventListener('click',function(event){
   <script id="dealer-load-config" type="application/json">{{ {'token': dealer_token, 'pageSize': dealer_page_size, 'url': url_for('dashboard_dealers'), 'desktopTotal': dealer_desktop_total, 'desktopShown': dealer_desktop_rows|length, 'mobileSalesman': dealer_mobile_salesman, 'mobileTotal': dealer_mobile_total, 'mobileShown': dealer_mobile_rows|length}|tojson }}</script>
 </div>
 
+
+<div id="distModal" class="modal-backdrop-custom" aria-hidden="true">
+  <div class="modal-card-custom" style="width:min(900px,100%)" role="dialog" aria-modal="true" aria-labelledby="distTitle">
+    <div class="modal-head-custom">
+      <div><h3 id="distTitle">Detail Dealer</h3><p id="distSubtitle"></p></div>
+      <button type="button" class="modal-close-custom" id="distClose" aria-label="Tutup">×</button>
+    </div>
+    <div class="dist-summary" id="distSummary"></div>
+    <div class="modal-body-custom"><div class="table-wrap"><table class="dist-table"><thead id="distHead"></thead><tbody id="distBody"></tbody></table></div></div>
+  </div>
+</div>
 
 <div id="dealerTargetModal" class="modal-backdrop-custom" aria-hidden="true">
   <div class="modal-card-custom" style="width:min(820px,100%)">
@@ -2790,4 +2815,71 @@ document.addEventListener('click',function(event){
 })();
 </script>
 
+
+<script>
+(function(){
+  const DEALERS = {{ distribution_dealers|default([])|tojson }};
+  const CUTOFFS = {{ speed_week_cutoffs|default({})|tojson }};
+  const QVO_LIMIT = {{ qvo_threshold_non_ppn|default(0)|tojson }};
+  const modal = document.getElementById('distModal');
+  if (!modal) return;
+  const MON = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const rp = v => (Number(v) < 0 ? '-' : '') + 'Rp ' + Math.abs(Math.round(Number(v) || 0)).toLocaleString('id-ID');
+  const tgl = iso => { if (!iso) return '–'; const p = iso.split('-'); return (+p[2]) + ' ' + MON[+p[1] - 1]; };
+  const head = document.getElementById('distHead'), body = document.getElementById('distBody');
+
+  function open(kind, salesman){
+    const all = !salesman;
+    let list = DEALERS.filter(d => all || d.salesman === salesman);
+    const week = kind.startsWith('w') ? +kind.slice(1) : null;
+    let title, sub, cols, row, summary;
+    const who = all ? 'Semua salesman' : salesman;
+    const salesCol = all ? '<th>Salesman</th>' : '';
+    const salesCell = d => all ? `<td>${esc(d.salesman)}</td>` : '';
+    const name = d => `<td class="dist-name">${esc(d.dealer)}<span class="dist-sub">BP ${esc(d.bp)}${d.depo ? ' · ' + esc(d.depo) : ''}</span></td>`;
+    if (kind === 'bo') {
+      list = list.filter(d => d.bo).sort((a, b) => (a.bo_date || '').localeCompare(b.bo_date || '') || b.bo_value - a.bo_value);
+      title = 'Dealer BO';
+      sub = `${who} · dealer yang sudah beli Device/MacBook bulan ini`;
+      cols = `<tr><th>Dealer</th>${salesCol}<th>Device + MacBook</th><th>Total belanja</th><th>Pertama BO</th></tr>`;
+      row = d => `<tr>${name(d)}${salesCell(d)}<td>${rp(d.bo_value)}</td><td>${rp(d.total)}</td><td>${tgl(d.bo_date)}</td></tr>`;
+      summary = `<span><b>${list.length}</b> dealer BO</span><span>Device + MacBook <b>${rp(list.reduce((s, d) => s + d.bo_value, 0))}</b></span>`;
+    } else if (kind === 'qvo') {
+      list = list.filter(d => d.qvo).sort((a, b) => b.total - a.total);
+      title = 'Dealer QVO';
+      sub = `${who} · total belanja (non-PPN) ≥ ${rp(QVO_LIMIT)}`;
+      cols = `<tr><th>Dealer</th>${salesCol}<th>Total belanja</th><th>Di atas batas QVO</th></tr>`;
+      row = d => `<tr>${name(d)}${salesCell(d)}<td>${rp(d.total)}</td><td>${rp(d.total - QVO_LIMIT)}</td></tr>`;
+      summary = `<span><b>${list.length}</b> dealer QVO</span><span>Total belanja <b>${rp(list.reduce((s, d) => s + d.total, 0))}</b></span>`;
+    } else {
+      list = list.filter(d => d.weeks.includes(week))
+                 .sort((a, b) => (b.weeks[0] === week) - (a.weeks[0] === week) || (a.bo_date || '').localeCompare(b.bo_date || ''));
+      const fresh = list.filter(d => d.weeks[0] === week).length;
+      title = `Speed Distribution · W${week}`;
+      sub = `${who} · dealer BO s/d ${tgl(CUTOFFS[week])}`;
+      cols = `<tr><th>Dealer</th>${salesCol}<th>Device + MacBook</th><th>Pertama BO</th></tr>`;
+      row = d => `<tr>${name(d).replace('</span></td>', '</span>' + (d.weeks[0] === week && week > 1 ? '<span class="dist-new">baru minggu ini</span>' : '') + '</td>')}${salesCell(d)}<td>${rp(d.bo_value)}</td><td>${tgl(d.bo_date)}</td></tr>`;
+      summary = `<span><b>${list.length}</b> dealer BO s/d W${week}</span>` + (week > 1 ? `<span><b>${fresh}</b> baru di W${week}</span>` : '');
+    }
+    document.getElementById('distTitle').textContent = title;
+    document.getElementById('distSubtitle').textContent = sub;
+    document.getElementById('distSummary').innerHTML = summary;
+    head.innerHTML = cols;
+    body.innerHTML = list.length ? list.map(row).join('') : `<tr><td colspan="5" class="dist-empty">Belum ada dealer.</td></tr>`;
+    modal.style.display = 'block';
+    modal.setAttribute('aria-hidden', 'false');
+    document.getElementById('distClose').focus();
+  }
+  function close(){ modal.style.display = 'none'; modal.setAttribute('aria-hidden', 'true'); }
+  document.querySelectorAll('.heat-click[data-dist]').forEach(cell => {
+    const go = () => open(cell.dataset.dist, cell.dataset.salesman);
+    cell.addEventListener('click', go);
+    cell.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  });
+  document.getElementById('distClose').addEventListener('click', close);
+  modal.addEventListener('click', e => { if (e.target === modal) close(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.style.display === 'block') close(); });
+})();
+</script>
 {% endblock %}
