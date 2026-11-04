@@ -82,7 +82,8 @@
   </form>
   <div><b>Format:</b> file Target Breakdown dari ASH apa adanya.
    <ul><li>Dibaca dari sheet <b>Detail</b>: kolom DEPO, BP, Dealer Name, SC NAME, DEVICE TOTAL, ACC TOTAL, MAC TOTAL, TARGET BO, TARGET QVO.</li>
-   <li>Hanya depo Cempaka, Serang, Cilegon. Serang dan Cilegon otomatis masuk Ikmah.</li>
+   <li>Hanya depo Cempaka, Serang, Cilegon. Kolom SC NAME di file ASH tidak dipakai.</li>
+   <li>Nama salesman: ikut Target Master bulan itu; kalau BP belum ada, dari transaksi terakhir salesman area di Billing Detail; dealer yang belum pernah belanja ikut salesman aktif di depo itu (ditandai <i>perkiraan</i>).</li>
    <li>Upload ulang (revisi ASH) mengganti data depo yang sama di bulan itu; depo lain tetap.</li>
    <li>Kalau target sudah fix, upload ke <b>Target Master</b> seperti biasa — menu ini tidak menyentuhnya.</li></ul>
    {% if data and data.uploaded_at %}<p class="ta-note" style="margin-top:10px">Terakhir diupload {{ data.uploaded_by or '' }} · <span id="lastUpload" data-utc="{{ data.uploaded_at }}"></span><br>File: {{ data.files|join(', ') }}</p>
@@ -233,7 +234,7 @@ function dealers(){
  let html='',cur=null;
  list.forEach(d=>{
   if(depo==='ALL'&&d.depo!==cur){cur=d.depo;html+=`<tr class="sum"><td colspan="${span}">${esc(cur)}</td></tr>`}
-  html+=`<tr class="click${openBp===d.bp?' open':''}" data-bp="${esc(d.bp)}">${td('',`<div class="ta-name">${esc(d.dealer)}<span class="ta-small">BP ${esc(d.bp)} · ${esc(d.salesman)}</span></div>`)}${td('Target ASH',rp(d.target),'r')}${td(mLabel(lastKey),rp(d.last),'r')}${td('Rata-rata 3 bln',rp(d.avg3),'r')}${td('Tertinggi',d.peak?`${rp(d.peak)}<span class="ta-small">${mLabel(d.peak_month)}</span>`:'–','r')}${td('vs rata-rata',`<span class="ta-pct ${d.label}">${pctTxt(d.ratio)}</span>`,'r')}${td('Kewajaran',`<span class="ta-pill ${d.label}">${LABELS[d.label]}</span>${d.above_peak&&d.label!=='tidak_aktif'?'<span class="ta-flag">di atas rekor</span>':''}`)}${td('History',spark(d.history,d.target))}${D.mtd_latest?td('MTD',rp(d.mtd),'r'):''}</tr>`;
+  html+=`<tr class="click${openBp===d.bp?' open':''}" data-bp="${esc(d.bp)}">${td('',`<div class="ta-name">${esc(d.dealer)}<span class="ta-small">BP ${esc(d.bp)} · ${esc(d.salesman)}${d.salesman_source==='depo'?' <i title="Belum pernah belanja: ikut salesman aktif di depo ini">(perkiraan)</i>':''}</span></div>`)}${td('Target ASH',rp(d.target),'r')}${td(mLabel(lastKey),rp(d.last),'r')}${td('Rata-rata 3 bln',rp(d.avg3),'r')}${td('Tertinggi',d.peak?`${rp(d.peak)}<span class="ta-small">${mLabel(d.peak_month)}</span>`:'–','r')}${td('vs rata-rata',`<span class="ta-pct ${d.label}">${pctTxt(d.ratio)}</span>`,'r')}${td('Kewajaran',`<span class="ta-pill ${d.label}">${LABELS[d.label]}</span>${d.above_peak&&d.label!=='tidak_aktif'?'<span class="ta-flag">di atas rekor</span>':''}`)}${td('History',spark(d.history,d.target))}${D.mtd_latest?td('MTD',rp(d.mtd),'r'):''}</tr>`;
   if(openBp===d.bp)html+=`<tr class="ta-detail"><td colspan="${span}">${detail(d)}</td></tr>`;
  });
  document.querySelector('#dealerTable tbody').innerHTML=html||`<tr><td colspan="${span}" class="ta-empty">Tidak ada dealer.</td></tr>`;

@@ -5862,8 +5862,6 @@ class TargetAnalysisRow(db.Model):
 
 
 TARGET_ANALYSIS_DEPOS = ('Cempaka', 'Serang', 'Cilegon')
-# Serang & Cilegon selalu dipegang Ikmah, apa pun SC NAME di file ASH.
-TARGET_ANALYSIS_DEPO_SALESMAN = {'Serang': 'Ikmah Novtianingrum', 'Cilegon': 'Ikmah Novtianingrum'}
 # Label kewajaran: target total dibanding rata-rata 3 bulan terakhir (%).
 TARGET_ANALYSIS_LIMITS = (120, 150)
 TARGET_ANALYSIS_HISTORY_MONTHS = 12
@@ -5931,7 +5929,9 @@ def parse_target_analysis_upload(stream):
             if depo not in TARGET_ANALYSIS_DEPOS:
                 skipped.add(depo)
                 continue
-            salesman = TARGET_ANALYSIS_DEPO_SALESMAN.get(depo) or canonical_salesman(get(row, 'salesman')) or '—'
+            # SC NAME di file ASH tidak dipakai; nama salesman ditentukan saat analisa
+            # (Target Master -> Billing Detail -> salesman aktif depo).
+            salesman = ''
             if bp in result:
                 duplicates.add(result[bp]['dealer'])
             item = result.setdefault(bp, dict(
@@ -5965,9 +5965,88 @@ def _ta_label(target, last, avg3, has_history):
 def _ta_cache_key(month):
     billing_upload = db.session.query(db.func.max(UploadLog.id)).filter(
         or_(UploadLog.upload_mode.is_(None), UploadLog.upload_mode != 'cross_brand')).scalar()
+    target_upload = db.session.query(db.func.max(TargetUploadLog.id)).scalar()
     stamp = db.session.query(db.func.max(TargetAnalysisRow.uploaded_at), db.func.count(TargetAnalysisRow.id)).filter(
         TargetAnalysisRow.month == month).one()
-    return (month, billing_upload, tuple(stamp))
+    return (month, billing_upload, target_upload, tuple(stamp))
+
+
+def _ta_area_depos(month):
+    """Salesman area -> depo yang sedang dipegang.
+
+    Sumber: Target Master bulan terbaru s/d bulan analisa (data penugasan terkini).
+    Cadangan bila Target Master belum ada sama sekali: SALESMAN_DEPO_HISTORY.
+    """
+    latest_tm = db.session.query(db.func.max(MonthlyTarget.month)).filter(
+        MonthlyTarget.month <= month).scalar()
+    result = {}
+    if latest_tm:
+        for salesman, depo in (db.session.query(MonthlyTarget.salesman, MonthlyTarget.depo)
+                               .filter(MonthlyTarget.month == latest_tm).distinct()):
+            s, d = canonical_salesman(salesman), canonical_depo(depo)
+            if s in BUDGET_SALESMEN and d in TARGET_ANALYSIS_DEPOS:
+                result.setdefault(s, set()).add(d)
+    if not result:
+        ref = month_range(month)[0]
+        for name, start, end, depos in SALESMAN_DEPO_HISTORY:
+            if name in BUDGET_SALESMEN and (start is None or ref >= start) and (end is None or ref <= end):
+                result.setdefault(name, set()).update(d for d in depos if d in TARGET_ANALYSIS_DEPOS)
+    return result
+
+
+def _ta_resolve_salesmen(month, dealer_depos):
+    """Nama salesman per dealer di Analisa Target. dealer_depos = {bp: depo}.
+
+    1. Target Master bulan analisa (per BP).
+    2. Transaksi terakhir di Billing Detail oleh salesman area yang sekarang
+       memegang depo dealer itu (salesman non-area / sudah pindah depo dilewati).
+    3. Dealer belum pernah belanja: salesman area aktif di depo itu
+       (yang transaksinya paling baru) -> ditandai 'perkiraan' di halaman.
+    Return {bp: (salesman, sumber)}, sumber = 'target_master' | 'billing' | 'depo'.
+    """
+    result = {}
+    _, lookup = target_lookup_for_month(month)
+    for bp in dealer_depos:
+        t = lookup.get(bp)
+        owner = canonical_salesman(t.salesman) if t is not None else ''
+        if owner:
+            result[bp] = (owner, 'target_master')
+
+    area = _ta_area_depos(month)
+    keys = _budget_salesman_keys()
+    salesman_key = db.func.lower(db.func.trim(Billing.salesman))
+
+    pending = [bp for bp in dealer_depos if bp not in result]
+    if pending:
+        best = {}
+        rows = db.session.query(
+            Billing.sold_to_code, Billing.salesman, db.func.max(Billing.billing_date),
+        ).filter(
+            Billing.sold_to_code.in_(pending), salesman_key.in_(keys),
+        ).group_by(Billing.sold_to_code, Billing.salesman).all()
+        for code, salesman, last in rows:
+            bp, owner = normalize_bp(code), canonical_salesman(salesman)
+            if not last or dealer_depos.get(bp) not in area.get(owner, ()):
+                continue
+            if bp not in best or last > best[bp][1]:
+                best[bp] = (owner, last)
+        for bp, (owner, _) in best.items():
+            result[bp] = (owner, 'billing')
+
+    pending = [bp for bp in dealer_depos if bp not in result]
+    if pending:
+        last_by_salesman = {}
+        for salesman, last in (db.session.query(Billing.salesman, db.func.max(Billing.billing_date))
+                               .filter(salesman_key.in_(keys)).group_by(Billing.salesman)):
+            owner = canonical_salesman(salesman)
+            if last and (owner not in last_by_salesman or last > last_by_salesman[owner]):
+                last_by_salesman[owner] = last
+        for bp in pending:
+            candidates = [s for s, depos in area.items() if dealer_depos[bp] in depos]
+            if candidates:
+                owner = max(candidates, key=lambda s: last_by_salesman.get(s) or dt.date.min)
+                result[bp] = (owner, 'depo')
+    return result
 
 
 def build_target_analysis(month):
@@ -6022,13 +6101,15 @@ def build_target_analysis(month):
         if depo not in TARGET_ANALYSIS_DEPOS:
             continue
         o = others.setdefault(bp, dict(bp=bp, dealer=normalize_text(r.sold_to_name), depo=depo,
-                                       salesman=TARGET_ANALYSIS_DEPO_SALESMAN.get(depo) or canonical_salesman(owner),
+                                       salesman=canonical_salesman(owner),
                                        months={k: 0.0 for k in recent}))
         o['months'][m] += value
 
+    owners = _ta_resolve_salesmen(month, {normalize_bp(t.bp): canonical_depo(t.depo) for t in targets})
     dealers = []
     for t in targets:
         bp = normalize_bp(t.bp)
+        owner, owner_source = owners.get(bp, ('—', ''))
         h = hist.get(bp) or empty()
         tgt = {'Device': float(t.device_target or 0), 'Macbook': float(t.macbook_target or 0),
                'ACC': float(t.acc_target or 0)}
@@ -6051,7 +6132,8 @@ def build_target_analysis(month):
                            ratio=(tgt[c] / c_avg3 * 100) if c_avg3 > 0 and tgt[c] > 0 else None,
                            history=series, mtd=h[month][c])
         dealers.append(dict(
-            bp=bp, dealer=t.dealer, depo=canonical_depo(t.depo), salesman=t.salesman or '—',
+            bp=bp, dealer=t.dealer, depo=canonical_depo(t.depo), salesman=owner,
+            salesman_source=owner_source,
             target=tgt_total, bo=int(t.bo_target or 0), qvo=int(t.qvo_target or 0),
             last=last, avg3=avg3, peak=peak_val, peak_month=peak_month,
             vs_last=(tgt_total / last * 100) if last > 0 else None,
