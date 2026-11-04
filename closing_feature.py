@@ -13,7 +13,8 @@ SLOTS = {'so_bcc1': ('BCC1', 'Cempaka'), 'so_bc22': ('BC22', 'Cempaka'),
 DEPOT_CODES = {'BCC1': 'Cempaka', 'BC22': 'Cempaka', 'BC13': 'Serang', 'BC66': 'Cilegon'}
 DEPOTS = ('Cempaka', 'Serang', 'Cilegon', 'Unassigned')
 CATEGORIES = ('Device', 'Macbook', 'ACC')
-TSH = {'Zefanya Septania Simorangkir', 'Rafhyski Alhasan', 'Ikmah Novtianingrum'}
+# Cadangan saja: app.py mengirim salesman area bulan itu lewat parameter team.
+TSH = {'Zefanya Septania Simorangkir', 'Rafhyski Alhasan', 'Khaedarusman'}
 # Audit reference only. Production targets always come from MonthlyTarget.
 SEPTEMBER_2026_TARGET_REFERENCE = {
     'ALL': {'Device': 32_500_000_000, 'Macbook': 1_625_000_000,
@@ -33,7 +34,7 @@ AUDIT_EXPLANATIONS = {
     'Duplicate row identik': ('Baris duplikat', 'Baris SO/DO yang sama muncul lebih dari sekali dan hanya dihitung sekali.', 'baris'),
     'Target vs acuan September berbeda': ('Target berbeda dari angka acuan', 'Target Master tetap dipakai untuk perhitungan. Tabel di bawah menunjukkan selisih terhadap acuan September.', 'pemeriksaan'),
     'Billing Baseline tidak sinkron': ('Tanggal Billing berbeda', 'Tanggal data Dashboard dan Billing Baseline tidak sama. Periksa apakah file yang diunggah sudah terbaru.', 'pemeriksaan'),
-    'Dashboard vs Baseline Actual difference': ('Actual berbeda', 'Actual Dashboard berbeda dari total No Tax pada Billing Baseline untuk tiga salesman Closing.', 'pemeriksaan'),
+    'Dashboard vs Baseline Actual difference': ('Actual berbeda', 'Actual Dashboard berbeda dari total No Tax pada Billing Baseline untuk salesman Closing.', 'pemeriksaan'),
     'Target Master periode belum tersedia': ('Target belum tersedia', 'Target Master belum berisi nilai untuk periode yang dipilih.', 'pemeriksaan'),
     'Actual Dashboard periode belum tersedia': ('Actual belum tersedia', 'Dashboard belum memiliki Billing untuk periode yang dipilih.', 'pemeriksaan'),
 }
@@ -60,7 +61,7 @@ SO_COLUMNS = {
     'amount': ('Amount',), 'ppn': ('PPN',),
 }
 PPN_RATE = Decimal('1.11')
-SALESMAN_ORDER = ('Rafhyski Alhasan', 'Zefanya Septania Simorangkir', 'Ikmah Novtianingrum')
+SALESMAN_ORDER = ('Rafhyski Alhasan', 'Zefanya Septania Simorangkir', 'Khaedarusman', 'Ikmah Novtianingrum')
 DEPOT_GROUP = {'Cempaka': 'Cempaka', 'Serang': 'Sercil', 'Cilegon': 'Sercil'}
 GROUP_LABEL = (('Cempaka', 'Cempaka'), ('Sercil', 'Serang & Cilegon'), ('Lainnya', 'Depo belum diketahui'))
 
@@ -209,7 +210,8 @@ def apple_metadata(description, brand='', group='', classify=None):
         return 'Apple', 'ACC', 'Kategori dari deskripsi'
     return 'Unmapped', '', ''
 
-def parse_billing(stream, month, classify, canonical_salesman, canonical_depo):
+def parse_billing(stream, month, classify, canonical_salesman, canonical_depo, team=None):
+    team = team or TSH
     billed_so = set()
     articles = {}
     cust_depot = {}
@@ -247,7 +249,7 @@ def parse_billing(stream, month, classify, canonical_salesman, canonical_depo):
         if not day or day.strftime('%Y-%m') != month:
             continue
         salesman = canonical_salesman(row['salesman'])
-        if salesman not in TSH:
+        if salesman not in team:
             continue
         identity, cat, flag = apple_metadata(desc, brand, group, classify)
         if identity != 'Apple' or cat not in CATEGORIES:
@@ -260,7 +262,8 @@ def parse_billing(stream, month, classify, canonical_salesman, canonical_depo):
                 bp_site=bp_site, actual_rows=actual_rows, max_date=max_date,
                 rows=rows, so_count=len(billed_so))
 
-def parse_so(stream, slot, month, canonical_salesman):
+def parse_so(stream, slot, month, canonical_salesman, team=None):
+    team = team or TSH
     if slot not in SLOTS:
         raise ValueError(f'Slot SO/DO tidak dikenal: {slot}.')
     label, source_depot = SLOTS[slot]
@@ -276,7 +279,7 @@ def parse_so(stream, slot, month, canonical_salesman):
         if day and day.strftime('%Y-%m') != month:
             continue
         owner = canonical_salesman(row['salesman'])
-        if owner not in TSH:
+        if owner not in team:
             continue
         sales = money(row['sales'], f'SO/DO {label} baris {line} TTL Sales Price')
         discount = money(row['discount'], f'SO/DO {label} baris {line} TTL Discount', True)
@@ -304,12 +307,13 @@ def parse_so(stream, slot, month, canonical_salesman):
 def target_depot(target, canonical_depo):
     return depot_from_code(getattr(target, 'depo', ''), canonical_depo)
 
-def calculate(baseline, slots, targets, billing_rows, classify, canonical_salesman, canonical_depo):
+def calculate(baseline, slots, targets, billing_rows, classify, canonical_salesman, canonical_depo, team=None):
     """Return JSON-ready summary, details and audit. Caller provides two bounded DB reads."""
+    team = team or TSH
     master = {normalize_id(t.bp): t for t in targets if normalize_id(t.bp)}
     target_amount = defaultdict(Decimal)
     for t in targets:
-        if canonical_salesman(t.salesman) not in TSH or not normalize_id(t.bp):
+        if canonical_salesman(t.salesman) not in team or not normalize_id(t.bp):
             continue
         depot = target_depot(t, canonical_depo)
         depot = depot if depot in DEPOTS else 'Unassigned'
@@ -392,7 +396,7 @@ def calculate(baseline, slots, targets, billing_rows, classify, canonical_salesm
 
     for t in targets:
         salesman = canonical_salesman(t.salesman)
-        if salesman not in TSH or not normalize_id(t.bp):
+        if salesman not in team or not normalize_id(t.bp):
             continue
         depot = target_depot(t, canonical_depo)
         depot = depot if depot in DEPOTS else 'Unassigned'
@@ -404,7 +408,7 @@ def calculate(baseline, slots, targets, billing_rows, classify, canonical_salesm
         if day and (dashboard_date is None or day > dashboard_date):
             dashboard_date = day
         salesman = canonical_salesman(row.salesman)
-        if salesman not in TSH:
+        if salesman not in team:
             continue
         identity, cat, _ = apple_metadata(row.article, '', row.item_group, classify)
         if identity != 'Apple' or cat not in CATEGORIES:

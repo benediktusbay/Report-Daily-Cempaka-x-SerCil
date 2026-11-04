@@ -92,7 +92,7 @@ STOCK_ALLOWED_EMAILS = {
     'isroudin.01@erajaya.com',
     'rafhyski.alhasan@erajaya.com',
     'zefanya.simorangkir@erajaya.com',
-    'ikmah.novtianingrum@erajaya.com',
+    'khaedarusman.01@erajaya.com',
     'benediktus.kristianto@erajaya.com',
 }
 STOCK_TIMEZONE = ZoneInfo('Asia/Jakarta')
@@ -104,9 +104,10 @@ STOCK_DEPOTS = [
     ('Tangerang', 'TAM DC TANGERANG'),
 ]
 
-# The dashboard is intentionally limited to these eight Apple salesmen.
-# Keep this sequence as the canonical display/filter order.
-LOCKED_SALESMEN = [
+# Urutan tampilan salesman saja. Tim Apple tiap bulan dibaca dari Target Master
+# (lihat apple_team_for / known_apple_salesmen); nama baru di Target Master
+# otomatis ikut dan tampil setelah daftar ini (urut abjad).
+SALESMAN_ORDER = [
     'Andy Varandy',
     'Michael Serafin Sidik',
     'Muhamad Fajri',
@@ -115,7 +116,23 @@ LOCKED_SALESMEN = [
     'Edi Purnomo',
     'Rafhyski Alhasan',
     'Ikmah Novtianingrum',
+    'Khaedarusman',
 ]
+
+# Depo area TSH (Cempaka, Serang, Cilegon) dan struktur incentive berdasarkan depo.
+AREA_DEPOS = ('Cempaka', 'Serang', 'Cilegon')
+AREA_TSH = 'Benediktus Bayu Dwi Kristianto'
+INCENTIVE_ASH_BY_DEPO = {
+    'Cempaka': 'Fanny Anggraeni Lolowang',
+    'Serang': 'Isroudin', 'Cilegon': 'Isroudin',
+    'Roxy': 'Andika Polindira',
+    'Tangerang': 'Miyarni',
+}
+INCENTIVE_TSH_BY_DEPO = {
+    'Cempaka': AREA_TSH, 'Serang': AREA_TSH, 'Cilegon': AREA_TSH,
+    'Roxy': 'Frenky Sidarta Hidayat', 'Tangerang': 'Frenky Sidarta Hidayat',
+}
+INCENTIVE_LOB = 'Aditya Saputra'
 
 LOYALTY_TARGETS = {
     'CROWN': 5_000_000_000,
@@ -183,7 +200,8 @@ LOYALTY_CEMPAKA_BP = {
 }
 
 
-# Incentive organization structure.
+# Struktur incentive cadangan untuk bulan yang belum punya Target Master.
+# Bulan dengan Target Master memakai incentive_org(month) (berdasarkan depo).
 INCENTIVE_ORG = {
     'SC': {
         'Zefanya Septania Simorangkir': ['Zefanya Septania Simorangkir'],
@@ -343,6 +361,7 @@ SALESMAN_ALIASES = {
     'edi suyitno': 'Edi Suyitno',
     'muhamad fajri': 'Muhamad Fajri',
     'muhamad fajri deactive': 'Muhamad Fajri',
+    'khaedarusman': 'Khaedarusman',
 }
 
 # Fallback only when a BP is not found in Monthly Target. Ikmah intentionally has no
@@ -1441,6 +1460,11 @@ class TargetLookup(dict):
             depo = canonical_depo(t.depo)
             if depo and depo != 'Unmapped':
                 self.salesman_depos.setdefault(canonical_salesman(t.salesman), set()).add(depo)
+        # Tim Apple bulan ini = salesman di Target Master bulan itu. Bulan tanpa
+        # Target Master: salesman yang pernah tercatat di Target Master + riwayat lama.
+        team = {canonical_salesman(t.salesman) for t in list(targets) + list(assignments)}
+        team.discard('')
+        self.team = frozenset(team) if team else known_apple_salesmen()
 
     def active(self, bp, date):
         return next((a for a in self.assignments.get(bp, [])
@@ -1466,10 +1490,108 @@ SALESMAN_DEPO_HISTORY = (
     ('Michael Serafin Sidik', dt.date(2026, 4, 1), None, ('Roxy',)),
     ('Rafhyski Alhasan', None, None, ('Cempaka',)),
     ('Zefanya Septania Simorangkir', None, None, ('Cempaka',)),
-    ('Isroudin', None, None, ('Serang',)),
-    ('Ikmah Novtianingrum', None, None, ('Serang', 'Cilegon')),
+    ('Isroudin', None, dt.date(2026, 1, 31), ('Serang',)),
+    ('Ikmah Novtianingrum', None, dt.date(2026, 10, 31), ('Serang', 'Cilegon')),
+    ('Khaedarusman', dt.date(2026, 11, 1), None, ('Serang', 'Cilegon')),
     ('Andy Varandy', None, None, ('Roxy',)),
 )
+
+
+def _request_cache(name, build):
+    if has_request_context():
+        cached = g.get(name)
+        if cached is not None:
+            return cached
+    value = build()
+    if has_request_context():
+        setattr(g, name, value)
+    return value
+
+
+def known_apple_salesmen():
+    """Salesman yang pernah tercatat di Target Master (bulan mana pun) + riwayat lama.
+
+    Dipakai untuk bulan tanpa Target Master: salesman brand lain yang ikut
+    memproses order Apple tidak pernah ada di Target Master, jadi tetap tersaring.
+    """
+    def build():
+        names = {name for name, *_ in SALESMAN_DEPO_HISTORY}
+        for (name,) in db.session.query(MonthlyTarget.salesman).distinct():
+            names.add(canonical_salesman(name))
+        for (name,) in db.session.query(DealerAssignment.salesman).distinct():
+            names.add(canonical_salesman(name))
+        names.discard('')
+        return frozenset(names)
+    return _request_cache('_known_apple_salesmen', build)
+
+
+def order_salesmen(names):
+    names = {n for n in names if n}
+    return [s for s in SALESMAN_ORDER if s in names] + sorted(names - set(SALESMAN_ORDER))
+
+
+def apple_team_for(month):
+    return target_lookup_for_month(month)[1].team
+
+
+def area_salesmen():
+    """Semua salesman area TSH (Cempaka/Serang/Cilegon), sekarang maupun riwayat.
+
+    Depo tiap transaksi tetap ditentukan aturan dashboard, jadi salesman yang
+    sudah pindah depo (mis. Michael ke Roxy) tidak terhitung di area.
+    """
+    def build():
+        names = {name for name, _, _, depos in SALESMAN_DEPO_HISTORY if set(depos) & set(AREA_DEPOS)}
+        for name, depo in db.session.query(MonthlyTarget.salesman, MonthlyTarget.depo).distinct():
+            if canonical_depo(depo) in AREA_DEPOS:
+                names.add(canonical_salesman(name))
+        names.discard('')
+        return tuple(order_salesmen(names))
+    return _request_cache('_area_salesmen', build)
+
+
+def area_salesmen_for(month):
+    """Salesman area pada bulan tertentu (Closing): Target Master bulan itu, atau riwayat."""
+    _, lookup = target_lookup_for_month(month)
+    team = {s for s, depos in lookup.salesman_depos.items() if s and depos & set(AREA_DEPOS)}
+    if not team:
+        start, end = month_range(month)
+        team = {name for name, valid_from, valid_to, depos in SALESMAN_DEPO_HISTORY
+                if set(depos) & set(AREA_DEPOS)
+                and (valid_from is None or valid_from <= end) and (valid_to is None or valid_to >= start)}
+    return frozenset(team)
+
+
+def salesman_keys(names):
+    """Nama salesman (huruf kecil) + alias Billing Detail, untuk filter query."""
+    names = set(names)
+    keys = {n.lower() for n in names}
+    keys.update(alias for alias, name in SALESMAN_ALIASES.items() if name in names)
+    return tuple(sorted(keys))
+
+
+def incentive_org(month):
+    """Struktur SC -> ASH -> TSH -> LOB bulan itu, dari salesman + depo di Target Master."""
+    _, lookup = target_lookup_for_month(month)
+    depos = {s: d for s, d in lookup.salesman_depos.items() if s}
+    if not depos:
+        return INCENTIVE_ORG
+    org = {
+        'SC': {},
+        'ASH': {name: [] for name in dict.fromkeys(INCENTIVE_ASH_BY_DEPO.values())},
+        'TSH': {name: [] for name in dict.fromkeys(INCENTIVE_TSH_BY_DEPO.values())},
+        'LOB': {INCENTIVE_LOB: []},
+    }
+    for salesman in order_salesmen(depos):
+        org['SC'][salesman] = [salesman]
+        for level, mapping in (('ASH', INCENTIVE_ASH_BY_DEPO), ('TSH', INCENTIVE_TSH_BY_DEPO)):
+            for leader in org[level]:
+                if any(mapping.get(d) == leader for d in depos[salesman]):
+                    org[level][leader].append(salesman)
+        org['LOB'][INCENTIVE_LOB].append(salesman)
+    for level in ('ASH', 'TSH', 'LOB'):
+        org[level] = {k: v for k, v in org[level].items() if v}
+    return org
 
 
 def _bp_location_depos():
@@ -1529,13 +1651,14 @@ def resolve_billing_owner(row, target_by_bp):
       - A cross-salesman billing row is ignored by returning an empty owner.
 
     UNMAPPED BP:
-      - The transaction remains valid when Billing.salesman is one of the
-        eight LOCKED_SALESMEN.
+      - The transaction remains valid when Billing.salesman is part of the
+        Apple team of that month (TargetLookup.team).
       - Billing from anyone outside the locked Apple team is ignored.
     """
     bp = normalize_bp(row.sold_to_code)
     target = target_by_bp.get(bp)
     billing_salesman = canonical_salesman(row.salesman)
+    team = getattr(target_by_bp, 'team', None) or known_apple_salesmen()
 
     assignment = (target_by_bp.active(bp, row.billing_date)
                   if isinstance(target_by_bp, TargetLookup) else target)
@@ -1548,7 +1671,7 @@ def resolve_billing_owner(row, target_by_bp):
         target_owner = canonical_salesman(assignment.salesman)
 
         # A mapped dealer must belong to the locked Apple team.
-        if target_owner not in LOCKED_SALESMEN:
+        if target_owner not in team:
             return '', assignment.depo, assignment.dealer, target
 
         # Cross-salesman billing must not contribute to the mapped dealer,
@@ -1560,7 +1683,7 @@ def resolve_billing_owner(row, target_by_bp):
 
     # Unmapped dealers are allowed only when the Billing salesman is part of
     # the locked Apple team.
-    if billing_salesman not in LOCKED_SALESMEN:
+    if billing_salesman not in team:
         return '', 'Unmapped', normalize_text(row.sold_to_name), None
 
     # BP belum ada di Target Master: pencapaian milik salesman yang memproses,
@@ -1573,11 +1696,11 @@ def resolve_billing_owner(row, target_by_bp):
     )
 
 
-def matches_scope(salesman, depo, salesman_filters, depo_filters):
+def matches_scope(salesman, depo, salesman_filters, depo_filters, team=None):
     owner = canonical_salesman(salesman)
 
     # Safety gate: no non-Apple/raw Billing salesman may create dashboard rows.
-    if owner not in LOCKED_SALESMEN:
+    if owner not in (team or known_apple_salesmen()):
         return False
     if salesman_filters and owner not in salesman_filters:
         return False
@@ -1721,7 +1844,7 @@ def build_incentive_metrics(month, member_salesmen):
 
     Mapped BP ownership follows MonthlyTarget for the selected month and only
     matching Billing.salesman rows are valid. Unmapped BP rows are accepted only
-    when Billing.salesman belongs to LOCKED_SALESMEN. Dealer keys remain
+    when Billing.salesman belongs to the Apple team of the month. Dealer keys remain
     (salesman, BP) so unmapped ownership stays explicit in hierarchy calculations.
     """
     start, end = month_range(month)
@@ -1874,7 +1997,7 @@ def build_incentive_metrics(month, member_salesmen):
 def calculate_incentive(level, person, month):
     level = level.upper()
     scheme = INCENTIVE_SCHEME[level]
-    members = INCENTIVE_ORG[level][person]
+    members = incentive_org(month)[level][person]
     metrics = build_incentive_metrics(month, members)
 
     detail = []
@@ -2145,7 +2268,7 @@ def qvo_analysis_scope(month, requested_depos=None, requested_salesmen=None):
     for t in mapping_rows:
         owner = canonical_salesman(t.salesman)
         depo = normalize_text(t.depo)
-        if owner not in LOCKED_SALESMEN or not depo or depo == 'Unmapped':
+        if owner not in lookup.team or not depo or depo == 'Unmapped':
             continue
         target_depos_by_salesman.setdefault(owner, set()).add(depo)
         target_salesmen_by_depo.setdefault(depo, set()).add(owner)
@@ -2156,7 +2279,7 @@ def qvo_analysis_scope(month, requested_depos=None, requested_salesmen=None):
     else:
         depos = [d for d in VIEWER_ALLOWED_DEPOS if d in set(all_depos)]
         depo_filters = [d for d in requested_depos if d in VIEWER_ALLOWED_DEPOS] or VIEWER_ALLOWED_DEPOS.copy()
-    selected_salesmen = [s for s in requested_salesmen if s in LOCKED_SALESMEN]
+    selected_salesmen = [s for s in requested_salesmen if s in lookup.team]
     if selected_salesmen and not requested_depos:
         mapped = set()
         for s in selected_salesmen:
@@ -2171,8 +2294,8 @@ def qvo_analysis_scope(month, requested_depos=None, requested_salesmen=None):
         mapped = set()
         for d in depo_filters:
             mapped.update(target_salesmen_by_depo.get(d, set()))
-        salesman_filters = [s for s in LOCKED_SALESMEN if s in mapped]
-    salesmen = [s for s in LOCKED_SALESMEN if s in target_depos_by_salesman]
+        salesman_filters = order_salesmen(mapped)
+    salesmen = order_salesmen(target_depos_by_salesman)
     full_operational_scope = set(depo_filters) == set(VIEWER_ALLOWED_DEPOS)
 
     current = {}
@@ -2189,9 +2312,12 @@ def qvo_analysis_scope(month, requested_depos=None, requested_salesmen=None):
         owner, depo, dealer_name, target = resolve_billing_owner(r, lookup)
         if not owner:
             continue
+        # Salesman yang pegang beberapa depo (mis. Serang + Cilegon): dealer tanpa
+        # depo jelas tetap tampil bila semua depo salesman itu sedang dipilih.
         ikmah_unmapped = (
-            target is None and owner == 'Ikmah Novtianingrum' and depo == 'Unmapped'
-            and {'Serang', 'Cilegon'}.issubset(set(depo_filters))
+            target is None and depo == 'Unmapped'
+            and len(target_depos_by_salesman.get(owner, ())) > 1
+            and target_depos_by_salesman[owner].issubset(set(depo_filters))
         )
         if depo == 'Unmapped' and (full_operational_scope or ikmah_unmapped or (session.get('role') == 'admin' and bool(selected_salesmen))):
             in_scope = not salesman_filters or owner in salesman_filters
@@ -2372,7 +2498,8 @@ def pjp():
     month = request.values.get('month') or datetime.now().strftime('%Y-%m')
     week = max(1, min(4, int(request.values.get('week', 1))))
     user = db.session.get(User, session.get('user_id'))
-    salesman = request.values.get('salesman') or (session.get('username') if user and user.role != 'admin' else LOCKED_SALESMEN[0])
+    pjp_salesmen = order_salesmen(apple_team_for(month))
+    salesman = request.values.get('salesman') or (session.get('username') if user and user.role != 'admin' else (pjp_salesmen[0] if pjp_salesmen else ''))
     salesman = canonical_salesman(salesman)
     if user and user.role != 'admin':
         salesman = canonical_salesman(user.username)
@@ -2419,7 +2546,7 @@ def pjp():
     completed = sum(1 for r in rows if r['item'] and r['actual'])
     effective = sum(1 for r in rows if r['effective'])
     return render_template('pjp.html', plan=plan, plans=plans, rows=rows, month=month, week=week, salesman=salesman,
-                           salesmen=LOCKED_SALESMEN, start=pjp_week_dates(month, week)[0], end=pjp_week_dates(month, week)[1],
+                           salesmen=pjp_salesmen, start=pjp_week_dates(month, week)[0], end=pjp_week_dates(month, week)[1],
                            planned=planned, completed=completed, compliance=(completed / planned * 100 if planned else 0), effective=effective,
                            recommendations=recommendations, carry_over=carry_over)
 
@@ -2456,6 +2583,8 @@ def closing():
         month = datetime.now().strftime('%Y-%m')
     state = _closing_state(key, month)
     error = None
+    # Salesman area bulan ini (Target Master bulan itu, atau riwayat penugasan).
+    closing_team = area_salesmen_for(month)
     if request.method == 'POST':
         # Satu slot bisa berisi beberapa file (mis. SO/DO 30 Okt + DO 31 Okt BC22).
         # File baru ditambahkan ke slot; file dengan isi sama diganti, bukan dihitung dua kali.
@@ -2479,7 +2608,8 @@ def closing():
                 if 'billing' in incoming:
                     upload = incoming['billing'][-1]
                     parsed = parse_billing(io.BytesIO(upload.read()), month,
-                                           classify, canonical_salesman, canonical_depo)
+                                           classify, canonical_salesman, canonical_depo,
+                                           team=closing_team)
                     baseline = dict(parsed=parsed, filename=secure_filename(upload.filename), uploaded_at=stamp)
                 for slot in CLOSING_SLOTS:
                     if slot not in incoming:
@@ -2488,7 +2618,8 @@ def closing():
                     for upload in incoming[slot]:
                         content = upload.read()
                         digest = hashlib.sha1(content).hexdigest()
-                        parsed = parse_so(io.BytesIO(content), slot, month, canonical_salesman)
+                        parsed = parse_so(io.BytesIO(content), slot, month, canonical_salesman,
+                                          team=closing_team)
                         files = [f for f in files if f['digest'] != digest]
                         files.append(dict(digest=digest, filename=secure_filename(upload.filename),
                                           uploaded_at=stamp, parsed=parsed))
@@ -2503,15 +2634,14 @@ def closing():
                     targets = MonthlyTarget.query.filter_by(month=month).all()
                     billing_rows = Billing.query.filter(
                         Billing.billing_date >= start, Billing.billing_date <= end,
-                        db.func.lower(db.func.trim(Billing.salesman)).in_(
-                            tuple(name.lower() for name in ('Zefanya Septania Simorangkir',
-                                                             'Rafhyski Alhasan', 'Ikmah Novtianingrum')))
+                        db.func.lower(db.func.trim(Billing.salesman)).in_(salesman_keys(closing_team))
                     ).with_entities(Billing.billing_date, Billing.salesman, Billing.sold_to_code,
                                     Billing.sold_to_name, Billing.article, Billing.item_group,
                                     Billing.quantity, Billing.nett_amount,
                                     Billing.nett_amount_with_tax).all()
                     result = calculate(baseline['parsed'], {k: v['parsed'] for k, v in slots.items()},
-                                       targets, billing_rows, classify, canonical_salesman, canonical_depo)
+                                       targets, billing_rows, classify, canonical_salesman, canonical_depo,
+                                       team=closing_team)
                 with _closing_cache_lock:
                     state.update(baseline=baseline, slots=slots, result=result, touched=time.monotonic())
             except (ValueError, OSError, KeyError, TypeError, BadZipFile) as exc:
@@ -2742,7 +2872,7 @@ def _dashboard_context_uncached():
     for t in mapping_rows:
         s = canonical_salesman(t.salesman)
         d = normalize_text(t.depo)
-        if s not in LOCKED_SALESMEN or not d or d == 'Unmapped':
+        if s not in target_by_bp.team or not d or d == 'Unmapped':
             continue
         target_depos_by_salesman.setdefault(s, set()).add(d)
         target_salesmen_by_depo.setdefault(d, set()).add(s)
@@ -2757,7 +2887,7 @@ def _dashboard_context_uncached():
 
     requested_set = {
         s for s in requested_salesmen
-        if s in LOCKED_SALESMEN
+        if s in target_by_bp.team
     }
 
     # Cascading Salesman -> Depo:
@@ -2790,11 +2920,11 @@ def _dashboard_context_uncached():
         # Before a target is uploaded, fall back to valid locked billing owners.
         for r in billing_rows:
             owner, _, _, _ = resolve_billing_owner(r, target_by_bp)
-            if owner in LOCKED_SALESMEN:
+            if owner:
                 salesman_options.add(owner)
 
     # Do not allow unexpected/raw billing names to create dashboard rows/options.
-    salesmen = [s for s in LOCKED_SALESMEN if s in salesman_options]
+    salesmen = order_salesmen(salesman_options)
 
     # Explicit salesman selection wins and already cascades Depo above.
     if requested_set:
@@ -2808,7 +2938,7 @@ def _dashboard_context_uncached():
         mapped_salesmen = set()
         for d in depo_filters:
             mapped_salesmen.update(target_salesmen_by_depo.get(d, set()))
-        salesman_filters = [s for s in LOCKED_SALESMEN if s in mapped_salesmen]
+        salesman_filters = order_salesmen(mapped_salesmen)
     else:
         salesman_filters = []
 
@@ -2876,16 +3006,17 @@ def _dashboard_context_uncached():
         }
 
     def billing_in_dashboard_scope(owner, depo, target):
+        # Salesman yang pegang beberapa depo (mis. Serang + Cilegon): dealer tanpa
+        # depo jelas tetap tampil bila semua depo salesman itu sedang dipilih.
         ikmah_unmapped_combined_scope = (
-            target is None
-            and owner == 'Ikmah Novtianingrum'
-            and depo == 'Unmapped'
-            and {'Serang', 'Cilegon'}.issubset(set(depo_filters))
+            target is None and depo == 'Unmapped'
+            and len(target_depos_by_salesman.get(owner, ())) > 1
+            and target_depos_by_salesman[owner].issubset(set(depo_filters))
         )
         if depo == 'Unmapped' and (full_operational_scope or ikmah_unmapped_combined_scope
                                   or (session.get('role') == 'admin' and bool(requested_set))):
-            return owner in LOCKED_SALESMEN and (not salesman_filters or owner in salesman_filters)
-        return matches_scope(owner, depo, salesman_filters, depo_filters)
+            return owner in target_by_bp.team and (not salesman_filters or owner in salesman_filters)
+        return matches_scope(owner, depo, salesman_filters, depo_filters, target_by_bp.team)
 
     scoped_billing = []
     for r in billing_rows:
@@ -3008,7 +3139,7 @@ def _dashboard_context_uncached():
         s['bo'] = actual_bo
 
     all_people_found = set(salesman_target) | set(salesman_actual)
-    all_people = [s for s in LOCKED_SALESMEN if s in all_people_found]
+    all_people = order_salesmen(all_people_found)
     table = []
     for salesman in all_people:
         a = salesman_actual.get(salesman, {'device':0,'macbook':0,'acc':0,'bo':0,'qvo':0,'sku_bins':{'1':0,'2-3':0,'4-6':0,'7-10':0,'>10':0}})
@@ -3284,7 +3415,7 @@ def _dashboard_context_uncached():
         for s in salesmen
     }
     filter_depo_salesmen = {
-        d: [s for s in LOCKED_SALESMEN if s in target_salesmen_by_depo.get(d, set())]
+        d: order_salesmen(target_salesmen_by_depo.get(d, set()))
         for d in all_depos
     }
 
@@ -3468,7 +3599,7 @@ def qvo_analysis():
         if c['sales_mtd'] >= QVO_THRESHOLD:
             qvo_now_by_salesman[c['salesman']] = qvo_now_by_salesman.get(c['salesman'], 0) + 1
     by_salesman = []
-    for salesman in LOCKED_SALESMEN:
+    for salesman in order_salesmen({r['salesman'] for r in potential_raw} | set(qvo_now_by_salesman)):
         subset = [r for r in potential_raw if r['salesman'] == salesman]
         qvo_now = qvo_now_by_salesman.get(salesman, 0)
         if not subset and not qvo_now:
@@ -4557,23 +4688,20 @@ def incentive():
     month = request.args.get('month', default_month)
     requested_level = request.args.get('level', 'SC').upper()
 
+    org = incentive_org(month)
     if session.get('role') == 'admin':
-        level = requested_level if requested_level in INCENTIVE_ORG else 'SC'
+        level = requested_level if requested_level in org else 'SC'
         allowed_levels = ['SC', 'ASH', 'TSH', 'LOB']
-        available_people = list(INCENTIVE_ORG[level].keys())
+        available_people = list(org[level].keys())
     else:
-        # Viewer is restricted to SC incentive only for Cempaka + Serang + Cilegon.
-        # Backend enforcement prevents access through URL manipulation.
+        # Viewer is restricted to SC incentive only for Cempaka + Serang + Cilegon
+        # (SC di bawah TSH area bulan itu). Backend enforcement prevents access
+        # through URL manipulation.
         level = 'SC'
         allowed_levels = ['SC']
-        viewer_sc = [
-            'Zefanya Septania Simorangkir',
-            'Rafhyski Alhasan',
-            'Ikmah Novtianingrum',
-        ]
         available_people = [
-            name for name in viewer_sc
-            if name in INCENTIVE_ORG['SC']
+            name for name in org.get('TSH', {}).get(AREA_TSH, [])
+            if name in org['SC']
         ]
 
     person = request.args.get('name', '').strip()
@@ -4855,7 +4983,23 @@ def read_target_workbook(source, month):
         return date
     with pd.ExcelFile(source) as workbook:
         for sheet in workbook.sheet_names:
-            df = workbook.parse(sheet)
+            # Judul kolom tidak harus di baris 1 (file ASH punya judul laporan di atas
+            # tabel): cari baris judul di 30 baris pertama.
+            raw = workbook.parse(sheet, header=None)
+            if raw.dropna(how='all').empty:
+                continue
+            wanted = [{normalize_col(a) for a in aliases} for aliases in TARGET_ALIASES.values()]
+            df, first_row = None, 2
+            for i in range(min(30, len(raw))):
+                names = {normalize_col(v) for v in raw.iloc[i] if not pd.isna(v) and str(v).strip()}
+                if all(names & w for w in wanted):
+                    df = raw.iloc[i + 1:].reset_index(drop=True)
+                    df.columns = [str(v) if not pd.isna(v) and str(v).strip() else f'_kolom_{j}'
+                                  for j, v in enumerate(raw.iloc[i])]
+                    first_row = i + 2
+                    break
+            if df is None:
+                df = workbook.parse(sheet)
             if df.dropna(how='all').empty:
                 continue
             columns = {}
@@ -4872,9 +5016,9 @@ def read_target_workbook(source, month):
                 raise ValueError(f'Sheet {sheet}: kolom wajib belum ada: ' + ', '.join(sorted(missing)))
             from_col = columns.get(normalize_col('Effective From'))
             to_col = columns.get(normalize_col('Effective To'))
-            rows_read += len(df)
+            rows_read += int(df[cmap['bp']].notna().sum())
             bps = set()
-            for rownum, (_, rr) in enumerate(df.iterrows(), 2):
+            for rownum, (_, rr) in enumerate(df.iterrows(), first_row):
                 bp = normalize_bp(rr[cmap['bp']])
                 if not bp:
                     continue
@@ -5428,8 +5572,7 @@ def cross_brand():
 # Salesman area TSH, termasuk riwayat: Michael (Cempaka s/d Mar 2026), Isroudin (Serang Jan 2026).
 # Depo tiap transaksi mengikuti aturan dashboard (resolve_billing_owner / salesman_depo_for),
 # jadi Michael setelah pindah ke Roxy dan modern channel (Agres, Andy) tidak terhitung.
-BUDGET_SALESMEN = ('Zefanya Septania Simorangkir', 'Rafhyski Alhasan', 'Ikmah Novtianingrum',
-                   'Michael Serafin Sidik', 'Isroudin')
+# Salesman area dibaca otomatis: area_salesmen() (Target Master + riwayat lama).
 BUDGET_DEPOS = ('Cempaka', 'Serang', 'Cilegon')
 # Koreksi depo dealer KHUSUS menu Budget (achievement saja; Rofo, dashboard,
 # Closing dan Incentive tetap mengikuti Target Master). Format: 'BP': 'Depo'.
@@ -5611,9 +5754,7 @@ def parse_budget_upload(stream, filename='', default_year=None):
 
 
 def _budget_salesman_keys():
-    keys = {s.lower() for s in BUDGET_SALESMEN}
-    keys.update(alias for alias, name in SALESMAN_ALIASES.items() if name in BUDGET_SALESMEN)
-    return tuple(sorted(keys))
+    return salesman_keys(area_salesmen())
 
 
 def _budget_cache_key(year):
@@ -5627,6 +5768,7 @@ def _budget_cache_key(year):
 
 def build_budget_data(year):
     """Budget, Rofo dan Achievement per bulan × depo untuk satu tahun."""
+    area = set(area_salesmen())
     empty = lambda: {d: 0.0 for d in BUDGET_DEPOS}
     budget = {m: empty() for m in range(1, 13)}
     rofo_manual = {m: {} for m in range(1, 13)}
@@ -5652,7 +5794,7 @@ def build_budget_data(year):
             month = int(str(t.month)[5:7])
         except ValueError:
             continue
-        if canonical_salesman(t.salesman) not in BUDGET_SALESMEN:
+        if canonical_salesman(t.salesman) not in area:
             continue
         depo = canonical_depo(t.depo)
         if depo not in BUDGET_DEPOS:
@@ -5683,11 +5825,11 @@ def build_budget_data(year):
             _, lookups[month_key] = target_lookup_for_month(month_key)
         owner, depo, _, target = resolve_billing_owner(r, lookups[month_key])
         billing_salesman = canonical_salesman(r.salesman)
-        if not owner and target is None and billing_salesman not in LOCKED_SALESMEN \
-                and billing_salesman in BUDGET_SALESMEN:
+        if not owner and target is None and billing_salesman not in lookups[month_key].team \
+                and billing_salesman in area:
             # Salesman area di luar tim dashboard (mis. Isroudin): aturan depo yang sama.
             owner, depo = billing_salesman, salesman_depo_for(billing_salesman, r, lookups[month_key])
-        if canonical_salesman(owner) not in BUDGET_SALESMEN:
+        if canonical_salesman(owner) not in area:
             continue
         depo = BUDGET_DEALER_DEPO_OVERRIDE.get(normalize_bp(r.sold_to_code), depo)
         value = float(r.amount or 0)
@@ -5977,6 +6119,7 @@ def _ta_area_depos(month):
     Sumber: Target Master bulan terbaru s/d bulan analisa (data penugasan terkini).
     Cadangan bila Target Master belum ada sama sekali: SALESMAN_DEPO_HISTORY.
     """
+    area = set(area_salesmen())
     latest_tm = db.session.query(db.func.max(MonthlyTarget.month)).filter(
         MonthlyTarget.month <= month).scalar()
     result = {}
@@ -5984,12 +6127,12 @@ def _ta_area_depos(month):
         for salesman, depo in (db.session.query(MonthlyTarget.salesman, MonthlyTarget.depo)
                                .filter(MonthlyTarget.month == latest_tm).distinct()):
             s, d = canonical_salesman(salesman), canonical_depo(depo)
-            if s in BUDGET_SALESMEN and d in TARGET_ANALYSIS_DEPOS:
+            if s in area and d in TARGET_ANALYSIS_DEPOS:
                 result.setdefault(s, set()).add(d)
     if not result:
         ref = month_range(month)[0]
         for name, start, end, depos in SALESMAN_DEPO_HISTORY:
-            if name in BUDGET_SALESMEN and (start is None or ref >= start) and (end is None or ref <= end):
+            if name in area and (start is None or ref >= start) and (end is None or ref <= end):
                 result.setdefault(name, set()).update(d for d in depos if d in TARGET_ANALYSIS_DEPOS)
     return result
 
@@ -6073,6 +6216,7 @@ def build_target_analysis(month):
     empty = lambda: {m: {c: 0.0 for c in TARGET_ANALYSIS_CATS} for m in months + [month]}
     hist = {bp: empty() for bp in target_bps}
     others = {}
+    area = set(area_salesmen())
     budget_keys = set(_budget_salesman_keys())
     lookups = {}
     latest = None
@@ -6093,9 +6237,9 @@ def build_target_analysis(month):
             _, lookups[m] = target_lookup_for_month(m)
         owner, depo, _, target = resolve_billing_owner(r, lookups[m])
         billing_salesman = canonical_salesman(r.salesman)
-        if not owner and target is None and billing_salesman not in LOCKED_SALESMEN:
+        if not owner and target is None and billing_salesman not in lookups[m].team:
             owner, depo = billing_salesman, salesman_depo_for(billing_salesman, r, lookups[m])
-        if canonical_salesman(owner) not in BUDGET_SALESMEN:
+        if canonical_salesman(owner) not in area:
             continue
         depo = BUDGET_DEALER_DEPO_OVERRIDE.get(bp, depo)
         if depo not in TARGET_ANALYSIS_DEPOS:
