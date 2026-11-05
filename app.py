@@ -3239,15 +3239,39 @@ def _dashboard_context_uncached():
         previous_start = previous_end.replace(day=1)
         previous_cutoff = previous_end.replace(day=min(latest_in_scope.day, previous_end.day))
         previous_month = previous_start.strftime('%Y-%m')
-        _, previous_target_by_bp = target_lookup_for_month(previous_month)
+        previous_targets, previous_target_by_bp = target_lookup_for_month(previous_month)
         previous_rows = db.session.query(*DASHBOARD_BILLING_COLUMNS).filter(
             Billing.billing_date >= previous_start,
             Billing.billing_date <= previous_cutoff,
         ).all()
         visible_people = {row['salesman'] for row in table}
+        # Tanpa pilihan salesman (All Salesman), pembanding bulan lalu dihitung per depo,
+        # siapa pun pemegang depo saat itu. Jadi pergantian salesman (mis. Serang/Cilegon:
+        # Ikmah s/d Okt, Khaedarusman mulai Nov) tidak membuat bulan lalu terbaca 0.
+        # Bila salesman dipilih, tetap dibandingkan dengan penjualan salesman itu sendiri.
+        compare_by_depo = not requested_set
+        previous_team = getattr(previous_target_by_bp, 'team', None) or known_apple_salesmen()
+        previous_depos_by_owner = {}
+        for t in list(previous_targets) + [a for intervals in previous_target_by_bp.assignments.values() for a in intervals]:
+            t_owner, t_depo = canonical_salesman(t.salesman), normalize_text(t.depo)
+            if t_depo and t_depo != 'Unmapped':
+                previous_depos_by_owner.setdefault(t_owner, set()).add(t_depo)
+
+        def previous_in_scope(owner, depo):
+            if not owner or owner not in previous_team:
+                return False
+            if depo == 'Unmapped':
+                owner_depos = previous_depos_by_owner.get(owner, set())
+                return full_operational_scope or (
+                    len(owner_depos) > 1 and owner_depos.issubset(set(depo_filters)))
+            return not depo_filters or depo in depo_filters
+
         for row in previous_rows:
             owner, depo, _, target = resolve_billing_owner(row, previous_target_by_bp)
-            if owner not in visible_people or not billing_in_dashboard_scope(owner, depo, target):
+            if compare_by_depo:
+                if not previous_in_scope(owner, depo):
+                    continue
+            elif owner not in visible_people or not billing_in_dashboard_scope(owner, depo, target):
                 continue
             if row.category in ('Device', 'Macbook', 'ACC'):
                 amount = float(row.nett_amount or 0)
