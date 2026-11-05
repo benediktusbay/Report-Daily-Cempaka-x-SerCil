@@ -1653,8 +1653,8 @@ document.addEventListener('click',function(event){
           {% if not week_actuals %}
           <td class="heat-cell heat-neutral">—<span class="sr-only"> (belum berjalan)</span></td>
           {% else %}
-          {% set cls = 'heat-good' if week_actuals|sum >= week_target_total else 'heat-bad' %}
-          <td class="heat-cell heat-click {{ cls }}" role="button" tabindex="0" data-dist="w{{ w }}" data-salesman="">{{ week_actuals|sum }}{{ heat_status(cls) }}</td>
+          {% set cls = quality_class(week_actuals|sum, week_target_total) %}
+          <td class="heat-cell heat-click {{ cls }}" role="button" tabindex="0" data-dist="w{{ w }}" data-salesman="">{{ quality_value(week_actuals|sum, week_target_total) }}{{ quality_status(cls) }}</td>
           {% endif %}
           {% endfor %}
         </tr>
