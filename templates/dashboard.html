@@ -1593,16 +1593,16 @@ document.addEventListener('click',function(event){
         {% set qvo_cls = quality_class(r.qvo, r.qvo_target) %}
         <tr>
           <th scope="row">{{ heat_name(r.salesman) }}</th>
-          <td class="heat-cell heat-click {{ bo_cls }}" role="button" tabindex="0" data-dist="bo" data-salesman="{{ r.salesman }}">{{ quality_value(r.bo, r.bo_target) }}{{ quality_status(bo_cls) }}</td>
-          <td class="heat-cell heat-click {{ qvo_cls }}" role="button" tabindex="0" data-dist="qvo" data-salesman="{{ r.salesman }}">{{ quality_value(r.qvo, r.qvo_target) }}{{ quality_status(qvo_cls) }}</td>
+          <td class="heat-cell heat-click {{ bo_cls }}" role="button" tabindex="0" data-dist="bo" data-salesman="{{ r.salesman }}" data-target="{{ r.bo_target or '' }}">{{ r.bo }}{{ quality_status(bo_cls) }}</td>
+          <td class="heat-cell heat-click {{ qvo_cls }}" role="button" tabindex="0" data-dist="qvo" data-salesman="{{ r.salesman }}" data-target="{{ r.qvo_target or '' }}">{{ r.qvo }}{{ quality_status(qvo_cls) }}</td>
         </tr>
         {% endfor %}
         {% set bo_total_cls = quality_class(cards.bo, cards.bo_target) %}
         {% set qvo_total_cls = quality_class(cards.qvo, cards.qvo_target) %}
         <tr class="heat-total">
           <th scope="row">Total</th>
-          <td class="heat-cell heat-click {{ bo_total_cls }}" role="button" tabindex="0" data-dist="bo" data-salesman="">{{ quality_value(cards.bo, cards.bo_target) }}{{ quality_status(bo_total_cls) }}</td>
-          <td class="heat-cell heat-click {{ qvo_total_cls }}" role="button" tabindex="0" data-dist="qvo" data-salesman="">{{ quality_value(cards.qvo, cards.qvo_target) }}{{ quality_status(qvo_total_cls) }}</td>
+          <td class="heat-cell heat-click {{ bo_total_cls }}" role="button" tabindex="0" data-dist="bo" data-salesman="" data-target="{{ cards.bo_target or '' }}">{{ quality_value(cards.bo, cards.bo_target) }}{{ quality_status(bo_total_cls) }}</td>
+          <td class="heat-cell heat-click {{ qvo_total_cls }}" role="button" tabindex="0" data-dist="qvo" data-salesman="" data-target="{{ cards.qvo_target or '' }}">{{ quality_value(cards.qvo, cards.qvo_target) }}{{ quality_status(qvo_total_cls) }}</td>
         </tr>
       </tbody>
     </table>
@@ -2841,7 +2841,13 @@ document.addEventListener('click',function(event){
   const tgl = iso => { if (!iso) return '–'; const p = iso.split('-'); return (+p[2]) + ' ' + MON[+p[1] - 1]; };
   const head = document.getElementById('distHead'), body = document.getElementById('distBody');
 
-  function open(kind, salesman){
+  function targetInfo(count, target){
+    const t = Number(target) || 0;
+    if (!t) return '';
+    const diff = t - count;
+    return `<span>Target <b>${t}</b></span>` + (diff > 0 ? `<span>Kurang <b>${diff}</b></span>` : diff < 0 ? `<span>Lebih <b>${-diff}</b></span>` : '');
+  }
+  function open(kind, salesman, target){
     const all = !salesman;
     let list = DEALERS.filter(d => all || d.salesman === salesman);
     const week = kind.startsWith('w') ? +kind.slice(1) : null;
@@ -2856,14 +2862,14 @@ document.addEventListener('click',function(event){
       sub = `${who} · dealer yang sudah beli Device/MacBook bulan ini`;
       cols = `<tr><th>Dealer</th>${salesCol}<th>Device + MacBook</th><th>Total belanja</th><th>Pertama BO</th></tr>`;
       row = d => `<tr>${name(d)}${salesCell(d)}<td>${rp(d.bo_value)}</td><td>${rp(d.total)}</td><td>${tgl(d.bo_date)}</td></tr>`;
-      summary = `<span><b>${list.length}</b> dealer BO</span><span>Device + MacBook <b>${rp(list.reduce((s, d) => s + d.bo_value, 0))}</b></span>`;
+      summary = `<span><b>${list.length}</b> dealer BO</span>` + targetInfo(list.length, target) + `<span>Device + MacBook <b>${rp(list.reduce((s, d) => s + d.bo_value, 0))}</b></span>`;
     } else if (kind === 'qvo') {
       list = list.filter(d => d.qvo).sort((a, b) => b.total - a.total);
       title = 'Dealer QVO';
       sub = `${who} · total belanja (non-PPN) ≥ ${rp(QVO_LIMIT)}`;
       cols = `<tr><th>Dealer</th>${salesCol}<th>Total belanja</th><th>Di atas batas QVO</th></tr>`;
       row = d => `<tr>${name(d)}${salesCell(d)}<td>${rp(d.total)}</td><td>${rp(d.total - QVO_LIMIT)}</td></tr>`;
-      summary = `<span><b>${list.length}</b> dealer QVO</span><span>Total belanja <b>${rp(list.reduce((s, d) => s + d.total, 0))}</b></span>`;
+      summary = `<span><b>${list.length}</b> dealer QVO</span>` + targetInfo(list.length, target) + `<span>Total belanja <b>${rp(list.reduce((s, d) => s + d.total, 0))}</b></span>`;
     } else {
       list = list.filter(d => d.weeks.includes(week))
                  .sort((a, b) => (b.weeks[0] === week) - (a.weeks[0] === week) || (a.bo_date || '').localeCompare(b.bo_date || ''));
@@ -2885,7 +2891,7 @@ document.addEventListener('click',function(event){
   }
   function close(){ modal.style.display = 'none'; modal.setAttribute('aria-hidden', 'true'); }
   document.querySelectorAll('.heat-click[data-dist]').forEach(cell => {
-    const go = () => open(cell.dataset.dist, cell.dataset.salesman);
+    const go = () => open(cell.dataset.dist, cell.dataset.salesman, cell.dataset.target);
     cell.addEventListener('click', go);
     cell.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
   });
