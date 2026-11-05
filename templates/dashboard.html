@@ -1059,6 +1059,10 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 .heat-click{cursor:pointer;transition:box-shadow .12s,filter .12s}
 .heat-click:hover{box-shadow:inset 0 0 0 2px currentColor;filter:brightness(.97)}
 .heat-click:focus-visible{outline:2px solid #1769e8;outline-offset:2px}
+/* Distribution Quality: achievement / target + warna 3 tingkat */
+.heat-mid{background:#fef3c7;color:#b45309}
+.heat-target{font-size:12px;font-weight:600;opacity:.7;white-space:nowrap}
+@media(max-width:768px){.heat-target{font-size:11px}}
 .dist-summary{display:flex;flex-wrap:wrap;gap:8px 18px;padding:12px 20px;border-bottom:1px solid #e5e7eb;font-size:13px;color:#475569}
 .dist-summary b{color:#0b2545}
 .dist-table{width:100%;min-width:640px;border-collapse:collapse;font-size:13px}
@@ -1558,6 +1562,16 @@ document.addEventListener('click',function(event){
 
 
 <div class="heat-pair">
+{#- Distribution Quality: merah < 50%, kuning 50–99%, hijau >= 100%, abu = belum ada target. -#}
+{% macro quality_class(actual, target) -%}
+{%- if not target -%}heat-neutral{%- elif actual >= target -%}heat-good{%- elif actual * 2 >= target -%}heat-mid{%- else -%}heat-bad{%- endif -%}
+{%- endmacro %}
+{% macro quality_status(cls) -%}
+{%- if cls == 'heat-good' %}<span class="sr-only"> (sesuai target)</span>{% elif cls == 'heat-mid' %}<span class="sr-only"> (mendekati target)</span>{% elif cls == 'heat-bad' %}<span class="sr-only"> (di bawah target)</span>{% endif -%}
+{%- endmacro %}
+{% macro quality_value(actual, target) -%}
+{{ actual }}{% if target %}<span class="heat-target"> / {{ target }}</span>{% endif %}
+{%- endmacro %}
 <div class="section">
   <div class="section-title">
     <h2>Distribution Quality</h2>
@@ -1575,22 +1589,20 @@ document.addEventListener('click',function(event){
       </thead>
       <tbody>
         {% for r in table %}
-        {% set bo_due = r.bo_target if r.bo_target else none %}
-        {% set qvo_due = r.qvo_target if r.qvo_target else none %}
-        {% set bo_cls = heat_class(r.bo, bo_due) %}
-        {% set qvo_cls = heat_class(r.qvo, qvo_due) %}
+        {% set bo_cls = quality_class(r.bo, r.bo_target) %}
+        {% set qvo_cls = quality_class(r.qvo, r.qvo_target) %}
         <tr>
           <th scope="row">{{ heat_name(r.salesman) }}</th>
-          <td class="heat-cell heat-click {{ bo_cls }}" role="button" tabindex="0" data-dist="bo" data-salesman="{{ r.salesman }}">{{ r.bo }}{{ heat_status(bo_cls) }}</td>
-          <td class="heat-cell heat-click {{ qvo_cls }}" role="button" tabindex="0" data-dist="qvo" data-salesman="{{ r.salesman }}">{{ r.qvo }}{{ heat_status(qvo_cls) }}</td>
+          <td class="heat-cell heat-click {{ bo_cls }}" role="button" tabindex="0" data-dist="bo" data-salesman="{{ r.salesman }}">{{ quality_value(r.bo, r.bo_target) }}{{ quality_status(bo_cls) }}</td>
+          <td class="heat-cell heat-click {{ qvo_cls }}" role="button" tabindex="0" data-dist="qvo" data-salesman="{{ r.salesman }}">{{ quality_value(r.qvo, r.qvo_target) }}{{ quality_status(qvo_cls) }}</td>
         </tr>
         {% endfor %}
-        {% set bo_total_cls = heat_class(cards.bo, cards.bo_target if cards.bo_target else none) %}
-        {% set qvo_total_cls = heat_class(cards.qvo, cards.qvo_target if cards.qvo_target else none) %}
+        {% set bo_total_cls = quality_class(cards.bo, cards.bo_target) %}
+        {% set qvo_total_cls = quality_class(cards.qvo, cards.qvo_target) %}
         <tr class="heat-total">
           <th scope="row">Total</th>
-          <td class="heat-cell heat-click {{ bo_total_cls }}" role="button" tabindex="0" data-dist="bo" data-salesman="">{{ cards.bo }}{{ heat_status(bo_total_cls) }}</td>
-          <td class="heat-cell heat-click {{ qvo_total_cls }}" role="button" tabindex="0" data-dist="qvo" data-salesman="">{{ cards.qvo }}{{ heat_status(qvo_total_cls) }}</td>
+          <td class="heat-cell heat-click {{ bo_total_cls }}" role="button" tabindex="0" data-dist="bo" data-salesman="">{{ quality_value(cards.bo, cards.bo_target) }}{{ quality_status(bo_total_cls) }}</td>
+          <td class="heat-cell heat-click {{ qvo_total_cls }}" role="button" tabindex="0" data-dist="qvo" data-salesman="">{{ quality_value(cards.qvo, cards.qvo_target) }}{{ quality_status(qvo_total_cls) }}</td>
         </tr>
       </tbody>
     </table>
