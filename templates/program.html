@@ -117,13 +117,33 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 .ppg-table td.ppg-month-cell .ppg-month-top span{font-size:inherit;font-weight:800;font-variant-numeric:tabular-nums}
 .ppg-table td.ppg-target,.ppg-table td.ppg-month-cell,.ppg-table td.loyalty-gap{font-size:13px}
 .ppg-table td.ppg-month-cell .ppg-month-top strong[data-program-pct]{display:none}
+/* Ranking Dealer (YTD) */
+.rank-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin:0 0 12px}
+.rank-meta{color:#64748b;font-size:12px;font-weight:700}
+.rank-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 12px}
+.rank-summary div{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:11px 13px}
+.rank-summary small{display:block;color:#64748b;font-size:11px;font-weight:800;text-transform:uppercase}
+.rank-summary strong{display:block;margin-top:4px;color:#0f274a;font-size:15px;font-variant-numeric:tabular-nums}
+.rank-table{min-width:980px}.rank-table th{text-align:center}.rank-table th:nth-child(2){text-align:left}
+.rank-table td.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.rank-table td.center,.rank-table th:first-child,.rank-table td:first-child{text-align:center}
+.rank-table td.total-col{font-weight:900;color:#0f274a}
+.rank-no{display:inline-flex;min-width:26px;height:26px;align-items:center;justify-content:center;border-radius:7px;background:#edf3fa;color:#0f274a;font-weight:900;font-size:12px}
+.rank-no.top{background:#0b3765;color:#fff}
+.rank-table tfoot td{background:#eaf1f8;font-weight:900;border-top:2px solid #cbd5e1}
+@media(max-width:768px){
+  .rank-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .rank-table{min-width:860px}
+  .rank-table th:nth-child(2),.rank-table td:nth-child(2){position:sticky;left:0;z-index:2;background:#fff;min-width:170px;max-width:170px;white-space:normal;box-shadow:3px 0 7px rgba(15,23,42,.12)}
+  .rank-table thead th:nth-child(2){z-index:3;background:#edf3fa}.rank-table tfoot td:nth-child(2){background:#eaf1f8}
+}
 </style>
 {% endblock %}
 
 {% block body %}
 <div class="program-hero">
   <div><h1>Program</h1></div>
-  <div class="program-ppn-toggle" role="group" aria-label="Basis Achievement Program">
+  <div class="program-ppn-toggle" role="group"{% if active_tab == 'ranking' %} style="display:none"{% endif %} aria-label="Basis Achievement Program">
     <button type="button" data-program-basis="with_ppn" aria-pressed="true">With PPN (11%)</button>
     <button type="button" data-program-basis="non_ppn" aria-pressed="false">Non-PPN</button>
   </div>
@@ -132,6 +152,7 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
 <div class="tabs">
   <button type="button" class="tab{% if active_tab == 'loyalty' %} active{% endif %}" data-program-tab="loyalty" data-tab-url="{{ url_for('program', month=month, depo=depo_filter, salesman=salesman_filter) }}">Program Loyalty</button>
   <button type="button" class="tab{% if active_tab == 'ppg-paa' %} active{% endif %}" data-program-tab="ppg-paa" data-tab-url="{{ url_for('program', tab='ppg-paa', month=month, depo=depo_filter, salesman=salesman_filter) }}">Program PPG</button>
+  <button type="button" class="tab{% if active_tab == 'ranking' %} active{% endif %}" data-program-tab="ranking" data-tab-url="{{ url_for('program', tab='ranking', month=month, depo=depo_filter, salesman=salesman_filter) }}">Ranking Dealer</button>
 </div>
 
 {% macro summary_cards(totals) %}
@@ -334,6 +355,39 @@ td{padding:11px 10px;border-bottom:1px solid #edf2f7;font-size:13px;vertical-ali
     {% else %}<tr><td colspan="7" class="empty">Belum ada peserta Program PPG untuk filter ini.</td></tr>{% endfor %}
   </tbody></table></div></div>
 </div>
+{% if active_tab == 'ranking' %}
+<div class="panel active" data-program-panel="ranking">
+  <div class="rank-toolbar">
+    <nav class="program-depo-tabs" aria-label="Filter Depo Ranking Dealer">
+      {% for depo in rank_depos %}<a class="program-depo-tab{% if rank_depo == depo %} active{% endif %}" href="{{ url_for('program', tab='ranking', rank_year=rank_year, rank_depo='' if rank_depo == depo else depo, month=month, depo=depo_filter, salesman=salesman_filter) }}"{% if rank_depo == depo %} aria-current="true"{% endif %}>{{ depo }}</a>{% endfor %}
+    </nav>
+    <div class="rank-meta">{{ rank_depo or 'Semua Depo' }} · 1 Jan {{ rank_year }} s/d {{ rank_latest.strftime('%d/%m/%Y') if rank_latest else '-' }} · Non-PPN · Device + MacBook + ACC</div>
+  </div>
+  <div class="rank-summary">
+    <div><small>Total</small><strong>{{ rank_totals.total|rupiah }}</strong></div>
+    <div><small>Device</small><strong>{{ rank_totals.Device|rupiah }}</strong></div>
+    <div><small>MacBook</small><strong>{{ rank_totals.Macbook|rupiah }}</strong></div>
+    <div><small>ACC</small><strong>{{ rank_totals.ACC|rupiah }}</strong></div>
+  </div>
+  <div class="ppg-card"><div class="ppg-table-wrap"><table class="ppg-table rank-table">
+    <thead><tr><th>Rank</th><th>Dealer</th><th>Depo</th><th>Device</th><th>MacBook</th><th>ACC</th><th>Total</th><th>Bulan Belanja</th></tr></thead>
+    <tbody>
+    {% for r in rank_rows %}<tr>
+      <td><span class="rank-no{% if r.rank <= 3 %} top{% endif %}">{{ r.rank }}</span></td>
+      <td><span class="ppg-dealer-name">{{ r.dealer }}</span><span class="ppg-bp">{{ r.bp }}</span></td>
+      <td class="center">{{ r.depo }}</td>
+      <td class="num">{{ r.Device|rupiah }}</td>
+      <td class="num">{{ r.Macbook|rupiah }}</td>
+      <td class="num">{{ r.ACC|rupiah }}</td>
+      <td class="num total-col">{{ r.total|rupiah }}</td>
+      <td class="center">{{ r.active_months }} / {{ rank_month_count }}</td>
+    </tr>{% else %}<tr><td colspan="8" class="empty">Belum ada data penjualan untuk filter ini.</td></tr>{% endfor %}
+    </tbody>
+    {% if rank_rows %}<tfoot><tr><td></td><td>TOTAL ({{ rank_rows|length }} dealer)</td><td></td>
+      <td class="num">{{ rank_totals.Device|rupiah }}</td><td class="num">{{ rank_totals.Macbook|rupiah }}</td><td class="num">{{ rank_totals.ACC|rupiah }}</td><td class="num">{{ rank_totals.total|rupiah }}</td><td></td></tr></tfoot>{% endif %}
+  </table></div></div>
+</div>
+{% endif %}
 <dialog class="program-dialog" id="programGroupDialog"><div class="program-dialog-head"><h3 id="programDetailName"></h3><button type="button" class="program-dialog-close" aria-label="Tutup detail">×</button></div><div id="programDetailMeta"></div><div class="program-detail-metrics" id="programDetailMetrics"></div><div class="table-wrap"><table class="program-detail-table"><thead><tr><th>BP</th><th>Dealer sumber</th><th>Depo</th><th class="number">Achievement</th></tr></thead><tbody id="programDetailRows"></tbody></table></div></dialog>
 <script type="application/json" id="programDetailData">{{ program_loyalty|tojson }}</script>
 {% endblock %}

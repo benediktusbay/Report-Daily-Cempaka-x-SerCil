@@ -4009,11 +4009,131 @@ def program_ppg_paa_view():
     )
 
 
+# ---------------------------------------------------------------------------
+# Program > Ranking Dealer (YTD)
+# ---------------------------------------------------------------------------
+RANKING_DEPOS = ('Cempaka', 'Serang', 'Cilegon')
+RANKING_CATEGORIES = ('Device', 'Macbook', 'ACC')
+# TNT Cell dan CV Az Zahra Cellular (Cilegon) = 1 toko yang pindah BP, digabung.
+RANKING_MERGE_NAMES = (('TNT CELL', '10082481'),)
+_ranking_cache = {'key': None, 'rows': None, 'latest': None, 'at': 0.0}
+RANKING_CACHE_SECONDS = 30 * 60  # juga refresh berkala bila Target Master berubah
+_ranking_cache_lock = Lock()
+
+
+def _ranking_dealer_key(bp, name):
+    upper = normalize_text(name).upper()
+    for needle, target_bp in RANKING_MERGE_NAMES:
+        if needle in upper:
+            return target_bp
+    return bp
+
+
+def build_dealer_ranking(year):
+    """Ranking dealer YTD (non-PPN, Device + MacBook + ACC).
+
+    Memakai aturan kepemilikan yang sama dengan dashboard/QVO (resolve_billing_owner):
+    transaksi cross-salesman atau salesman di luar tim Apple tidak dihitung.
+    Hasil di-cache per worker dan otomatis dihitung ulang setelah ada upload baru.
+    """
+    start, end = dt.date(year, 1, 1), dt.date(year, 12, 31)
+    base_filter = (
+        Billing.billing_date >= start,
+        Billing.billing_date <= end,
+        Billing.category.in_(RANKING_CATEGORIES),
+    )
+    count, max_id, latest = db.session.query(
+        db.func.count(Billing.id), db.func.max(Billing.id), db.func.max(Billing.billing_date),
+    ).filter(*base_filter).one()
+    cache_key = (year, count, max_id)
+    with _ranking_cache_lock:
+        if (_ranking_cache['key'] == cache_key
+                and time.time() - _ranking_cache['at'] < RANKING_CACHE_SECONDS):
+            return _ranking_cache['rows'], _ranking_cache['latest']
+
+    rows = db.session.query(
+        Billing.billing_date, Billing.sold_to_code, Billing.salesman,
+        Billing.sold_to_name, Billing.category, Billing.nett_amount, Billing.cust_location,
+    ).filter(*base_filter).order_by(Billing.billing_date).yield_per(500)
+    lookup_cache = {}
+    dealers = {}
+    for r in rows:
+        bp = normalize_bp(r.sold_to_code)
+        if not bp or r.category not in RANKING_CATEGORIES:
+            continue
+        m = r.billing_date.strftime('%Y-%m')
+        if m not in lookup_cache:
+            _, lookup_cache[m] = target_lookup_for_month(m)
+        owner, depo, dealer_name, _ = resolve_billing_owner(r, lookup_cache[m])
+        if not owner:
+            continue
+        # Hanya depo kosong yang dicari dari lokasi dealer; depo lain (mis. Roxy/Agres)
+        # tetap di luar area sehingga tidak ikut ranking.
+        if depo == 'Unmapped':
+            depo = _bp_location_depos().get(bp) or depo
+        key = _ranking_dealer_key(bp, r.sold_to_name)
+        item = dealers.setdefault(key, {
+            'bp': key, 'dealer': '', 'depo': '', 'Device': 0.0, 'Macbook': 0.0, 'ACC': 0.0,
+            'total': 0.0, 'monthly': {},
+        })
+        amount = float(r.nett_amount or 0)
+        item[r.category] += amount
+        item['total'] += amount
+        item['monthly'][m] = item['monthly'].get(m, 0.0) + amount
+        # Nama & depo ikut transaksi terbaru (rows urut tanggal); nama BP utama didahulukan.
+        if bp == key or not item['dealer']:
+            item['dealer'] = normalize_text(dealer_name or r.sold_to_name)
+        if depo:
+            item['depo'] = depo
+    result = []
+    for item in dealers.values():
+        item['active_months'] = sum(1 for v in item.pop('monthly').values() if v > 0)
+        result.append(item)
+    result.sort(key=lambda x: x['total'], reverse=True)
+    with _ranking_cache_lock:
+        _ranking_cache.update(key=cache_key, rows=result, latest=latest, at=time.time())
+    return result, latest
+
+
+def program_ranking_view():
+    today = datetime.now(STOCK_TIMEZONE).date()
+    year = request.args.get('rank_year', type=int) or today.year
+    if not 2000 <= year <= 2100:
+        year = today.year
+    selected_depo = normalize_text(request.args.get('rank_depo'))
+    if selected_depo not in RANKING_DEPOS:
+        selected_depo = ''
+    all_rows, latest = build_dealer_ranking(year)
+    rows = [r for r in all_rows if r['depo'] in RANKING_DEPOS
+            and (not selected_depo or r['depo'] == selected_depo)]
+    ranked = [dict(r, rank=i) for i, r in enumerate(rows, 1)]
+    totals = {k: sum(r[k] for r in ranked) for k in ('Device', 'Macbook', 'ACC', 'total')}
+    month_count = latest.month if latest and latest.year == year else (12 if year < today.year else today.month)
+    reporting_month = today.strftime('%Y-%m')
+    zero = {'target': 0, 'achievement': 0, 'pct': 0}
+    return render_template(
+        'program.html', month=reporting_month, latest=None,
+        loyalty_month_label=today.strftime('%B %Y'),
+        loyalty_year=None, loyalty_quarter=None, loyalty_months=[],
+        depos=[], salesmen=[], depo_filter=normalize_text(request.args.get('depo')),
+        salesman_filter=normalize_text(request.args.get('salesman')),
+        program_loyalty=[], program_ppg_paa=[], loyalty_totals=zero,
+        ppg_paa_totals=zero, loyalty_reward_notes=[], loyalty_categories=[], admin_groups=[],
+        active_tab='ranking', ppg_year=None, ppg_quarter=None, ppg_months=[],
+        ppg_groups=[], ppg_depos=[], ppg_depo='', ppg_participants=[],
+        ppg_program_types=PPG_PAA_PROGRAM_TYPES,
+        rank_year=year, rank_depo=selected_depo, rank_depos=RANKING_DEPOS,
+        rank_rows=ranked, rank_totals=totals, rank_latest=latest, rank_month_count=month_count,
+    )
+
+
 @app.route('/program')
 def program():
     """Program Loyalty is one target per persistent group, summed across its BPs."""
     if request.args.get('tab') == 'ppg-paa':
         return program_ppg_paa_view()
+    if request.args.get('tab') == 'ranking':
+        return program_ranking_view()
     month = request.args.get('month') or datetime.now(STOCK_TIMEZONE).strftime('%Y-%m')
     try:
         reporting_date = dt.date.fromisoformat(month + '-01')
