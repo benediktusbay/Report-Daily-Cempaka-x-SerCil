@@ -5627,57 +5627,132 @@ def cross_brand_column(brand):
     return brand if brand in CROSS_BRAND_COLUMNS else CROSS_BRAND_OTHER
 
 
-@app.route('/cross-brand/upload', methods=['POST'])
-@admin_required
-def cross_brand_upload():
-    f = request.files.get('file')
-    if not f or not f.filename or not f.filename.lower().endswith('.xlsx'):
-        flash('Pilih file Billing Detail semua brand (.xlsx).', 'danger')
-        return redirect(url_for('cross_brand'))
+CROSS_BRAND_MONTH_NAMES = ('Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli',
+                           'Agustus', 'September', 'Oktober', 'November', 'Desember')
+
+
+def cross_brand_month_label(month):
+    return f'{CROSS_BRAND_MONTH_NAMES[int(month[5:7]) - 1]} {month[:4]}'
+
+
+def import_cross_brand_file(f):
+    """Import one all-brand Billing Detail file (exactly one month) and commit it.
+
+    Returns (month, rows_read, groups, brands). Re-uploading a month replaces it.
+    """
     month = None
     grouped = {}
     rows_read = 0
-    try:
-        for rr in iter_billing_xlsx(f.stream):
-            rows_read += 1
-            billing_date = billing_date_value(rr['billing_date'])
-            bp = normalize_bp(rr['sold_to_code'])
-            if not billing_date or not bp:
-                continue
-            row_month = billing_date.strftime('%Y-%m')
-            if month is None:
-                month = row_month
-            elif row_month != month:
-                raise ValueError(f'File harus berisi satu bulan saja (ditemukan {month} dan {row_month}).')
-            brand = normalize_text(rr.get('brand')).upper() or CROSS_BRAND_OTHER
-            g = grouped.setdefault((bp, brand), {
-                'dealer': normalize_text(rr['sold_to_name']) or bp,
-                'cust_depo': depo_from_cust_location(rr.get('cust_location')),
-                'amount': 0.0, 'qty': 0.0, 'last_date': billing_date,
-            })
-            g['amount'] += to_num(rr['nett_amount'])
-            g['qty'] += to_num(rr['quantity'])
-            g['last_date'] = max(g['last_date'], billing_date)
-            if not g['cust_depo']:
-                g['cust_depo'] = depo_from_cust_location(rr.get('cust_location'))
-        if month is None or not grouped:
-            raise ValueError('Tidak ada baris Billing Detail valid yang dapat diimpor.')
-        CrossBrandSales.query.filter_by(month=month).delete(synchronize_session=False)
-        db.session.bulk_insert_mappings(CrossBrandSales, [
-            dict(month=month, bp=bp, brand=brand, **values)
-            for (bp, brand), values in grouped.items()
-        ])
-        db.session.add(UploadLog(filename=secure_filename(f.filename), upload_mode='cross_brand',
-                                 uploaded_by=session.get('username'), rows_read=rows_read,
-                                 rows_added=len(grouped)))
-        db.session.commit()
-        brands = sorted({brand for _, brand in grouped})
-        flash(f'Cross Brand {month} berhasil: {rows_read} baris diringkas menjadi '
-              f'{len(grouped)} data dealer x brand ({", ".join(brands)}).', 'success')
-    except Exception as exc:
-        db.session.rollback()
-        flash(f'Upload Cross Brand gagal: {exc}', 'danger')
-    return redirect(url_for('cross_brand', month=month or ''))
+    for rr in iter_billing_xlsx(f.stream):
+        rows_read += 1
+        billing_date = billing_date_value(rr['billing_date'])
+        bp = normalize_bp(rr['sold_to_code'])
+        if not billing_date or not bp:
+            continue
+        row_month = billing_date.strftime('%Y-%m')
+        if month is None:
+            month = row_month
+        elif row_month != month:
+            raise ValueError(f'File harus berisi satu bulan saja (ditemukan {month} dan {row_month}).')
+        brand = normalize_text(rr.get('brand')).upper() or CROSS_BRAND_OTHER
+        g_ = grouped.setdefault((bp, brand), {
+            'dealer': normalize_text(rr['sold_to_name']) or bp,
+            'cust_depo': depo_from_cust_location(rr.get('cust_location')),
+            'amount': 0.0, 'qty': 0.0, 'last_date': billing_date,
+        })
+        g_['amount'] += to_num(rr['nett_amount'])
+        g_['qty'] += to_num(rr['quantity'])
+        g_['last_date'] = max(g_['last_date'], billing_date)
+        if not g_['cust_depo']:
+            g_['cust_depo'] = depo_from_cust_location(rr.get('cust_location'))
+    if month is None or not grouped:
+        raise ValueError('Tidak ada baris Billing Detail valid yang dapat diimpor.')
+    CrossBrandSales.query.filter_by(month=month).delete(synchronize_session=False)
+    db.session.bulk_insert_mappings(CrossBrandSales, [
+        dict(month=month, bp=bp, brand=brand, **values)
+        for (bp, brand), values in grouped.items()
+    ])
+    db.session.add(UploadLog(filename=secure_filename(f.filename), upload_mode='cross_brand',
+                             uploaded_by=session.get('username'), rows_read=rows_read,
+                             rows_added=len(grouped)))
+    db.session.commit()
+    return month, rows_read, len(grouped), sorted({brand for _, brand in grouped})
+
+
+@app.route('/cross-brand/upload', methods=['POST'])
+@admin_required
+def cross_brand_upload():
+    files = [f for f in request.files.getlist('file') if f and f.filename]
+    if not files or any(not f.filename.lower().endswith('.xlsx') for f in files):
+        flash('Pilih file Billing Detail semua brand (.xlsx), boleh beberapa file sekaligus.', 'danger')
+        return redirect(url_for('cross_brand'))
+    last_month = None
+    ok = 0
+    # Each file is committed on its own: one bad file never cancels the others.
+    for f in files:
+        name = f.filename
+        try:
+            month, rows_read, groups, brands = import_cross_brand_file(f)
+            last_month = month
+            ok += 1
+            flash(f'{name} → {cross_brand_month_label(month)} berhasil: {rows_read} baris diringkas '
+                  f'menjadi {groups} data dealer x brand ({", ".join(brands)}).', 'success')
+        except Exception as exc:
+            db.session.rollback()
+            flash(f'{name} gagal: {exc}', 'danger')
+    if len(files) > 1:
+        flash(f'Selesai: {ok} dari {len(files)} file berhasil diupload.',
+              'success' if ok == len(files) else 'warning')
+    return redirect(url_for('cross_brand', period=last_month or ''))
+
+
+def cross_brand_period(period, available, now):
+    """Resolve a period key into (kind, months, divisor, label).
+
+    Keys: 'YYYY-MM' (bulan), 'YYYY-Qn' (rata-rata per bulan dalam quarter),
+    'YYYY-YTD' (total Januari s/d bulan berjalan). Quarter/YTD only count months
+    that have already started, so Q4 in November = (Okt + Nov MTD) / 2.
+    """
+    current = (now.year, now.month)
+
+    def started(year, months):
+        return [f'{year}-{m:02d}' for m in months if (year, m) <= current]
+
+    m = re.fullmatch(r'(\d{4})-Q([1-4])', period or '')
+    if m:
+        year, q = int(m.group(1)), int(m.group(2))
+        months = started(year, range(q * 3 - 2, q * 3 + 1))
+        if months:
+            first, last = CROSS_BRAND_MONTH_NAMES[int(months[0][5:]) - 1], CROSS_BRAND_MONTH_NAMES[int(months[-1][5:]) - 1]
+            span = first if len(months) == 1 else f'{first[:3]}–{last[:3]}'
+            return 'avg', months, len(months), f'Rata-rata Q{q} {year} ({span}, {len(months)} bulan)'
+    m = re.fullmatch(r'(\d{4})-YTD', period or '')
+    if m:
+        year = int(m.group(1))
+        months = started(year, range(1, 13))
+        if months:
+            last = CROSS_BRAND_MONTH_NAMES[int(months[-1][5:]) - 1]
+            return 'ytd', months, 1, f'YTD {year} (Januari–{last})'
+    if not re.fullmatch(r'\d{4}-(0[1-9]|1[0-2])', period or ''):
+        period = available[0] if available else now.strftime('%Y-%m')
+    return 'month', [period], 1, cross_brand_month_label(period)
+
+
+def cross_brand_period_options(available, now):
+    """Dropdown groups: bulan yang sudah diupload, quarter, dan YTD per tahun."""
+    years = sorted({m[:4] for m in available}, reverse=True)
+    quarters, ytd = [], []
+    for year in years:
+        for q in range(4, 0, -1):
+            months = {f'{year}-{x:02d}' for x in range(q * 3 - 2, q * 3 + 1)}
+            if months & set(available):
+                quarters.append((f'{year}-Q{q}', f'Avg Q{q} {year}'))
+        ytd.append((f'{year}-YTD', f'YTD {year}'))
+    return [
+        ('Bulan', [(m, cross_brand_month_label(m)) for m in available]),
+        ('Rata-rata per Quarter', quarters),
+        ('Year to Date', ytd),
+    ]
 
 
 @app.route('/cross-brand')
@@ -5686,24 +5761,37 @@ def cross_brand():
         session['username'] = 'Viewer'
         session['role'] = 'viewer'
     is_admin = session.get('role') == 'admin'
-    months = [m for (m,) in db.session.query(CrossBrandSales.month).distinct()
-              .order_by(CrossBrandSales.month.desc()).all()]
-    month = request.args.get('month') or (months[0] if months else datetime.now().strftime('%Y-%m'))
-    if not re.fullmatch(r'\d{4}-(0[1-9]|1[0-2])', month):
-        month = months[0] if months else datetime.now().strftime('%Y-%m')
+    now = datetime.now(STOCK_TIMEZONE)
+    available = [m for (m,) in db.session.query(CrossBrandSales.month).distinct()
+                 .order_by(CrossBrandSales.month.desc()).all()]
+    # 'month' tetap diterima agar link lama tidak rusak.
+    period = request.args.get('period') or request.args.get('month') or ''
+    kind, period_months, divisor, period_label = cross_brand_period(period, available, now)
+    if kind == 'month':
+        period = period_months[0]
+    missing = [cross_brand_month_label(m) for m in period_months if m not in available]
+    if kind == 'month':
+        missing = []
 
-    rows = CrossBrandSales.query.filter_by(month=month).all()
-    _, lookup = target_lookup_for_month(month)
+    rows = (CrossBrandSales.query.filter(CrossBrandSales.month.in_(period_months))
+            .order_by(CrossBrandSales.month).all())
 
     # Depo dealer: Target Master bulan itu, lalu Cust.Location dari Billing.
+    # Untuk periode gabungan, bulan terakhir dealer belanja yang menentukan depo.
     dealers = {}
     for r in rows:
+        _, lookup = target_lookup_for_month(r.month)
         target = lookup.get(r.bp)
         depo = (target.depo if target else None) or r.cust_depo or 'Unmapped'
-        d = dealers.setdefault(r.bp, {'bp': r.bp, 'dealer': r.dealer, 'depo': depo,
-                                      'brands': {}, 'total': 0.0})
-        if target:
-            d['dealer'] = target.dealer or d['dealer']
+        d = dealers.get(r.bp)
+        if d is None:
+            d = dealers[r.bp] = {'bp': r.bp, 'dealer': r.dealer, 'depo': depo, 'depo_month': r.month,
+                                 'brands': {}, 'total': 0.0}
+            if target:
+                d['dealer'] = target.dealer or d['dealer']
+        elif r.month > d['depo_month']:
+            d['depo'], d['depo_month'] = depo, r.month
+            d['dealer'] = (target.dealer if target and target.dealer else None) or r.dealer or d['dealer']
         col = cross_brand_column(r.brand)
         b = d['brands'].setdefault(col, {'amount': 0.0, 'qty': 0.0})
         b['amount'] += float(r.amount or 0)
@@ -5730,14 +5818,16 @@ def cross_brand():
         cells = {}
         for c in columns:
             b = d['brands'].get(c, {'amount': 0.0, 'qty': 0.0})
-            totals[c]['amount'] += b['amount']
-            totals[c]['qty'] += b['qty']
+            # Avg Q: nilai & qty dibagi jumlah bulan; ASP (value/qty) tidak berubah.
+            amount, qty = b['amount'] / divisor, b['qty'] / divisor
+            totals[c]['amount'] += amount
+            totals[c]['qty'] += qty
             cells[c] = {
-                'amount': b['amount'],
-                'asp': b['amount'] / b['qty'] if b['qty'] else None,
+                'amount': amount,
+                'asp': amount / qty if qty else None,
                 'bought': b['amount'] > 0,
             }
-        table.append(dict(d, cells=cells))
+        table.append(dict(d, total=d['total'] / divisor, cells=cells))
     table.sort(key=lambda x: (-x['total'], x['dealer']))
     for t in totals.values():
         t['asp'] = t['amount'] / t['qty'] if t['qty'] else None
@@ -5753,7 +5843,9 @@ def cross_brand():
     last_upload = (UploadLog.query.filter_by(upload_mode='cross_brand')
                    .order_by(UploadLog.uploaded_at.desc()).first())
     return render_template(
-        'cross_brand.html', month=month, months=months, depo=depo, depos=allowed,
+        'cross_brand.html', period=period, period_kind=kind, period_label=period_label,
+        period_options=cross_brand_period_options(available, now), missing_months=missing, divisor=divisor,
+        month=period_months[-1], depo=depo, depos=allowed,
         columns=columns, labels=CROSS_BRAND_LABELS, table=table, totals=totals,
         summary=summary, is_admin=is_admin, last_upload=last_upload, latest=latest,
     )
