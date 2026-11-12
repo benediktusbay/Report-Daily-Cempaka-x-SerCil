@@ -1041,51 +1041,122 @@ def billing_date_value(value):
     return None if pd.isna(parsed) else parsed.date()
 
 
-def iter_billing_xlsx(stream):
-    """Stream Billing Detail rows from sheet Export in read-only mode."""
-    stream.seek(0)
-    workbook = load_workbook(stream, read_only=True, data_only=True)
-    try:
-        if 'Export' not in workbook.sheetnames:
-            raise ValueError('Sheet Export tidak ditemukan di Billing Detail.')
-        worksheet = workbook['Export']
-        rows = worksheet.iter_rows(values_only=True)
-        column_indexes = None
+def _billing_rows_from(rows):
+    """Find the Billing Detail header in an iterator of rows and yield mapped dicts."""
+    column_indexes = None
 
-        # Normally the header is the first row. Searching a few rows also
-        # supports exports that contain a title line above the real header.
-        for _ in range(30):
-            candidate = next(rows, None)
-            if candidate is None:
-                break
-            try:
-                mapped = map_columns(candidate, BILLING_ALIASES, 'Billing Detail / sheet Export')
-            except ValueError:
-                continue
-            header = list(candidate)
-            column_indexes = {
-                key: header.index(source_column)
-                for key, source_column in mapped.items()
-            }
-            normalized_header = {normalize_col(c): i for i, c in enumerate(header)}
-            for key, choices in OPTIONAL_BILLING_ALIASES.items():
-                for alias in choices:
-                    index = normalized_header.get(normalize_col(alias))
-                    if index is not None:
-                        column_indexes[key] = index
-                        break
+    # Normally the header is the first row. Searching a few rows also
+    # supports exports that contain a title line above the real header.
+    for _ in range(30):
+        candidate = next(rows, None)
+        if candidate is None:
             break
+        try:
+            mapped = map_columns(candidate, BILLING_ALIASES, 'Billing Detail / sheet Export')
+        except ValueError:
+            continue
+        header = list(candidate)
+        column_indexes = {
+            key: header.index(source_column)
+            for key, source_column in mapped.items()
+        }
+        normalized_header = {normalize_col(c): i for i, c in enumerate(header)}
+        for key, choices in OPTIONAL_BILLING_ALIASES.items():
+            for alias in choices:
+                index = normalized_header.get(normalize_col(alias))
+                if index is not None:
+                    column_indexes[key] = index
+                    break
+        break
 
-        if column_indexes is None:
-            raise ValueError('Header Billing Detail tidak ditemukan pada sheet Export.')
+    if column_indexes is None:
+        raise ValueError('Header Billing Detail tidak ditemukan pada sheet Export.')
 
-        for row in rows:
-            yield {
-                key: row[index] if index < len(row) else None
-                for key, index in column_indexes.items()
-            }
+    for row in rows:
+        yield {
+            key: row[index] if index < len(row) else None
+            for key, index in column_indexes.items()
+        }
+
+
+def _calamine_cell(value):
+    """Make python-calamine values look exactly like openpyxl read_only values."""
+    if value == '':
+        return None
+    if isinstance(value, float) and value.is_integer() and abs(value) < 1e15:
+        return int(value)
+    if isinstance(value, dt.date) and not isinstance(value, datetime):
+        return datetime.combine(value, dt.time())
+    return value
+
+
+# Calamine memuat seluruh sheet ke memori (~80x ukuran file). Render free = 512 MB,
+# jadi file di atas batas ini tetap dibaca openpyxl (lebih lambat, hemat memori).
+CALAMINE_MAX_FILE_BYTES = 3 * 1024 * 1024
+
+
+def _memory_mb():
+    """(current RSS, peak RSS) proses ini dalam MB, untuk catatan log upload."""
+    try:
+        import resource
+        peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+    except Exception:
+        peak = 0
+    try:
+        with open('/proc/self/statm') as fh:
+            current = int(fh.read().split()[1]) * os.sysconf('SC_PAGE_SIZE') / 1024 / 1024
+    except Exception:
+        current = 0
+    return round(current), round(peak)
+
+
+def _open_billing_calamine(stream):
+    """Open sheet Export with python-calamine (fast). Returns a row iterator or None."""
+    try:
+        from python_calamine import CalamineWorkbook
+        stream.seek(0)
+        data = stream.read()
+        if len(data) > CALAMINE_MAX_FILE_BYTES:
+            print(f'[upload memori] file {len(data) / 1048576:.1f} MB > batas calamine, pakai openpyxl', flush=True)
+            return None
+        workbook = CalamineWorkbook.from_filelike(io.BytesIO(data))
+        del data
+    except Exception as exc:  # library missing or file unreadable -> fallback to openpyxl
+        print(f'[upload memori] python-calamine tidak dipakai, kembali ke openpyxl: {exc}', flush=True)
+        return None
+    if 'Export' not in workbook.sheet_names:
+        raise ValueError('Sheet Export tidak ditemukan di Billing Detail.')
+    sheet = workbook.get_sheet_by_name('Export')
+    return (tuple(_calamine_cell(v) for v in row) for row in sheet.iter_rows())
+
+
+def iter_billing_xlsx(stream):
+    """Stream Billing Detail rows from sheet Export.
+
+    Uses python-calamine (jauh lebih cepat untuk export Power BI 95 kolom);
+    otomatis kembali ke openpyxl read-only bila calamine tidak tersedia/gagal.
+    """
+    started = time.time()
+    count = 0
+    rows = _open_billing_calamine(stream)
+    reader = 'calamine' if rows is not None else 'openpyxl'
+    workbook = None
+    try:
+        if rows is None:
+            stream.seek(0)
+            workbook = load_workbook(stream, read_only=True, data_only=True)
+            if 'Export' not in workbook.sheetnames:
+                raise ValueError('Sheet Export tidak ditemukan di Billing Detail.')
+            rows = workbook['Export'].iter_rows(values_only=True)
+        for item in _billing_rows_from(rows):
+            count += 1
+            yield item
+        current, peak = _memory_mb()
+        print(f'[upload memori] {reader}: {count} baris dibaca dalam {time.time() - started:.1f} detik; '
+              f'memori sekarang {current} MB, puncak {peak} MB (batas Render 512 MB)', flush=True)
     finally:
-        workbook.close()
+        if workbook is not None:
+            workbook.close()
 
 
 def number_id(value):
