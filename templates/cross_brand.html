@@ -137,9 +137,9 @@
       </thead>
       <tbody>
         {% for t in table %}
-        <tr data-search="{{ (t.dealer ~ ' ' ~ t.bp)|lower }}" data-total="{{ t.total }}"
+        <tr data-search="{{ (t.dealer ~ ' ' ~ t.bp ~ ' ' ~ (t.aliases|join(' ')))|lower }}" data-total="{{ t.total }}"
             {% for c in columns %}data-{{ c|lower }}-amount="{{ t.cells[c].amount }}" data-{{ c|lower }}-asp="{{ t.cells[c].asp or 0 }}" {% endfor %}>
-          <td class="cb-dealer">{{ t.dealer }}<small>{{ t.bp }}</small></td>
+          <td class="cb-dealer">{{ t.dealer }}<small>{{ t.bp }}{% if t.alias_names %} · gabungan {{ t.alias_names|sort|join(', ') }}{% endif %}</small></td>
           {% for c in columns %}
           {% set cell = t.cells[c] %}
           {% if cell.bought %}

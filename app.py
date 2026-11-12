@@ -5780,19 +5780,33 @@ def cross_brand():
     # Untuk periode gabungan, bulan terakhir dealer belanja yang menentukan depo.
     dealers = {}
     for r in rows:
+        col = cross_brand_column(r.brand)
+        if col == CROSS_BRAND_OTHER:
+            continue  # Brand di luar Apple/Samsung/Xiaomi/Tecno tidak ditampilkan.
         _, lookup = target_lookup_for_month(r.month)
-        target = lookup.get(r.bp)
+        # TNT Cell = CV Az Zahra Cellular (1 toko pindah BP): sama dengan Ranking Dealer.
+        key = _ranking_dealer_key(r.bp, r.dealer)
+        target = lookup.get(key) or lookup.get(r.bp)
         depo = (target.depo if target else None) or r.cust_depo or 'Unmapped'
-        d = dealers.get(r.bp)
+        own_name = r.dealer if r.bp == key else None
+        d = dealers.get(key)
         if d is None:
-            d = dealers[r.bp] = {'bp': r.bp, 'dealer': r.dealer, 'depo': depo, 'depo_month': r.month,
-                                 'brands': {}, 'total': 0.0}
-            if target:
+            d = dealers[key] = {'bp': key, 'dealer': own_name or r.dealer, 'depo': depo, 'depo_month': r.month,
+                                'brands': {}, 'total': 0.0, 'aliases': set(), 'alias_names': set()}
+            if target and lookup.get(key):
                 d['dealer'] = target.dealer or d['dealer']
         elif r.month > d['depo_month']:
             d['depo'], d['depo_month'] = depo, r.month
-            d['dealer'] = (target.dealer if target and target.dealer else None) or r.dealer or d['dealer']
-        col = cross_brand_column(r.brand)
+            if target and lookup.get(key) and target.dealer:
+                d['dealer'] = target.dealer
+            elif own_name:
+                d['dealer'] = own_name
+        if own_name and d['dealer'] != own_name and not lookup.get(key):
+            d['dealer'] = own_name
+        if r.bp != key:
+            d['aliases'].update({r.bp, r.dealer or ''})
+            if r.dealer:
+                d['alias_names'].add(r.dealer)
         b = d['brands'].setdefault(col, {'amount': 0.0, 'qty': 0.0})
         b['amount'] += float(r.amount or 0)
         b['qty'] += float(r.qty or 0)
@@ -5807,8 +5821,6 @@ def cross_brand():
         depo = allowed[0] if allowed else ''
 
     columns = list(CROSS_BRAND_COLUMNS)
-    if any(CROSS_BRAND_OTHER in d['brands'] for d in dealers.values() if d['depo'] == depo):
-        columns.append(CROSS_BRAND_OTHER)
 
     table = []
     totals = {c: {'amount': 0.0, 'qty': 0.0} for c in columns}
