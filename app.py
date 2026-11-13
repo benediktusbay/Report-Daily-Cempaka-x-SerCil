@@ -2322,7 +2322,9 @@ def build_qvo_potential(month, current_dealers, history_count=8):
             'action': action,
             'history': history_rows,
         })
-    candidates.sort(key=lambda x: (x['gap'], -x['sales_mtd'], x['dealer']))
+    # Urutan prioritas: dealer yang paling sering QVO dulu, lalu kontribusi
+    # histori (total/rata-rata pembelian 8 bulan), lalu gap terkecil.
+    candidates.sort(key=lambda x: (-x['history_qvo'], -x['avg_sales'], x['gap'], x['dealer']))
     return candidates, months
 
 
