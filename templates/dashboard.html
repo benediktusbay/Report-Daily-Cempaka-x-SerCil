@@ -1322,9 +1322,9 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   .dpa-kpi { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
   .dpa-kpi-tile { padding:10px 12px; border-radius:10px; border:1px solid; min-width:0; }
   .dpa-kpi-tile span { display:block; font-size:12px; font-weight:800; }
-  .dpa-kpi-tile strong { display:block; font-size:22px; font-weight:900; line-height:1.2; margin-top:2px; white-space:nowrap; }
-  .dpa-kpi-tile small { font-size:17px; font-weight:700; color:#94a3b8; }
-  .dpa-kpi-arw { font-size:15px; font-weight:700; color:#94a3b8; margin:0 3px; }
+  .dpa-kpi-tile strong { display:flex; align-items:baseline; font-size:24px; font-weight:900; line-height:1.2; margin-top:4px; white-space:nowrap; }
+  .dpa-kpi-tile strong small { display:inline; font-size:18px; font-weight:600; color:#7a8496; }
+  .dpa-kpi-tile strong .dpa-kpi-arw, .dpa-kpi-arw { display:inline; font-size:15px; font-weight:700; color:#94a3b8; margin:0 6px; vertical-align:2px; }
   .dpa-kpi-bo { background:#f4f8ff; border-color:#cfe1ff; color:#1769e8; }
   .dpa-kpi-qvo { background:#fffaf2; border-color:#f7dfbd; color:#c97a13; }
   .dpa-total-kpi strong { color:#0b2545; }
@@ -1347,7 +1347,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   .dpa-total-value .dpa-kpi-arw { font-size:15px; }
   .dpa-total-value.ok { color:#2e7d32; } .dpa-total-value.mid { color:#b35c00; } .dpa-total-value.low { color:#c62828; }
   .dpa-total .dpa-chip.ok { background:#e8f5e9; color:#2e7d32; } .dpa-total .dpa-chip.mid { background:#fff3e0; color:#b35c00; } .dpa-total .dpa-chip.low { background:#fdecea; color:#c62828; }
-  .dpa-dialog { border:1px solid #dce5f2; border-radius:16px; padding:22px; width:min(760px, calc(100vw - 32px)); box-sizing:border-box; color:#102a48; }
+  .dpa-dialog { border:1px solid #dce5f2; border-radius:16px; padding:22px; width:min(960px, calc(100vw - 32px)); box-sizing:border-box; color:#102a48; }
   .dpa-dialog::backdrop { background:rgba(15,35,60,.45); }
   .dpa-dialog-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:14px; }
   .dpa-dialog-head h3 { margin:0; font-size:18px; }
@@ -1453,14 +1453,14 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   </div>
   <div class="dpa-table-wrap">
     <table class="dpa-table">
-      <thead><tr><th>Kategori</th><th>Actual</th><th>Target</th><th>Gap</th><th>Target Daily</th><th>Est Closing</th><th>Est Closing %</th></tr></thead>
+      <thead><tr><th>Kategori</th><th>Target</th><th>Actual</th><th>Gap</th><th>Target Daily</th><th>Est Closing</th><th>Est Closing %</th></tr></thead>
       <tbody>
         {% for c in r.categories %}
         {% set cls = 'dpa-device' if c.key == 'device' else ('dpa-mac' if c.key == 'macbook' else 'dpa-acc') %}
         <tr>
           <td class="{{ cls }}">{{ c.label }}</td>
-          <td>{{ c.actual|rupiah }}</td>
           <td>{{ c.target|rupiah if c.target else '—' }}</td>
+          <td>{{ c.actual|rupiah }}</td>
           <td class="{{ gap_cls(c.gap) }}">{{ gap_full(c.gap) }}</td>
           <td>{{ money_or_dash(c.projection.target_daily) }}</td>
           <td>{{ money_or_dash(c.projection.est_closing) }}</td>
@@ -1471,8 +1471,8 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
       <tfoot>
         <tr>
           <td>Total</td>
-          <td>{{ r.sales|rupiah }}</td>
           <td>{{ r.sales_target|rupiah if r.sales_target else '—' }}</td>
+          <td>{{ r.sales|rupiah }}</td>
           <td class="{{ gap_cls(r.gap) }}">{{ gap_full(r.gap) }}</td>
           <td>{{ money_or_dash(r.projection.target_daily) }}</td>
           <td>{{ money_or_dash(r.projection.est_closing) }}</td>
@@ -1482,8 +1482,8 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     </table>
   </div>
   <div class="dpa-dialog-kpi">
-    <div>BO (actual / target)<strong>{{ r.bo }} / {{ r.bo_target if r.bo_target else '—' }}</strong></div>
-    <div>QVO (actual / target)<strong>{{ r.qvo }} / {{ r.qvo_target if r.qvo_target else '—' }}</strong></div>
+    <div>BO (target → actual)<strong>{{ r.bo_target if r.bo_target else '—' }} → {{ r.bo }}</strong></div>
+    <div>QVO (target → actual)<strong>{{ r.qvo_target if r.qvo_target else '—' }} → {{ r.qvo }}</strong></div>
   </div>
 </dialog>
 {% endfor %}
