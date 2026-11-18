@@ -3369,6 +3369,63 @@ def _dashboard_context_uncached():
         target_available and cards['sales_target'] > 0,
     )
 
+    # Tabel Sales Achievement: salesman yang memegang lebih dari satu depo
+    # (mis. Khaedarusman: Serang + Cilegon) dipecah jadi satu baris per depo,
+    # lalu semua baris diurutkan dari target Grand Total terbesar.
+    # `table` sengaja tidak diubah karena dipakai Speed Distribution, SKU,
+    # Distribution Quality, kartu KPI, dropdown HP, dan JPG dealer.
+    split_actual = {}
+    for d in dealer.values():
+        b = split_actual.setdefault((d['salesman'], d['depo'] or 'Unmapped'),
+                                    {'device': 0.0, 'macbook': 0.0, 'acc': 0.0})
+        b['device'] += d['Device']
+        b['macbook'] += d['Macbook']
+        b['acc'] += d['ACC']
+    split_target = {}
+    for t in scoped_targets:
+        b = split_target.setdefault((t.salesman, t.depo or 'Unmapped'),
+                                    {'device': 0.0, 'macbook': 0.0, 'acc': 0.0})
+        b['device'] += float(t.device_target or 0)
+        b['macbook'] += float(t.macbook_target or 0)
+        b['acc'] += float(t.acc_target or 0)
+
+    def _sales_row(base, depo, actual, target, projection=None):
+        total = actual['device'] + actual['macbook'] + actual['acc']
+        target_total = target['device'] + target['macbook'] + target['acc']
+        return dict(
+            salesman=base['salesman'], depo=depo,
+            device=actual['device'], macbook=actual['macbook'], acc=actual['acc'], total=total,
+            device_target=target['device'], macbook_target=target['macbook'],
+            acc_target=target['acc'], target_total=target_total,
+            device_pct=actual['device'] / target['device'] * 100 if target['device'] else 0,
+            macbook_pct=actual['macbook'] / target['macbook'] * 100 if target['macbook'] else 0,
+            acc_pct=actual['acc'] / target['acc'] * 100 if target['acc'] else 0,
+            sales_pct=total / target_total * 100 if target_total else 0,
+            projection=projection or sales_projection(
+                total, target_total, projection_elapsed, working_days_total,
+                target_available and target_total > 0,
+            ),
+        )
+
+    zero_split = {'device': 0.0, 'macbook': 0.0, 'acc': 0.0}
+    depo_rank = {name: i for i, name in enumerate(VIEWER_ALLOWED_DEPOS)}
+    sales_rows = []
+    for x, p in zip(table, projection_rows):
+        person_depos = {depo for (owner, depo) in set(split_actual) | set(split_target)
+                        if owner == x['salesman']}
+        # Hanya dipecah bila ada >= 2 depo nyata; transaksi tanpa depo saja
+        # tidak membuat salesman satu-depo ikut terpecah.
+        if len(person_depos - {'Unmapped'}) <= 1:
+            sales_rows.append(dict(x, depo=None, projection=p))
+            continue
+        for depo in sorted(person_depos, key=lambda d: (d == 'Unmapped', depo_rank.get(d, 99), d)):
+            actual = split_actual.get((x['salesman'], depo), zero_split)
+            target = split_target.get((x['salesman'], depo), zero_split)
+            if not any(actual.values()) and not any(target.values()):
+                continue
+            sales_rows.append(_sales_row(x, depo, actual, target))
+    sales_rows.sort(key=lambda r: (-r['target_total'], -r['total'], r['salesman']))
+
     # Achievement per Depo: sumber dan rumus sama dengan kartu KPI dan
     # Sales Projection, sehingga total semua depo = angka kartu Achievement.
     depo_salesmen = {x['salesman'] for x in table}
@@ -3586,6 +3643,7 @@ def _dashboard_context_uncached():
         latest_in_scope=latest_in_scope,
         target_available=target_available,
         projection_rows=projection_rows, projection_summary=projection_summary,
+        sales_rows=sales_rows,
         projection_timegone=projection_timegone,
         depo_achievement=depo_achievement,
         quality_bo_dealers=quality_bo_dealers, quality_qvo_dealers=quality_qvo_dealers,
