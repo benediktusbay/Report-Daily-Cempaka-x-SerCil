@@ -1348,7 +1348,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   .dpa-st-low { border-top-color:#e53935; } .dpa-st-low .dpa-value { color:#c62828; } .dpa-st-low .dpa-chip { background:#fdecea; color:#c62828; } .dpa-st-low .dpa-bar > span { background:#e53935; }
   .dpa-bar { height:9px; background:#e8edf4; border-radius:6px; margin:10px 0 6px; overflow:hidden; }
   .dpa-bar > span { display:block; height:9px; border-radius:6px; background:#2563eb; }
-  .dpa-row { display:grid; grid-template-columns:96px minmax(0,1.25fr) 14px minmax(0,1fr) 52px; align-items:center; gap:8px; padding:7px 0; border-bottom:1px dashed #eef0f4; font-size:12.5px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .dpa-row { display:grid; grid-template-columns:96px 64px 14px minmax(0,1fr) 52px; align-items:center; gap:8px; padding:7px 0; border-bottom:1px dashed #eef0f4; font-size:12.5px; font-weight:700; font-variant-numeric:tabular-nums; }
   .dpa-row .dpa-t { color:#7a8496; font-weight:600; white-space:nowrap; }
   .dpa-row .dpa-a { color:#172033; font-weight:800; white-space:nowrap; }
   .dpa-row .dpa-arw { font-size:14px; }
@@ -1404,7 +1404,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     .dpa-total-value { font-size:20px; }
     .dpa-grid { grid-template-columns:1fr; }
     .dpa-target { font-size:17px; }
-    .dpa-row { grid-template-columns:86px minmax(0,1.2fr) 12px minmax(0,1fr) 46px; gap:6px; font-size:12px; }
+    .dpa-row { grid-template-columns:86px 58px 12px minmax(0,1fr) 46px; gap:6px; font-size:12px; }
     .dpa-kpi-tile strong { font-size:18px; }
     .dpa-kpi-tile small { font-size:13px; }
   }
@@ -1524,10 +1524,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 </dialog>
 {% endfor %}
 {% endif %}
-<div class="quality-grid">
-  <div class="card quality-card quality-card-exact bo-card" role="button" tabindex="0" data-quality="BO" data-target="{{ cards.bo_target }}" data-achievement="{{ cards.bo }}"><div class="quality-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10h18"></path><path d="M5 10v10h14V10"></path><path d="M4 10l2-5h12l2 5"></path><path d="M8 20v-6h8v6"></path></svg></div><div class="quality-copy"><span class="quality-label">BO</span><div class="quality-top"><div class="quality-value">{{ cards.bo }}</div><div class="quality-rate">{{ cards.bo_rate|percent_id }}%</div></div></div><div class="quality-progress"><span style="width:{{ 100 if cards.bo_rate > 100 else cards.bo_rate }}%"></span></div></div>
-  <div class="card quality-card quality-card-exact qvo-card" role="button" tabindex="0" data-quality="QVO" data-target="{{ cards.qvo_target }}" data-achievement="{{ cards.qvo }}"><div class="quality-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M9.5 11.5 8 21l4-2.4 4 2.4-1.5-9.5"></path><path d="m10.5 8 1 1 2-2"></path></svg></div><div class="quality-copy"><span class="quality-label">QVO</span><div class="quality-top"><div class="quality-value">{{ cards.qvo }}</div><div class="quality-rate">{{ cards.qvo_rate|percent_id }}%</div></div></div><div class="quality-progress"><span style="width:{{ 100 if cards.qvo_rate > 100 else cards.qvo_rate }}%"></span></div></div>
-</div>
 </div>
 
 
@@ -1660,6 +1656,12 @@ document.addEventListener('click',function(event){
 {% macro quality_value(actual, target) -%}
 {{ actual }}{% if target %}<span class="heat-target"> / {{ target }}</span>{% endif %}
 {%- endmacro %}
+{#- Target di judul = target yang paling banyak dipakai salesman (KPI), diambil dari Target Master. -#}
+{% macro mode_target(values) -%}
+{%- set ns = namespace(v=none, c=0) -%}
+{%- for v in values|unique -%}{%- set c = values|select('equalto', v)|list|length -%}{%- if v and c > ns.c -%}{%- set ns.v = v -%}{%- set ns.c = c -%}{%- endif -%}{%- endfor -%}
+{%- if ns.v -%}{{ ns.v|int }}{%- endif -%}
+{%- endmacro %}
 <div class="section">
   <div class="section-title">
     <h2>Distribution Quality</h2>
@@ -1671,8 +1673,10 @@ document.addEventListener('click',function(event){
       <thead>
         <tr>
           <th scope="col">Salesman</th>
-          <th scope="col">BO</th>
-          <th scope="col">QVO</th>
+          {% set bo_head_target = mode_target(table|map(attribute='bo_target')|list)|trim %}
+          {% set qvo_head_target = mode_target(table|map(attribute='qvo_target')|list)|trim %}
+          <th scope="col">BO{% if bo_head_target %}<span class="heat-sub">target {{ bo_head_target }}</span>{% endif %}</th>
+          <th scope="col">QVO{% if qvo_head_target %}<span class="heat-sub">target {{ qvo_head_target }}</span>{% endif %}</th>
         </tr>
       </thead>
       <tbody>
