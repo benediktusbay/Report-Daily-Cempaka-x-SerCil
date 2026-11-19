@@ -1102,6 +1102,11 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 .dealer-load-more:hover{background:#eff6ff;border-color:#93c5fd}
 .dealer-load-more:disabled{opacity:.65;cursor:wait}
 .dealer-load-more[hidden]{display:none}
+
+/* Sales Achievement: pasangan Target → Achievement di tengah kolom, sejajar dengan judul */
+.hybrid-sales-table tbody td:nth-child(n+2):nth-child(-n+5){text-align:center}
+.hybrid-sales-table .sa-pair{grid-template-columns:56px 10px 62px;text-align:left}
+.hybrid-sales-table .sa-pair .hybrid-achievement{text-align:left}
 </style>
 {% endblock %}
 
