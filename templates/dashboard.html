@@ -1129,6 +1129,11 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
 .formula-contoh{margin-top:14px;padding:12px 14px;border-radius:10px;background:#f8fafc;border:1px solid #e5e7eb;font-size:13px;font-weight:700;line-height:1.5;font-variant-numeric:tabular-nums}
 .formula-contoh strong{display:block;margin-top:4px;font-size:16px;color:#0b2545}
 .formula-note{margin-top:12px;font-size:11.5px;color:#64748b;line-height:1.45}
+/* Pop-up Achievement Detail per salesman: kotak BO & QVO di bawah tabel */
+.sa-modal-kpi{display:flex;gap:10px;flex-wrap:wrap;padding:14px 20px 18px}
+.sa-modal-kpi[hidden]{display:none}
+.sa-modal-kpi div{flex:1 1 160px;padding:10px 12px;border:1px solid #e0e8f4;border-radius:10px;font-size:12px;color:#61738e}
+.sa-modal-kpi strong{display:block;font-size:16px;color:#0b2545;margin-top:4px}
 </style>
 {% endblock %}
 
@@ -1489,7 +1494,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   </div>
   <div class="dpa-table-wrap">
     <table class="dpa-table">
-      <thead><tr><th>Kategori</th><th>Target</th><th>Actual</th><th>Gap</th><th>Target Daily</th><th>Est Closing</th><th>Est Closing %</th></tr></thead>
+      <thead><tr><th>Kategori</th><th>Target</th><th>Achievement</th><th>%</th><th>Gap</th><th>Target Daily</th><th>Est Closing</th><th>Est Closing %</th></tr></thead>
       <tbody>
         {% for c in r.categories %}
         {% set cls = 'dpa-device' if c.key == 'device' else ('dpa-mac' if c.key == 'macbook' else 'dpa-acc') %}
@@ -1497,6 +1502,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
           <td class="{{ cls }}">{{ c.label }}</td>
           <td>{{ c.target|rupiah if c.target else '—' }}</td>
           <td>{{ c.actual|rupiah }}</td>
+          <td>{{ pct_text(c.pct) }}</td>
           <td class="{{ gap_cls(c.gap) }}">{{ gap_full(c.gap) }}</td>
           <td>{{ money_or_dash(c.projection.target_daily) }}</td>
           <td>{{ money_or_dash(c.projection.est_closing) }}</td>
@@ -1509,6 +1515,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
           <td>Total</td>
           <td>{{ r.sales_target|rupiah if r.sales_target else '—' }}</td>
           <td>{{ r.sales|rupiah }}</td>
+          <td>{{ pct_text(r.sales_pct) }}</td>
           <td class="{{ gap_cls(r.gap) }}">{{ gap_full(r.gap) }}</td>
           <td>{{ money_or_dash(r.projection.target_daily) }}</td>
           <td>{{ money_or_dash(r.projection.est_closing) }}</td>
@@ -1518,8 +1525,8 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
     </table>
   </div>
   <div class="dpa-dialog-kpi">
-    <div>BO (target → actual)<strong>{{ r.bo_target if r.bo_target else '—' }} → {{ r.bo }}</strong></div>
-    <div>QVO (target → actual)<strong>{{ r.qvo_target if r.qvo_target else '—' }} → {{ r.qvo }}</strong></div>
+    <div>BO (target → achievement)<strong>{{ r.bo_target if r.bo_target else '—' }} → {{ r.bo }}</strong></div>
+    <div>QVO (target → achievement)<strong>{{ r.qvo_target if r.qvo_target else '—' }} → {{ r.qvo }}</strong></div>
   </div>
 </dialog>
 {% endfor %}
@@ -1545,10 +1552,10 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
       <div class="mobile-kpi-card mobile-salesman-kpi" data-salesman="{{ r.salesman|e }}">
         <div class="mobile-card-head"><div><div class="mobile-card-title">{{ r.salesman }}</div></div></div>
         <div class="mobile-hybrid-grid">
-          <div class="mobile-hybrid-tile"><div class="mobile-hybrid-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2.5" width="10" height="19" rx="2"></rect></svg>Device</div><button type="button" class="hybrid-achievement mobile-hybrid-ach sales-exact-link" data-focus="Device" data-dealer="{{ r.salesman|e }}" data-salesman="{{ r.salesman|e }}" data-depo="{{ depo_filters|join(', ')|e }}" data-device-target="{{ r.device_target }}" data-device-ach="{{ r.device }}" data-macbook-target="{{ r.macbook_target }}" data-macbook-ach="{{ r.macbook }}" data-acc-target="{{ r.acc_target }}" data-acc-ach="{{ r.acc }}">{{ r.device|rupiah_short }}</button><span class="hybrid-pct">{% if target_available %}{{ r.device_pct|percent_id }}%{% else %}—{% endif %}</span><div class="mobile-kpi-track"><i style="width:{{ 100 if r.device_pct > 100 else r.device_pct }}%"></i></div></div>
-          <div class="mobile-hybrid-tile"><div class="mobile-hybrid-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="5" width="16" height="11" rx="1.5"></rect><path d="M2.5 19h19"></path></svg>MacBook</div><button type="button" class="hybrid-achievement mobile-hybrid-ach sales-exact-link" data-focus="Macbook" data-dealer="{{ r.salesman|e }}" data-salesman="{{ r.salesman|e }}" data-depo="{{ depo_filters|join(', ')|e }}" data-device-target="{{ r.device_target }}" data-device-ach="{{ r.device }}" data-macbook-target="{{ r.macbook_target }}" data-macbook-ach="{{ r.macbook }}" data-acc-target="{{ r.acc_target }}" data-acc-ach="{{ r.acc }}">{{ r.macbook|rupiah_short }}</button><span class="hybrid-pct">{% if target_available %}{{ r.macbook_pct|percent_id }}%{% else %}—{% endif %}</span><div class="mobile-kpi-track"><i style="width:{{ 100 if r.macbook_pct > 100 else r.macbook_pct }}%"></i></div></div>
-          <div class="mobile-hybrid-tile"><div class="mobile-hybrid-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 13v-2a8 8 0 0 1 16 0v2"></path><rect x="3" y="12" width="4" height="7" rx="2"></rect><rect x="17" y="12" width="4" height="7" rx="2"></rect></svg>ACC</div><button type="button" class="hybrid-achievement mobile-hybrid-ach sales-exact-link" data-focus="ACC" data-dealer="{{ r.salesman|e }}" data-salesman="{{ r.salesman|e }}" data-depo="{{ depo_filters|join(', ')|e }}" data-device-target="{{ r.device_target }}" data-device-ach="{{ r.device }}" data-macbook-target="{{ r.macbook_target }}" data-macbook-ach="{{ r.macbook }}" data-acc-target="{{ r.acc_target }}" data-acc-ach="{{ r.acc }}">{{ r.acc|rupiah_short }}</button><span class="hybrid-pct">{% if target_available %}{{ r.acc_pct|percent_id }}%{% else %}—{% endif %}</span><div class="mobile-kpi-track"><i style="width:{{ 100 if r.acc_pct > 100 else r.acc_pct }}%"></i></div></div>
-          <div class="mobile-hybrid-tile"><div class="mobile-hybrid-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 8 4-8 4-8-4 8-4Z"></path><path d="m4 12 8 4 8-4"></path><path d="m4 17 8 4 8-4"></path></svg>Grand Total</div><button type="button" class="hybrid-achievement mobile-hybrid-ach sales-exact-link" data-focus="" data-dealer="{{ r.salesman|e }}" data-salesman="{{ r.salesman|e }}" data-depo="{{ depo_filters|join(', ')|e }}" data-device-target="{{ r.device_target }}" data-device-ach="{{ r.device }}" data-macbook-target="{{ r.macbook_target }}" data-macbook-ach="{{ r.macbook }}" data-acc-target="{{ r.acc_target }}" data-acc-ach="{{ r.acc }}">{{ r.total|rupiah_short }}</button><span class="hybrid-pct">{% if target_available %}{{ r.sales_pct|percent_id }}%{% else %}—{% endif %}</span><div class="mobile-kpi-track"><i style="width:{{ 100 if r.sales_pct > 100 else r.sales_pct }}%"></i></div></div>
+          <div class="mobile-hybrid-tile"><div class="mobile-hybrid-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2.5" width="10" height="19" rx="2"></rect></svg>Device</div><button type="button" class="hybrid-achievement mobile-hybrid-ach sales-exact-link" data-focus="Device" data-dealer="{{ r.salesman|e }}" data-salesman="{{ r.salesman|e }}" data-depo="{{ ((filter_salesman_depos.get(r.salesman) or [])|join(', ') or depo_filters|join(', '))|e }}" data-kind="salesman" data-bo="{{ r.bo|int }}" data-bo-target="{{ r.bo_target|int }}" data-qvo="{{ r.qvo|int }}" data-qvo-target="{{ r.qvo_target|int }}" data-device-target="{{ r.device_target }}" data-device-ach="{{ r.device }}" data-macbook-target="{{ r.macbook_target }}" data-macbook-ach="{{ r.macbook }}" data-acc-target="{{ r.acc_target }}" data-acc-ach="{{ r.acc }}">{{ r.device|rupiah_short }}</button><span class="hybrid-pct">{% if target_available %}{{ r.device_pct|percent_id }}%{% else %}—{% endif %}</span><div class="mobile-kpi-track"><i style="width:{{ 100 if r.device_pct > 100 else r.device_pct }}%"></i></div></div>
+          <div class="mobile-hybrid-tile"><div class="mobile-hybrid-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="5" width="16" height="11" rx="1.5"></rect><path d="M2.5 19h19"></path></svg>MacBook</div><button type="button" class="hybrid-achievement mobile-hybrid-ach sales-exact-link" data-focus="Macbook" data-dealer="{{ r.salesman|e }}" data-salesman="{{ r.salesman|e }}" data-depo="{{ ((filter_salesman_depos.get(r.salesman) or [])|join(', ') or depo_filters|join(', '))|e }}" data-kind="salesman" data-bo="{{ r.bo|int }}" data-bo-target="{{ r.bo_target|int }}" data-qvo="{{ r.qvo|int }}" data-qvo-target="{{ r.qvo_target|int }}" data-device-target="{{ r.device_target }}" data-device-ach="{{ r.device }}" data-macbook-target="{{ r.macbook_target }}" data-macbook-ach="{{ r.macbook }}" data-acc-target="{{ r.acc_target }}" data-acc-ach="{{ r.acc }}">{{ r.macbook|rupiah_short }}</button><span class="hybrid-pct">{% if target_available %}{{ r.macbook_pct|percent_id }}%{% else %}—{% endif %}</span><div class="mobile-kpi-track"><i style="width:{{ 100 if r.macbook_pct > 100 else r.macbook_pct }}%"></i></div></div>
+          <div class="mobile-hybrid-tile"><div class="mobile-hybrid-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 13v-2a8 8 0 0 1 16 0v2"></path><rect x="3" y="12" width="4" height="7" rx="2"></rect><rect x="17" y="12" width="4" height="7" rx="2"></rect></svg>ACC</div><button type="button" class="hybrid-achievement mobile-hybrid-ach sales-exact-link" data-focus="ACC" data-dealer="{{ r.salesman|e }}" data-salesman="{{ r.salesman|e }}" data-depo="{{ ((filter_salesman_depos.get(r.salesman) or [])|join(', ') or depo_filters|join(', '))|e }}" data-kind="salesman" data-bo="{{ r.bo|int }}" data-bo-target="{{ r.bo_target|int }}" data-qvo="{{ r.qvo|int }}" data-qvo-target="{{ r.qvo_target|int }}" data-device-target="{{ r.device_target }}" data-device-ach="{{ r.device }}" data-macbook-target="{{ r.macbook_target }}" data-macbook-ach="{{ r.macbook }}" data-acc-target="{{ r.acc_target }}" data-acc-ach="{{ r.acc }}">{{ r.acc|rupiah_short }}</button><span class="hybrid-pct">{% if target_available %}{{ r.acc_pct|percent_id }}%{% else %}—{% endif %}</span><div class="mobile-kpi-track"><i style="width:{{ 100 if r.acc_pct > 100 else r.acc_pct }}%"></i></div></div>
+          <div class="mobile-hybrid-tile"><div class="mobile-hybrid-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 8 4-8 4-8-4 8-4Z"></path><path d="m4 12 8 4 8-4"></path><path d="m4 17 8 4 8-4"></path></svg>Grand Total</div><button type="button" class="hybrid-achievement mobile-hybrid-ach sales-exact-link" data-focus="" data-dealer="{{ r.salesman|e }}" data-salesman="{{ r.salesman|e }}" data-depo="{{ ((filter_salesman_depos.get(r.salesman) or [])|join(', ') or depo_filters|join(', '))|e }}" data-kind="salesman" data-bo="{{ r.bo|int }}" data-bo-target="{{ r.bo_target|int }}" data-qvo="{{ r.qvo|int }}" data-qvo-target="{{ r.qvo_target|int }}" data-device-target="{{ r.device_target }}" data-device-ach="{{ r.device }}" data-macbook-target="{{ r.macbook_target }}" data-macbook-ach="{{ r.macbook }}" data-acc-target="{{ r.acc_target }}" data-acc-ach="{{ r.acc }}">{{ r.total|rupiah_short }}</button><span class="hybrid-pct">{% if target_available %}{{ r.sales_pct|percent_id }}%{% else %}—{% endif %}</span><div class="mobile-kpi-track"><i style="width:{{ 100 if r.sales_pct > 100 else r.sales_pct }}%"></i></div></div>
         </div>
         <div class="mobile-summary-row">
           <div class="mobile-summary-box est"><div class="mobile-summary-icon red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="4"></circle><path d="M12 2v3M22 12h-3"></path></svg></div><span>Est Closing %</span>{% if p %}<button type="button" class="hybrid-proj-btn sales-projection-trigger {% if p.est_closing_pct is not none and p.est_closing_pct >= 100 %}on-track{% elif p.est_closing_pct is not none and p.est_closing_pct < 50 %}risk{% endif %}" data-person="{{ r.salesman|e }}" data-gap="{{ p.gap_vs_timegone if p.gap_vs_timegone is not none else '' }}" data-daily="{{ p.target_daily if p.target_daily is not none else '' }}" data-closing="{{ p.est_closing if p.est_closing is not none else '' }}" data-pct="{{ p.est_closing_pct if p.est_closing_pct is not none else '' }}">{% if p.est_closing_pct is not none %}{{ p.est_closing_pct|percent_id }}%{% else %}—{% endif %}</button>{% else %}<strong>—</strong>{% endif %}</div>
@@ -1564,11 +1571,12 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   <div class="card table-card desktop-table hybrid-sales-card"><div class="table-wrap" style="overflow-x:hidden">
     {% macro sa_short(v) %}{{ (v|rupiah_short)|replace('Rp ', '') }}{% endmacro %}
     {% macro sa_st(v) %}{% if v >= 100 %}ok{% elif v >= 80 %}mid{% else %}low{% endif %}{% endmacro %}
-    {% macro sa_cell(focus, value, target, dealer, salesman, depo, t) %}<span class="sa-pair"><span class="sa-tgt">{% if target_available and target %}{{ sa_short(target) }}{% else %}—{% endif %}</span><span class="sa-arw" aria-hidden="true">→</span><button type="button" class="hybrid-achievement sales-exact-link" data-focus="{{ focus }}" data-dealer="{{ dealer|e }}" data-salesman="{{ salesman|e }}" data-depo="{{ depo|e }}" data-device-target="{{ t.device_target }}" data-device-ach="{{ t.device }}" data-macbook-target="{{ t.macbook_target }}" data-macbook-ach="{{ t.macbook }}" data-acc-target="{{ t.acc_target }}" data-acc-ach="{{ t.acc }}">{{ sa_short(value) }}</button></span>{% endmacro %}
+    {% macro sa_cell(focus, value, target, dealer, salesman, depo, t, q=none) %}<span class="sa-pair"><span class="sa-tgt">{% if target_available and target %}{{ sa_short(target) }}{% else %}—{% endif %}</span><span class="sa-arw" aria-hidden="true">→</span><button type="button" class="hybrid-achievement sales-exact-link" data-focus="{{ focus }}"{% if q %} data-kind="salesman" data-bo="{{ q.bo|int }}" data-bo-target="{{ q.bo_target|int }}" data-qvo="{{ q.qvo|int }}" data-qvo-target="{{ q.qvo_target|int }}"{% endif %} data-dealer="{{ dealer|e }}" data-salesman="{{ salesman|e }}" data-depo="{{ depo|e }}" data-device-target="{{ t.device_target }}" data-device-ach="{{ t.device }}" data-macbook-target="{{ t.macbook_target }}" data-macbook-ach="{{ t.macbook }}" data-acc-target="{{ t.acc_target }}" data-acc-ach="{{ t.acc }}">{{ sa_short(value) }}</button></span>{% endmacro %}
     {% if sales_rows %}<table class="hybrid-sales-table"><colgroup><col class="salesman"><col class="metric"><col class="metric"><col class="metric"><col class="total"><col class="sa-pct"><col class="proj-gap"><col class="proj-daily"><col class="proj-closing"><col class="proj-pct"></colgroup>
       <thead><tr><th>Salesman</th><th><span class="sa-head"><span class="hybrid-head hybrid-device"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2.5" width="10" height="19" rx="2"></rect></svg>Device</span><span class="sa-pair sa-sub" aria-hidden="true"><span>Target</span><span></span><span>Ach</span></span></span></th><th><span class="sa-head"><span class="hybrid-head hybrid-mac"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="5" width="16" height="11" rx="1.5"></rect><path d="M2.5 19h19"></path></svg>MacBook</span><span class="sa-pair sa-sub" aria-hidden="true"><span>Target</span><span></span><span>Ach</span></span></span></th><th><span class="sa-head"><span class="hybrid-head hybrid-acc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 13v-2a8 8 0 0 1 16 0v2"></path><rect x="3" y="12" width="4" height="7" rx="2"></rect><rect x="17" y="12" width="4" height="7" rx="2"></rect></svg>ACC</span><span class="sa-pair sa-sub" aria-hidden="true"><span>Target</span><span></span><span>Ach</span></span></span></th><th><span class="sa-head"><span class="hybrid-head hybrid-total"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9"></path><path d="M10 19V5"></path><path d="M16 19v-7"></path><path d="M22 19H2"></path></svg>Grand Total</span><span class="sa-pair sa-sub" aria-hidden="true"><span>Target</span><span></span><span>Ach</span></span></span></th><th class="sa-pct-head">%</th><th class="proj-formula-th" role="button" tabindex="0" data-formula="gap" aria-haspopup="dialog"><span class="hybrid-proj-head proj-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M5 7h14"></path><path d="M7 7 3 14h8L7 7Zm10 0-4 7h8l-4-7Z"></path></svg><span>Gap vs<br>Time Gone</span><span class="proj-info" aria-hidden="true">i</span></span></th><th class="proj-formula-th" role="button" tabindex="0" data-formula="daily" aria-haspopup="dialog"><span class="hybrid-proj-head proj-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16l5-5 4 4 7-8"></path><path d="M15 7h5v5"></path></svg><span>Target<br>Daily</span><span class="proj-info" aria-hidden="true">i</span></span></th><th class="proj-formula-th" role="button" tabindex="0" data-formula="closing" aria-haspopup="dialog"><span class="hybrid-proj-head proj-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"></path><path d="M5 5h10l-2 3 2 3H5"></path></svg><span>Est Closing</span><span class="proj-info" aria-hidden="true">i</span></span></th><th class="proj-formula-th" role="button" tabindex="0" data-formula="pct" aria-haspopup="dialog"><span class="hybrid-proj-head proj-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="4"></circle><path d="M12 2v3M22 12h-3"></path></svg><span>Est %</span><span class="proj-info" aria-hidden="true">i</span></span></th></tr></thead>
-      <tbody>{% for r in sales_rows %}{% set p = r.projection %}{% set row_depo = ('Tanpa Depo' if r.depo == 'Unmapped' else r.depo) if r.depo else depo_filters|join(', ') %}<tr><td><strong>{{ r.salesman }}</strong>{% if r.depo %}<span class="sa-depo">{{ 'Tanpa Depo' if r.depo == 'Unmapped' else r.depo }}</span>{% endif %}</td>
-        {% for focus,value,target in [('Device',r.device,r.device_target),('Macbook',r.macbook,r.macbook_target),('ACC',r.acc,r.acc_target),('',r.total,r.target_total)] %}<td class="{% if focus == '' %}hybrid-total-cell{% endif %}">{{ sa_cell(focus, value, target, r.salesman, r.salesman, row_depo, r) }}</td>{% endfor %}
+      {% set sa_quality = {} %}{% for x in table %}{% set _ = sa_quality.update({x.salesman: x}) %}{% endfor %}
+      <tbody>{% for r in sales_rows %}{% set p = r.projection %}{% set row_depo = ('Tanpa Depo' if r.depo == 'Unmapped' else r.depo) if r.depo else ((filter_salesman_depos.get(r.salesman) or [])|join(', ') or depo_filters|join(', ')) %}<tr><td><strong>{{ r.salesman }}</strong>{% if r.depo %}<span class="sa-depo">{{ 'Tanpa Depo' if r.depo == 'Unmapped' else r.depo }}</span>{% endif %}</td>
+        {% for focus,value,target in [('Device',r.device,r.device_target),('Macbook',r.macbook,r.macbook_target),('ACC',r.acc,r.acc_target),('',r.total,r.target_total)] %}<td class="{% if focus == '' %}hybrid-total-cell{% endif %}">{{ sa_cell(focus, value, target, r.salesman, r.salesman, row_depo, r, sa_quality.get(r.salesman)) }}</td>{% endfor %}
         <td>{% if target_available and r.target_total %}<span class="sa-pill {{ sa_st(r.sales_pct)|trim }}">{{ r.sales_pct|percent_id }}%</span>{% else %}—{% endif %}</td>
         <td><span class="hybrid-projection-value {% if p and p.gap_vs_timegone is not none and p.gap_vs_timegone >= 0 %}positive{% elif p and p.gap_vs_timegone is not none %}negative{% endif %}">{% if not p or p.gap_vs_timegone is none %}—{% else %}{% if p.gap_vs_timegone > 0 %}+{% endif %}{{ p.gap_vs_timegone|rupiah_short }}{% endif %}</span></td>
         <td><span class="hybrid-projection-value blue">{% if not p or p.target_daily is none %}—{% else %}{{ p.target_daily|rupiah_short }}{% endif %}</span></td>
@@ -2005,6 +2013,10 @@ document.addEventListener('click',function(event){
           <tbody id="dealerTargetBody"></tbody>
         </table>
       </div>
+      <div class="sa-modal-kpi" id="dealerTargetKpi" hidden>
+        <div>BO (target → achievement)<strong id="dealerTargetBo">—</strong></div>
+        <div>QVO (target → achievement)<strong id="dealerTargetQvo">—</strong></div>
+      </div>
     </div>
   </div>
 </div>
@@ -2207,9 +2219,27 @@ document.addEventListener('click',function(event){
     const totalAch=deviceAch+macAch+accAch;
 
     const focus=btn.dataset.focus||'';
-    dealerTitle.textContent=focus ? focus+' Achievement Detail' : 'Sales Achievement Detail';
-    dealerSubtitle.textContent=[btn.dataset.bp,btn.dataset.dealer,btn.dataset.salesman,btn.dataset.depo]
-      .filter(function(v,i,all){return v && all.indexOf(v)===i;}).join(' · ');
+    const isSalesman=btn.dataset.kind==='salesman';
+    const depoLabel=btn.dataset.depo ? 'Depo '+btn.dataset.depo : '';
+    if(isSalesman){
+      // Pop-up per salesman: judul pakai nama salesman, sub judul cukup depo salesman itu.
+      dealerTitle.textContent=focus ? focus+' Achievement Detail' : btn.dataset.salesman+' Achievement Detail';
+      dealerSubtitle.textContent=focus ? [btn.dataset.salesman,depoLabel].filter(Boolean).join(' · ') : depoLabel;
+    }else{
+      dealerTitle.textContent=focus ? focus+' Achievement Detail' : 'Sales Achievement Detail';
+      dealerSubtitle.textContent=[btn.dataset.bp,btn.dataset.dealer,btn.dataset.salesman,btn.dataset.depo]
+        .filter(function(v,i,all){return v && all.indexOf(v)===i;}).join(' · ');
+    }
+    const kpiBox=document.getElementById('dealerTargetKpi');
+    if(kpiBox){
+      const showKpi=isSalesman && !focus;
+      kpiBox.hidden=!showKpi;
+      if(showKpi){
+        const pair=function(t,a){return (Number(t)?Number(t):'—')+' → '+(Number(a)||0);};
+        document.getElementById('dealerTargetBo').textContent=pair(btn.dataset.boTarget,btn.dataset.bo);
+        document.getElementById('dealerTargetQvo').textContent=pair(btn.dataset.qvoTarget,btn.dataset.qvo);
+      }
+    }
 
     let rows=[
       ['Device',deviceTarget,deviceAch],
@@ -2258,6 +2288,7 @@ document.addEventListener('click',function(event){
     const achievement=Number(card.dataset.achievement||0);
     const gap=Math.max(target-achievement,0);
     dealerTitle.textContent=label+' Detail';
+    const qualityKpi=document.getElementById('dealerTargetKpi');if(qualityKpi)qualityKpi.hidden=true;
     dealerSubtitle.textContent='Angka exact tanpa pembulatan';
     dealerBody.innerHTML='<tr>'+
       '<td><strong>'+label+'</strong></td>'+
