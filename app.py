@@ -3407,6 +3407,32 @@ def _dashboard_context_uncached():
             ),
         )
 
+    # BO/QVO per (salesman, depo) untuk baris yang dipecah: aturannya sama dengan
+    # Achievement per Depo (satu dealer dihitung sekali, di depo transaksi terakhir).
+    split_quality = {}
+    split_dealer = {}
+    for d in dealer.values():
+        key = (d['salesman'], d['bp'])
+        x = split_dealer.setdefault(key, {'device': 0.0, 'macbook': 0.0, 'acc': 0.0,
+                                          'depo': d['depo'], 'last': None})
+        x['device'] += d['Device']
+        x['macbook'] += d['Macbook']
+        x['acc'] += d['ACC']
+        if d['last_date'] is not None and (x['last'] is None or d['last_date'] > x['last']):
+            x['last'] = d['last_date']
+            x['depo'] = d['depo']
+    for (owner, _bp), x in split_dealer.items():
+        q = split_quality.setdefault((owner, x['depo'] or 'Unmapped'),
+                                     {'bo': 0, 'qvo': 0, 'bo_target': 0, 'qvo_target': 0})
+        q['bo'] += int(is_bo_amounts(x['device'], x['macbook']))
+        q['qvo'] += int(x['device'] + x['macbook'] + x['acc'] >= QVO_THRESHOLD)
+    for t in scoped_targets:
+        q = split_quality.setdefault((t.salesman, t.depo or 'Unmapped'),
+                                     {'bo': 0, 'qvo': 0, 'bo_target': 0, 'qvo_target': 0})
+        q['bo_target'] += int(t.bo_target or 0)
+        q['qvo_target'] += int(t.qvo_target or 0)
+    zero_quality = {'bo': 0, 'qvo': 0, 'bo_target': 0, 'qvo_target': 0}
+
     zero_split = {'device': 0.0, 'macbook': 0.0, 'acc': 0.0}
     depo_rank = {name: i for i, name in enumerate(VIEWER_ALLOWED_DEPOS)}
     sales_rows = []
@@ -3423,7 +3449,9 @@ def _dashboard_context_uncached():
             target = split_target.get((x['salesman'], depo), zero_split)
             if not any(actual.values()) and not any(target.values()):
                 continue
-            sales_rows.append(_sales_row(x, depo, actual, target))
+            row = _sales_row(x, depo, actual, target)
+            row['depo_quality'] = split_quality.get((x['salesman'], depo), zero_quality)
+            sales_rows.append(row)
     sales_rows.sort(key=lambda r: (-r['target_total'], -r['total'], r['salesman']))
 
     # Achievement per Depo: sumber dan rumus sama dengan kartu KPI dan
