@@ -1494,7 +1494,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
   </div>
   <div class="dpa-table-wrap">
     <table class="dpa-table">
-      <thead><tr><th>Kategori</th><th>Target</th><th>Achievement</th><th>%</th><th>Gap</th><th>Target Daily</th><th>Est Closing</th><th>Est Closing %</th></tr></thead>
+      <thead><tr><th>Kategori</th><th>Target</th><th>Achievement</th><th>%</th><th>Gap</th></tr></thead>
       <tbody>
         {% for c in r.categories %}
         {% set cls = 'dpa-device' if c.key == 'device' else ('dpa-mac' if c.key == 'macbook' else 'dpa-acc') %}
@@ -1504,9 +1504,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
           <td>{{ c.actual|rupiah }}</td>
           <td>{{ pct_text(c.pct) }}</td>
           <td class="{{ gap_cls(c.gap) }}">{{ gap_full(c.gap) }}</td>
-          <td>{{ money_or_dash(c.projection.target_daily) }}</td>
-          <td>{{ money_or_dash(c.projection.est_closing) }}</td>
-          <td>{{ pct_text(c.projection.est_closing_pct) }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -1517,9 +1514,6 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
           <td>{{ r.sales|rupiah }}</td>
           <td>{{ pct_text(r.sales_pct) }}</td>
           <td class="{{ gap_cls(r.gap) }}">{{ gap_full(r.gap) }}</td>
-          <td>{{ money_or_dash(r.projection.target_daily) }}</td>
-          <td>{{ money_or_dash(r.projection.est_closing) }}</td>
-          <td>{{ pct_text(r.projection.est_closing_pct) }}</td>
         </tr>
       </tfoot>
     </table>
@@ -1576,7 +1570,7 @@ td{padding:10px;border-bottom:1px solid #eef2f7;vertical-align:middle;font-size:
       <thead><tr><th>Salesman</th><th><span class="sa-head"><span class="hybrid-head hybrid-device"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2.5" width="10" height="19" rx="2"></rect></svg>Device</span><span class="sa-pair sa-sub" aria-hidden="true"><span>Target</span><span></span><span>Ach</span></span></span></th><th><span class="sa-head"><span class="hybrid-head hybrid-mac"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="5" width="16" height="11" rx="1.5"></rect><path d="M2.5 19h19"></path></svg>MacBook</span><span class="sa-pair sa-sub" aria-hidden="true"><span>Target</span><span></span><span>Ach</span></span></span></th><th><span class="sa-head"><span class="hybrid-head hybrid-acc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 13v-2a8 8 0 0 1 16 0v2"></path><rect x="3" y="12" width="4" height="7" rx="2"></rect><rect x="17" y="12" width="4" height="7" rx="2"></rect></svg>ACC</span><span class="sa-pair sa-sub" aria-hidden="true"><span>Target</span><span></span><span>Ach</span></span></span></th><th><span class="sa-head"><span class="hybrid-head hybrid-total"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9"></path><path d="M10 19V5"></path><path d="M16 19v-7"></path><path d="M22 19H2"></path></svg>Grand Total</span><span class="sa-pair sa-sub" aria-hidden="true"><span>Target</span><span></span><span>Ach</span></span></span></th><th class="sa-pct-head">%</th><th class="proj-formula-th" role="button" tabindex="0" data-formula="gap" aria-haspopup="dialog"><span class="hybrid-proj-head proj-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M5 7h14"></path><path d="M7 7 3 14h8L7 7Zm10 0-4 7h8l-4-7Z"></path></svg><span>Gap vs<br>Time Gone</span><span class="proj-info" aria-hidden="true">i</span></span></th><th class="proj-formula-th" role="button" tabindex="0" data-formula="daily" aria-haspopup="dialog"><span class="hybrid-proj-head proj-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16l5-5 4 4 7-8"></path><path d="M15 7h5v5"></path></svg><span>Target<br>Daily</span><span class="proj-info" aria-hidden="true">i</span></span></th><th class="proj-formula-th" role="button" tabindex="0" data-formula="closing" aria-haspopup="dialog"><span class="hybrid-proj-head proj-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"></path><path d="M5 5h10l-2 3 2 3H5"></path></svg><span>Est Closing</span><span class="proj-info" aria-hidden="true">i</span></span></th><th class="proj-formula-th" role="button" tabindex="0" data-formula="pct" aria-haspopup="dialog"><span class="hybrid-proj-head proj-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="4"></circle><path d="M12 2v3M22 12h-3"></path></svg><span>Est %</span><span class="proj-info" aria-hidden="true">i</span></span></th></tr></thead>
       {% set sa_quality = {} %}{% for x in table %}{% set _ = sa_quality.update({x.salesman: x}) %}{% endfor %}
       <tbody>{% for r in sales_rows %}{% set p = r.projection %}{% set row_depo = ('Tanpa Depo' if r.depo == 'Unmapped' else r.depo) if r.depo else ((filter_salesman_depos.get(r.salesman) or [])|join(', ') or depo_filters|join(', ')) %}<tr><td><strong>{{ r.salesman }}</strong>{% if r.depo %}<span class="sa-depo">{{ 'Tanpa Depo' if r.depo == 'Unmapped' else r.depo }}</span>{% endif %}</td>
-        {% for focus,value,target in [('Device',r.device,r.device_target),('Macbook',r.macbook,r.macbook_target),('ACC',r.acc,r.acc_target),('',r.total,r.target_total)] %}<td class="{% if focus == '' %}hybrid-total-cell{% endif %}">{{ sa_cell(focus, value, target, r.salesman, r.salesman, row_depo, r, sa_quality.get(r.salesman)) }}</td>{% endfor %}
+        {% for focus,value,target in [('Device',r.device,r.device_target),('Macbook',r.macbook,r.macbook_target),('ACC',r.acc,r.acc_target),('',r.total,r.target_total)] %}<td class="{% if focus == '' %}hybrid-total-cell{% endif %}">{{ sa_cell(focus, value, target, r.salesman, r.salesman, row_depo, r, r.depo_quality or sa_quality.get(r.salesman)) }}</td>{% endfor %}
         <td>{% if target_available and r.target_total %}<span class="sa-pill {{ sa_st(r.sales_pct)|trim }}">{{ r.sales_pct|percent_id }}%</span>{% else %}—{% endif %}</td>
         <td><span class="hybrid-projection-value {% if p and p.gap_vs_timegone is not none and p.gap_vs_timegone >= 0 %}positive{% elif p and p.gap_vs_timegone is not none %}negative{% endif %}">{% if not p or p.gap_vs_timegone is none %}—{% else %}{% if p.gap_vs_timegone > 0 %}+{% endif %}{{ p.gap_vs_timegone|rupiah_short }}{% endif %}</span></td>
         <td><span class="hybrid-projection-value blue">{% if not p or p.target_daily is none %}—{% else %}{{ p.target_daily|rupiah_short }}{% endif %}</span></td>
