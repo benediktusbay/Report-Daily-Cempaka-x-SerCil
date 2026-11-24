@@ -420,6 +420,9 @@
 
 
   {% block scripts %}{% endblock %}
+  {% if session.get('user_id') and session.get('role') == 'admin' and request.endpoint not in ('asisten', 'login') %}
+  {% include '_asisten_widget.html' %}
+  {% endif %}
   <script>
     const activeNav=document.querySelector('.navlinks > a.active, .navlinks .nav-group-btn.active');
     const navLinks=activeNav?.closest('.navlinks');

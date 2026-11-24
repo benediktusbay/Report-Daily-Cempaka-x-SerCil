@@ -535,6 +535,12 @@ class Billing(db.Model):
     sku_key = db.Column(db.String(300))
     # Cust.Location dari Billing Detail = depo asal dealer di master customer SAP.
     cust_location = db.Column(db.String(120))
+    # Nomor dokumen untuk menu Asisten (kosong untuk data yang diupload sebelum fitur ini).
+    so_number = db.Column(db.String(40), index=True)
+    billing_document = db.Column(db.String(40), index=True)
+    po_customer = db.Column(db.String(80))
+    delivery_no = db.Column(db.String(40))
+    top_desc = db.Column(db.String(80))
 
 
 class PJPWeeklyPlan(db.Model):
@@ -810,6 +816,11 @@ BILLING_ALIASES = {
 OPTIONAL_BILLING_ALIASES = {
     'cust_location': ['cust.location', 'cust location', 'customer location'],
     'brand': ['brand name', 'brand'],
+    # Dipakai menu Asisten (No SO, PO, DO, TOP).
+    'so_number': ['so number', 'so no', 'sales order', 'sales order number'],
+    'po_customer': ['po customer', 'po number', 'customer po'],
+    'delivery_no': ['delivery no', 'delivery number', 'do number'],
+    'top_desc': ['top description', 'top desc', 'term of payment'],
 }
 
 # Depo dealer yang dikenali dari Cust.Location (mis. "TAM DC SERANG").
@@ -1402,6 +1413,16 @@ def initialize_database_schema():
             'ALTER TABLE billing ADD COLUMN cust_location VARCHAR(120)'
         ))
         db.session.commit()
+    # Kolom nomor dokumen untuk menu Asisten. Data lama tetap utuh (kolom kosong).
+    for column, ddl in (('so_number', 'VARCHAR(40)'), ('billing_document', 'VARCHAR(40)'),
+                        ('po_customer', 'VARCHAR(80)'), ('delivery_no', 'VARCHAR(40)'),
+                        ('top_desc', 'VARCHAR(80)')):
+        if column not in billing_columns:
+            db.session.execute(text(f'ALTER TABLE billing ADD COLUMN {column} {ddl}'))
+            db.session.commit()
+    for column in ('so_number', 'billing_document'):
+        db.session.execute(text(f'CREATE INDEX IF NOT EXISTS ix_billing_{column} ON billing ({column})'))
+    db.session.commit()
     upload_log_columns = {c['name'] for c in inspect(db.engine).get_columns('upload_log')}
     if 'upload_mode' not in upload_log_columns:
         db.session.execute(text(
@@ -5193,6 +5214,11 @@ def upload():
                 'nett_amount_with_tax': amount_with_tax,
                 'category': classify(group), 'sku_key': sku_from_article(article, group),
                 'cust_location': normalize_text(rr.get('cust_location'))[:120] or None,
+                'so_number': normalize_bp(rr.get('so_number'))[:40] or None,
+                'billing_document': normalize_bp(billing_document)[:40] or None,
+                'po_customer': normalize_text(rr.get('po_customer'))[:80] or None,
+                'delivery_no': normalize_bp(rr.get('delivery_no'))[:40] or None,
+                'top_desc': normalize_text(rr.get('top_desc'))[:80] or None,
             }
 
         if upload_mode == 'historical':
@@ -6858,6 +6884,492 @@ def target_analysis_delete():
         flash(f'Data analisa target {month} dihapus.', 'success')
     return redirect(url_for('target_analysis'))
 
+
+
+# =====================================================================
+# ASISTEN — Cari Cepat (gratis, tanpa AI)
+# Pencarian Billing Detail dengan kata kunci: dealer, produk, periode,
+# kategori, salesman, depo (Cust.Location), dan nomor dokumen.
+# Hanya untuk admin. Data diambil saat dicari saja (hemat kuota Neon).
+# =====================================================================
+import difflib
+
+ASISTEN_MAX_ROWS = 5000
+ASISTEN_MAX_GROUPS = 300
+ASISTEN_VOCAB_TTL = 600  # detik
+_asisten_vocab_cache = {'at': 0, 'data': None}
+_asisten_vocab_lock = Lock()
+
+ASISTEN_MONTHS = {
+    'jan': 1, 'januari': 1, 'january': 1,
+    'feb': 2, 'februari': 2, 'febuari': 2, 'february': 2,
+    'mar': 3, 'maret': 3, 'march': 3,
+    'apr': 4, 'april': 4,
+    'mei': 5, 'may': 5,
+    'jun': 6, 'juni': 6, 'june': 6,
+    'jul': 7, 'juli': 7, 'july': 7,
+    'agu': 8, 'agt': 8, 'ags': 8, 'agus': 8, 'agustus': 8, 'aug': 8, 'august': 8,
+    'sep': 9, 'sept': 9, 'september': 9,
+    'okt': 10, 'oktober': 10, 'oct': 10, 'october': 10,
+    'nov': 11, 'november': 11,
+    'des': 12, 'desember': 12, 'dec': 12, 'december': 12,
+}
+ASISTEN_MONTH_LABEL = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+ASISTEN_CATEGORY_WORDS = {
+    'device': 'Device', 'devices': 'Device',
+    'mac': 'Macbook', 'macbook': 'Macbook', 'macbooks': 'Macbook',
+    'acc': 'ACC', 'aksesoris': 'ACC', 'aksesori': 'ACC', 'accessories': 'ACC', 'accessory': 'ACC',
+}
+ASISTEN_CATEGORY_LABEL = {'Device': 'Device', 'Macbook': 'MacBook', 'ACC': 'ACC', 'Other': 'Lainnya'}
+ASISTEN_DEPO_WORDS = {d.lower(): d for d in CUST_LOCATION_DEPOS}
+# Singkatan produk -> kata di Article Description.
+ASISTEN_PRODUCT_SYNONYMS = {
+    'promax': ['pro', 'max'], 'pm': ['pro', 'max'],
+    'ip': ['iphone'], 'iph': ['iphone'], 'ipon': ['iphone'],
+    'airpod': ['airpods'], 'aw': ['watch'],
+}
+ASISTEN_STOPWORDS = {
+    'dealer', 'toko', 'ambil', 'ngambil', 'beli', 'membeli', 'belanja', 'order', 'pembelian', 'transaksi',
+    'tanggal', 'tgl', 'berapa', 'aja', 'saja', 'apa', 'yang', 'di', 'ke', 'dan', 'atau', 'mana', 'sama',
+    'warna', 'no', 'nomor', 'nomer', 'so', 'nya', 'dong', 'ya', 'untuk', 'isi', 'detail', 'list', 'daftar',
+    'siapa', 'item', 'unit', 'pcs', 'qty', 'cek', 'lihat', 'tampilkan', 'kapan', 'dari', 'oleh', 'dengan',
+    'periode', 'bulan', 'minggu', 'hari', 'gb', 'ini', 'lalu', 'kemarin', 'tahun', 'the', 'of',
+}
+ASISTEN_IPHONE_VARIANTS = ('pro', 'max', 'plus', 'mini')
+
+
+def _asisten_today():
+    return datetime.now(ZoneInfo('Asia/Jakarta')).date()
+
+
+def _asisten_words(value):
+    return re.findall(r'[a-z0-9]+', str(value or '').lower())
+
+
+def _asisten_vocab():
+    """Kosakata dealer/produk/salesman dari tabel billing (cache 10 menit per worker)."""
+    with _asisten_vocab_lock:
+        cached = _asisten_vocab_cache
+        if cached['data'] is not None and time.time() - cached['at'] < ASISTEN_VOCAB_TTL:
+            return cached['data']
+    dealers = {}
+    for code, name in db.session.query(Billing.sold_to_code, Billing.sold_to_name).distinct():
+        code = normalize_bp(code)
+        if code and code not in dealers:
+            dealers[code] = normalize_text(name)
+    article_words = set()
+    for (article,) in db.session.query(Billing.article).distinct():
+        article_words.update(_asisten_words(article))
+    salesmen = {}
+    for (name,) in db.session.query(Billing.salesman).distinct():
+        clean = normalize_text(name)
+        if clean:
+            salesmen[clean] = [w for w in _asisten_words(clean) if len(w) >= 4]
+    dealer_words = set()
+    for name in dealers.values():
+        dealer_words.update(w for w in _asisten_words(name) if len(w) >= 2)
+    data = {
+        'dealers': dealers,
+        'dealer_words': dealer_words,
+        'article_words': article_words,
+        'salesmen': salesmen,
+    }
+    with _asisten_vocab_lock:
+        _asisten_vocab_cache.update(at=time.time(), data=data)
+    return data
+
+
+def _asisten_month_bounds(year, month):
+    start = dt.date(year, month, 1)
+    end = (dt.date(year + (month == 12), month % 12 + 1, 1) - timedelta(days=1))
+    return start, end
+
+
+def _asisten_guess_year(month, today):
+    # Bulan yang belum terjadi tahun ini dianggap tahun lalu (mis. "des" saat Nov).
+    return today.year if month <= today.month else today.year - 1
+
+
+def _asisten_date_label(start, end):
+    if start is None:
+        return 'Semua periode'
+    def fmt(d, with_year=True):
+        return f'{d.day} {ASISTEN_MONTH_LABEL[d.month - 1]}' + (f' {d.year}' if with_year else '')
+    if start == end:
+        return fmt(start)
+    if start.year == end.year:
+        return f'{fmt(start, False)} – {fmt(end)}'
+    return f'{fmt(start)} – {fmt(end)}'
+
+
+def _asisten_parse_period(text_value, today):
+    """Ambil periode dari teks. Return (start, end, sisa_teks, ada_periode)."""
+    s = f' {text_value} '
+    month_alt = '|'.join(sorted(ASISTEN_MONTHS, key=len, reverse=True))
+
+    def year_of(raw, month):
+        if raw:
+            y = int(raw)
+            return y + 2000 if y < 100 else y
+        return _asisten_guess_year(month, today)
+
+    # 1-15 nov [2026]
+    m = re.search(rf'\s(\d{{1,2}})\s*(?:-|s/d|sd|sampai|hingga)\s*(\d{{1,2}})\s+({month_alt})(?:\s+(\d{{4}}))?(?=\s)', s)
+    if m:
+        month = ASISTEN_MONTHS[m.group(3)]
+        year = year_of(m.group(4), month)
+        try:
+            start, end = dt.date(year, month, int(m.group(1))), dt.date(year, month, int(m.group(2)))
+            return min(start, end), max(start, end), s.replace(m.group(0), ' ', 1), True
+        except ValueError:
+            pass
+    # 20 nov [2026]
+    m = re.search(rf'\s(\d{{1,2}})\s+({month_alt})(?:\s+(\d{{4}}))?(?=\s)', s)
+    if m:
+        month = ASISTEN_MONTHS[m.group(2)]
+        year = year_of(m.group(3), month)
+        try:
+            day = dt.date(year, month, int(m.group(1)))
+            return day, day, s.replace(m.group(0), ' ', 1), True
+        except ValueError:
+            pass
+    # 20/11[/2026]
+    m = re.search(r'\s(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?(?=\s)', s)
+    if m:
+        month = int(m.group(2))
+        if 1 <= month <= 12:
+            year = year_of(m.group(3), month)
+            try:
+                day = dt.date(year, month, int(m.group(1)))
+                return day, day, s.replace(m.group(0), ' ', 1), True
+            except ValueError:
+                pass
+    phrases = (
+        ('hari ini', lambda: (today, today)),
+        ('kemarin', lambda: (today - timedelta(days=1), today - timedelta(days=1))),
+        ('minggu ini', lambda: (today - timedelta(days=today.weekday()), today)),
+        ('minggu lalu', lambda: (today - timedelta(days=today.weekday() + 7), today - timedelta(days=today.weekday() + 1))),
+        ('bulan ini', lambda: (today.replace(day=1), today)),
+        ('bulan lalu', lambda: _asisten_month_bounds(*((today.year, today.month - 1) if today.month > 1 else (today.year - 1, 12)))),
+        ('tahun ini', lambda: (dt.date(today.year, 1, 1), today)),
+        ('ytd', lambda: (dt.date(today.year, 1, 1), today)),
+    )
+    for phrase, build in phrases:
+        if f' {phrase} ' in s:
+            start, end = build()
+            return start, end, s.replace(f' {phrase} ', ' ', 1), True
+    # 3 bulan = bulan ini + 2 bulan sebelumnya
+    m = re.search(r'\s(\d{1,2})\s*bulan(?:\s+terakhir)?(?=\s)', s)
+    if m:
+        n = max(1, min(int(m.group(1)), 24))
+        y, mo = today.year, today.month - (n - 1)
+        while mo < 1:
+            mo += 12
+            y -= 1
+        return dt.date(y, mo, 1), today, s.replace(m.group(0), ' ', 1), True
+    # oktober [2026]
+    m = re.search(rf'\s({month_alt})(?:\s+(\d{{4}}))?(?=\s)', s)
+    if m:
+        month = ASISTEN_MONTHS[m.group(1)]
+        year = year_of(m.group(2), month)
+        start, end = _asisten_month_bounds(year, month)
+        return start, min(end, today) if end > today else end, s.replace(m.group(0), ' ', 1), True
+    # 2026
+    m = re.search(r'\s(20\d{2})(?=\s)', s)
+    if m:
+        year = int(m.group(1))
+        return dt.date(year, 1, 1), min(dt.date(year, 12, 31), today), s.replace(m.group(0), ' ', 1), True
+    if ' semua ' in s and ' periode ' in s:
+        return None, None, s.replace(' semua ', ' ').replace(' periode ', ' '), True
+    return today.replace(day=1), today, s, False
+
+
+def _asisten_iphone_model(words):
+    """('17', 'e', {'pro','max'}) dari kata-kata artikel/pencarian, atau None."""
+    for i, w in enumerate(words):
+        if w == 'iphone' and i + 1 < len(words):
+            m = re.fullmatch(r'(\d{1,2})([a-z]?)', words[i + 1])
+            if not m:
+                return None
+            variants = set()
+            for nxt in words[i + 2:]:
+                if nxt in ASISTEN_IPHONE_VARIANTS:
+                    variants.add(nxt)
+                else:
+                    break
+            return m.group(1), m.group(2), frozenset(variants)
+    return None
+
+
+def _asisten_product_matches(article, product_tokens):
+    words = _asisten_words(article)
+    word_set = set(words)
+    for tok in product_tokens:
+        if tok in word_set:
+            continue
+        if tok.isdigit() and (tok + 'gb' in word_set or tok + 'tb' in word_set):
+            continue
+        return False
+    # Aturan iPhone: "17 pro" tidak ikut menarik "17 Pro Max"; "17" tidak menarik "17 Pro"/"17e".
+    model = _asisten_iphone_model(words)
+    if model:
+        number, suffix, variants = model
+        user_numbers = {t for t in product_tokens if re.fullmatch(r'\d{1,2}[a-z]?', t) and int(re.match(r'\d+', t).group()) <= 30}
+        if any(re.match(r'\d+', t).group() == number for t in user_numbers):
+            user_variants = {t for t in product_tokens if t in ASISTEN_IPHONE_VARIANTS}
+            user_suffix = next((re.fullmatch(r'\d+([a-z]?)', t).group(1) for t in user_numbers
+                                if re.match(r'\d+', t).group() == number), '')
+            if user_variants != set(variants) or user_suffix != suffix:
+                return False
+    return True
+
+
+def _asisten_parse(query, vocab, today):
+    raw = normalize_text(query).lower()
+    parsed = {
+        'raw': raw, 'bp': None, 'all_dealers': False, 'docs': [], 'start': None, 'end': None,
+        'has_period': False, 'category': None, 'depo': None, 'salesmen': [], 'product': [],
+        'dealer_tokens': [], 'unknown': [], 'corrections': [],
+    }
+    s = f' {raw} '
+    m = re.search(r'\sbp:(\S+)(?=\s)', s)
+    if m:
+        parsed['bp'] = normalize_bp(m.group(1))
+        s = s.replace(m.group(0), ' ', 1)
+    if ' semua dealer ' in s:
+        parsed['all_dealers'] = True
+        s = s.replace(' semua dealer ', ' ')
+    for m in re.finditer(r'\s(\d{8,}(?:-\d+)?)(?=\s)', s):
+        parsed['docs'].append(m.group(1))
+    for doc in parsed['docs']:
+        s = s.replace(f' {doc} ', ' ', 1)
+    start, end, s, has_period = _asisten_parse_period(s, today)
+    if parsed['docs'] and not has_period:
+        start, end = None, None  # nomor dokumen dicari di semua periode
+    parsed.update(start=start, end=end, has_period=has_period)
+
+    tokens = []
+    for tok in re.findall(r'[a-z0-9]+', s):
+        tokens.extend(ASISTEN_PRODUCT_SYNONYMS.get(tok, [tok]))
+    for tok in tokens:
+        if tok in ASISTEN_STOPWORDS:
+            continue
+        if tok in ASISTEN_DEPO_WORDS:
+            parsed['depo'] = ASISTEN_DEPO_WORDS[tok]
+            continue
+        if tok in ASISTEN_CATEGORY_WORDS:
+            parsed['category'] = ASISTEN_CATEGORY_WORDS[tok]
+            continue
+        if len(tok) >= 4 and tok not in vocab['article_words'] and tok not in vocab['dealer_words']:
+            hits = [name for name, words in vocab['salesmen'].items() if any(w.startswith(tok) for w in words)]
+            if hits:
+                parsed['salesmen'].extend(h for h in hits if h not in parsed['salesmen'])
+                continue
+        if tok in vocab['article_words'] or (tok.isdigit() and (tok + 'gb' in vocab['article_words'] or tok + 'tb' in vocab['article_words'])):
+            parsed['product'].append(tok)
+            continue
+        if len(tok) >= 3 and any(w.startswith(tok) for w in vocab['dealer_words']):
+            parsed['dealer_tokens'].append(tok)
+            continue
+        if len(tok) >= 2 and tok in vocab['dealer_words']:
+            parsed['dealer_tokens'].append(tok)
+            continue
+        # Typo ringan: cocokkan ke kata produk/dealer terdekat.
+        if len(tok) >= 4:
+            close = difflib.get_close_matches(tok, vocab['article_words'] | vocab['dealer_words'], n=1, cutoff=0.8)
+            if close:
+                fixed = close[0]
+                parsed['corrections'].append(f'{tok} → {fixed}')
+                (parsed['product'] if fixed in vocab['article_words'] else parsed['dealer_tokens']).append(fixed)
+                continue
+        parsed['unknown'].append(tok)
+    return parsed
+
+
+def _asisten_dealer_candidates(parsed, vocab):
+    if parsed['bp']:
+        name = vocab['dealers'].get(parsed['bp'])
+        return {parsed['bp']: name or parsed['bp']}
+    if not parsed['dealer_tokens']:
+        return None
+    result = {}
+    for code, name in vocab['dealers'].items():
+        words = _asisten_words(name)
+        if all(any(w.startswith(tok) for w in words) for tok in parsed['dealer_tokens']):
+            result[code] = name
+    return result
+
+
+def _asisten_depo_label(cust_location):
+    return depo_from_cust_location(cust_location) or normalize_text(cust_location) or '-'
+
+
+def _asisten_search(query):
+    today = _asisten_today()
+    vocab = _asisten_vocab()
+    parsed = _asisten_parse(query, vocab, today)
+    filters = []
+
+    dealers = _asisten_dealer_candidates(parsed, vocab)
+    if dealers is not None:
+        if not dealers:
+            return {'status': 'empty', 'message': 'Dealer dengan nama "' + ' '.join(parsed['dealer_tokens']) + '" tidak ditemukan.',
+                    'filters': filters, 'unknown': parsed['unknown'], 'corrections': parsed['corrections']}
+        distinct_names = {normalize_text(n).lower() for n in dealers.values()}
+        if len(dealers) > 1 and len(distinct_names) > 1 and not parsed['all_dealers']:
+            base = ' '.join(t for t in parsed['raw'].split() if t not in parsed['dealer_tokens'])
+            choices = [{'bp': code, 'name': name, 'query': f'bp:{code} {base}'.strip()}
+                       for code, name in sorted(dealers.items(), key=lambda x: x[1])[:20]]
+            return {'status': 'choose', 'message': f'Ada {len(dealers)} dealer yang cocok. Pilih salah satu:',
+                    'choices': choices, 'all_query': f'{parsed["raw"]} semua dealer',
+                    'more': max(0, len(dealers) - 20)}
+        names = sorted({n for n in dealers.values()})
+        filters.append({'label': 'Dealer', 'value': ', '.join(names[:3]) + (f' +{len(names) - 3}' if len(names) > 3 else '')})
+
+    q = Billing.query
+    if parsed['start'] is not None:
+        q = q.filter(Billing.billing_date >= parsed['start'], Billing.billing_date <= parsed['end'])
+    filters.append({'label': 'Periode', 'value': _asisten_date_label(parsed['start'], parsed['end'])
+                    + ('' if parsed['has_period'] or parsed['docs'] else ' (default bulan ini)')})
+    if dealers:
+        q = q.filter(Billing.sold_to_code.in_(list(dealers)))
+    if parsed['docs']:
+        conds = []
+        for doc in parsed['docs']:
+            conds += [Billing.so_number == doc, Billing.billing_document == doc,
+                      Billing.delivery_no == doc, Billing.po_customer.ilike(f'%{doc}%')]
+        q = q.filter(or_(*conds))
+        filters.append({'label': 'Nomor', 'value': ', '.join(parsed['docs'])})
+    if parsed['category']:
+        q = q.filter(Billing.category == parsed['category'])
+        filters.append({'label': 'Kategori', 'value': ASISTEN_CATEGORY_LABEL[parsed['category']]})
+    if parsed['depo']:
+        q = q.filter(Billing.cust_location.ilike(f'%{parsed["depo"]}%'))
+        filters.append({'label': 'Depo (Cust.Location)', 'value': parsed['depo']})
+    if parsed['salesmen']:
+        q = q.filter(Billing.salesman.in_(parsed['salesmen']))
+        filters.append({'label': 'Salesman', 'value': ', '.join(parsed['salesmen'])})
+    if parsed['product']:
+        for tok in set(parsed['product']):
+            q = q.filter(Billing.article.ilike(f'%{tok}%'))
+        filters.append({'label': 'Produk', 'value': ' '.join(parsed['product'])})
+
+    if len(filters) == 1 and not parsed['has_period']:
+        return {'status': 'empty', 'filters': filters, 'unknown': parsed['unknown'], 'corrections': parsed['corrections'],
+                'message': 'Belum ada kata kunci yang dikenali. Contoh: "plaza cell", "17 pro 256 silver", "zefanya 20 nov", atau nomor SO.'}
+
+    rows = (q.with_entities(
+        Billing.billing_date, Billing.salesman, Billing.sold_to_code, Billing.sold_to_name, Billing.article,
+        Billing.category, Billing.quantity, Billing.nett_amount, Billing.nett_amount_with_tax, Billing.cust_location,
+        Billing.so_number, Billing.billing_document, Billing.po_customer, Billing.delivery_no, Billing.top_desc,
+    ).order_by(Billing.billing_date, Billing.so_number, Billing.sold_to_code).limit(ASISTEN_MAX_ROWS + 1).all())
+    truncated = len(rows) > ASISTEN_MAX_ROWS
+    rows = rows[:ASISTEN_MAX_ROWS]
+    if parsed['product']:
+        rows = [r for r in rows if _asisten_product_matches(r.article, parsed['product'])]
+
+    base = {'filters': filters, 'unknown': parsed['unknown'], 'corrections': parsed['corrections'], 'truncated': truncated,
+            'query': parsed['raw']}
+    if not rows:
+        return dict(base, status='empty', message='Tidak ada transaksi untuk kata kunci ini.')
+
+    summary = {'qty': 0.0, 'value': 0.0, 'value_tax': 0.0, 'categories': {}}
+    so_groups, dealer_groups, missing_so = {}, {}, 0
+    for r in rows:
+        bp = normalize_bp(r.sold_to_code)
+        qty, value, value_tax = r.quantity or 0, r.nett_amount or 0, r.nett_amount_with_tax or 0
+        summary['qty'] += qty
+        summary['value'] += value
+        summary['value_tax'] += value_tax
+        cat = summary['categories'].setdefault(ASISTEN_CATEGORY_LABEL.get(r.category, r.category), {'qty': 0, 'value': 0, 'value_tax': 0})
+        cat['qty'] += qty
+        cat['value'] += value
+        cat['value_tax'] += value_tax
+        if not r.so_number:
+            missing_so += 1
+        so_key = r.so_number or (f'BILL:{r.billing_document}' if r.billing_document else f'TGL:{r.billing_date}:{bp}')
+        grp = so_groups.get(so_key)
+        if grp is None:
+            grp = so_groups[so_key] = {
+                'so': r.so_number or '', 'billing': set(), 'po': set(), 'delivery': set(), 'top': r.top_desc or '',
+                'dates': set(), 'bp': bp, 'dealer': normalize_text(r.sold_to_name), 'salesman': normalize_text(r.salesman),
+                'depo': _asisten_depo_label(r.cust_location), 'items': {}, 'qty': 0, 'value': 0, 'value_tax': 0,
+            }
+        grp['dates'].add(r.billing_date)
+        for field, val in (('billing', r.billing_document), ('po', r.po_customer), ('delivery', r.delivery_no)):
+            if val:
+                grp[field].add(val)
+        item = grp['items'].setdefault(normalize_text(r.article), {'article': normalize_text(r.article), 'qty': 0, 'value': 0, 'value_tax': 0})
+        item['qty'] += qty
+        item['value'] += value
+        item['value_tax'] += value_tax
+        grp['qty'] += qty
+        grp['value'] += value
+        grp['value_tax'] += value_tax
+
+        dg = dealer_groups.setdefault(bp, {'bp': bp, 'dealer': normalize_text(r.sold_to_name), 'depo': _asisten_depo_label(r.cust_location),
+                                           'salesmen': set(), 'qty': 0, 'value': 0, 'value_tax': 0, 'orders': {}})
+        dg['salesmen'].add(normalize_text(r.salesman))
+        dg['qty'] += qty
+        dg['value'] += value
+        dg['value_tax'] += value_tax
+        od = dg['orders'].setdefault(so_key, {'so': r.so_number or '', 'date': r.billing_date, 'qty': 0})
+        od['date'] = min(od['date'], r.billing_date)
+        od['qty'] += qty
+
+    def iso(d):
+        return d.isoformat() if d else ''
+
+    so_list = []
+    for grp in so_groups.values():
+        dates = sorted(grp['dates'])
+        so_list.append({
+            'so': grp['so'], 'billing': sorted(grp['billing']), 'po': sorted(grp['po']), 'delivery': sorted(grp['delivery']),
+            'top': grp['top'], 'date': iso(dates[0]), 'date_last': iso(dates[-1]), 'bp': grp['bp'], 'dealer': grp['dealer'],
+            'salesman': grp['salesman'], 'depo': grp['depo'], 'qty': grp['qty'], 'value': grp['value'], 'value_tax': grp['value_tax'],
+            'items': sorted(grp['items'].values(), key=lambda x: (-x['value'], x['article'])),
+        })
+    so_list.sort(key=lambda x: (x['date'], x['so'], x['dealer']))
+
+    dealer_list = []
+    for dg in dealer_groups.values():
+        orders = sorted(dg['orders'].values(), key=lambda x: (x['date'], x['so']))
+        dealer_list.append({
+            'bp': dg['bp'], 'dealer': dg['dealer'], 'depo': dg['depo'], 'salesman': ', '.join(sorted(dg['salesmen'])),
+            'qty': dg['qty'], 'value': dg['value'], 'value_tax': dg['value_tax'],
+            'orders': [{'so': o['so'], 'date': iso(o['date']), 'qty': o['qty']} for o in orders],
+        })
+    dealer_list.sort(key=lambda x: (-x['qty'], -x['value'], x['dealer']))
+
+    # Tampilan: per dealer bila mencari produk tanpa dealer/nomor tertentu; selain itu per SO.
+    view = 'dealer' if parsed['product'] and not dealers and not parsed['docs'] and len(dealer_list) > 1 else 'so'
+    summary.update(so_count=len(so_list), dealer_count=len(dealer_list), row_count=len(rows))
+    return dict(
+        base, status='ok', view=view, summary=summary,
+        so_groups=so_list[:ASISTEN_MAX_GROUPS], dealers=dealer_list[:ASISTEN_MAX_GROUPS],
+        groups_truncated=max(len(so_list), len(dealer_list)) > ASISTEN_MAX_GROUPS,
+        missing_so=missing_so,
+    )
+
+
+@app.route('/asisten')
+@admin_required
+def asisten():
+    return render_template('asisten.html', initial_query=request.args.get('q', ''))
+
+
+@app.route('/asisten/cari')
+@admin_required
+def asisten_cari():
+    query = normalize_text(request.args.get('q', ''))[:200]
+    if not query:
+        return jsonify({'status': 'empty', 'message': 'Ketik kata kunci dulu.', 'filters': []})
+    try:
+        return jsonify(_asisten_search(query))
+    except Exception as exc:  # jangan sampai halaman putih; tampilkan pesan singkat
+        db.session.rollback()
+        app.logger.exception('asisten gagal')
+        return jsonify({'status': 'error', 'message': f'Pencarian gagal: {exc}'}), 500
 
 
 if __name__ == '__main__':

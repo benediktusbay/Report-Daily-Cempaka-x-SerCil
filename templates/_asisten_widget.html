@@ -1,0 +1,187 @@
+{# Tombol chat Asisten mengambang di kanan bawah (khusus admin). Dipanggil dari base.html. #}
+<style>
+.asw-fab{position:fixed;right:22px;bottom:22px;z-index:9000;width:58px;height:58px;border-radius:50%;border:0;background:#0b2545;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(11,37,69,.32);transition:transform .15s ease,background .15s ease}
+.asw-fab:hover{background:#133c65;transform:translateY(-2px)}
+.asw-fab svg{width:28px;height:28px}
+.asw-fab-tip{position:fixed;right:90px;bottom:36px;z-index:9000;background:#fff;border:1px solid #dbe4f0;border-radius:10px;padding:6px 10px;font-size:12px;font-weight:700;color:#52647e;box-shadow:0 4px 14px rgba(15,23,42,.08);pointer-events:none}
+.asw-open .asw-fab,.asw-open .asw-fab-tip{display:none}
+.asw-panel{position:fixed;right:22px;bottom:22px;z-index:9001;width:min(400px,calc(100vw - 32px));height:min(600px,calc(100vh - 44px));background:#fff;border:1px solid #dbe4f0;border-radius:16px;box-shadow:0 20px 60px rgba(15,23,42,.25);display:none;flex-direction:column;overflow:hidden;font-size:13px;color:#172033}
+.asw-open .asw-panel{display:flex}
+.asw-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;background:#0b2545;color:#fff}
+.asw-head strong{font-size:14px;display:flex;align-items:center;gap:8px}.asw-head strong svg{width:20px;height:20px}
+.asw-head-btns{display:flex;gap:4px}
+.asw-head-btns a,.asw-head-btns button{border:0;background:rgba(255,255,255,.12);color:#fff;width:30px;height:30px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;text-decoration:none}
+.asw-head-btns a:hover,.asw-head-btns button:hover{background:rgba(255,255,255,.22)}
+.asw-body{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;background:#f8fafc}
+.asw-msg-user{align-self:flex-end;max-width:85%;background:#1769e8;color:#fff;border-radius:14px 14px 4px 14px;padding:8px 11px;font-weight:600;word-break:break-word}
+.asw-msg-bot{align-self:flex-start;max-width:100%;width:100%;background:#fff;border:1px solid #e5e7eb;border-radius:14px 14px 14px 4px;padding:10px 12px;line-height:1.45}
+.asw-msg-bot.err{color:#b91c1c}
+.asw-welcome b{color:#0b2545}
+.asw-ex{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.asw-chip{border:1px solid #dbe4f0;background:#fff;color:#334155;border-radius:999px;padding:5px 10px;font-size:11.5px;font-weight:700;cursor:pointer}
+.asw-chip:hover{background:#eff6ff;border-color:#93c5fd}
+.asw-title{font-weight:900;color:#0b2545;font-size:13.5px}
+.asw-sub{color:#64748b;font-size:12px;margin-top:2px}
+.asw-tags{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0}
+.asw-tag{font-size:10.5px;padding:2px 7px;border-radius:6px;background:#eef4ff;color:#1d4ed8;font-weight:700}
+.asw-tag.warn{background:#fff1f2;color:#b91c1c}.asw-tag.info{background:#fef9c3;color:#854d0e}
+.asw-list{margin:8px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:5px}
+.asw-list li{display:flex;justify-content:space-between;gap:8px;padding:6px 8px;background:#f8fafc;border-radius:8px;font-size:12px}
+.asw-list li span:first-child{min-width:0}
+.asw-list li b{color:#0b2545}
+.asw-list li .r{white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
+.asw-list small{display:block;color:#64748b;font-size:11px;margin-top:1px}
+.asw-more{color:#64748b;font-size:11.5px;margin-top:6px}
+.asw-actions{display:flex;gap:12px;margin-top:9px;flex-wrap:wrap}
+.asw-actions a,.asw-actions button{border:0;background:none;padding:0;color:#1769e8;font:inherit;font-size:12px;font-weight:800;cursor:pointer;text-decoration:none}
+.asw-actions button.copied{color:#0f766e}
+.asw-choice{display:block;width:100%;text-align:left;margin-top:5px;border:1px solid #dbe4f0;background:#fff;border-radius:9px;padding:7px 9px;font-size:12px;cursor:pointer}
+.asw-choice:hover{background:#eff6ff;border-color:#93c5fd}.asw-choice small{color:#64748b;margin-left:4px}
+.asw-note{margin-top:7px;font-size:11px;color:#854d0e;background:#fffbeb;border-radius:7px;padding:5px 7px}
+.asw-form{display:flex;gap:8px;padding:10px;border-top:1px solid #e5e7eb;background:#fff}
+.asw-input{flex:1;min-width:0;border:1px solid #cbd5e1;border-radius:10px;padding:10px 11px;font-size:14px}
+.asw-input:focus{outline:2px solid #93c5fd;border-color:#1769e8}
+.asw-send{border:0;border-radius:10px;width:42px;background:#0b2545;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.asw-send:disabled{opacity:.6;cursor:wait}.asw-send svg{width:18px;height:18px}
+.asw-typing{color:#94a3b8;font-style:italic}
+@media(max-width:600px){
+  .asw-fab{right:16px;bottom:16px;width:54px;height:54px}
+  .asw-fab-tip{display:none}
+  .asw-panel{right:0;bottom:0;width:100vw;height:100dvh;border-radius:0;border:0}
+  .asw-input{font-size:16px}
+}
+@media print{.asw-fab,.asw-fab-tip,.asw-panel{display:none!important}}
+</style>
+
+<div id="aswRoot">
+  <span class="asw-fab-tip" id="aswTip" aria-hidden="true">Tanya billing?</span>
+  <button type="button" class="asw-fab" id="aswFab" aria-label="Buka Asisten" aria-controls="aswPanel" aria-expanded="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.6A8 8 0 1 1 21 12Z"></path><path d="M8.5 11h.01M12 11h.01M15.5 11h.01"></path></svg>
+  </button>
+  <section class="asw-panel" id="aswPanel" role="dialog" aria-label="Asisten">
+    <div class="asw-head">
+      <strong><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.6A8 8 0 1 1 21 12Z"></path></svg>Asisten</strong>
+      <div class="asw-head-btns">
+        <button type="button" id="aswClear" title="Hapus percakapan" aria-label="Hapus percakapan">⟲</button>
+        <a href="{{ url_for('asisten') }}" id="aswFull" title="Buka halaman lengkap" aria-label="Buka halaman lengkap">⤢</a>
+        <button type="button" id="aswClose" title="Tutup" aria-label="Tutup">×</button>
+      </div>
+    </div>
+    <div class="asw-body" id="aswBody" aria-live="polite"></div>
+    <form class="asw-form" id="aswForm" autocomplete="off">
+      <input class="asw-input" id="aswInput" maxlength="200" placeholder="Ketik dealer, produk, No SO…" aria-label="Pertanyaan">
+      <button class="asw-send" id="aswSend" type="submit" aria-label="Kirim"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"></path><path d="M22 2 15 22l-4-9-9-4 20-7Z"></path></svg></button>
+    </form>
+  </section>
+</div>
+
+<script>
+(function(){
+  const root=document.getElementById('aswRoot');if(!root)return;
+  const fab=document.getElementById('aswFab'),body=document.getElementById('aswBody'),form=document.getElementById('aswForm');
+  const input=document.getElementById('aswInput'),send=document.getElementById('aswSend');
+  const URL_CARI={{ url_for('asisten_cari')|tojson }},URL_FULL={{ url_for('asisten')|tojson }};
+  const KEY_LOG='asw_log',KEY_OPEN='asw_open',MAX_LOG=8,MAX_ROWS=10;
+  const MON=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const num=v=>Number(v||0).toLocaleString('id-ID',{maximumFractionDigits:2});
+  const rp=v=>(Number(v)<0?'-':'')+'Rp '+Math.round(Math.abs(Number(v)||0)).toLocaleString('id-ID');
+  function rpS(v){const n=Number(v)||0,a=Math.abs(n),p=(n<0?'-':'')+'Rp ';
+    if(a>=1e9)return p+(a/1e9).toLocaleString('id-ID',{maximumFractionDigits:2})+' M';
+    if(a>=1e6)return p+(a/1e6).toLocaleString('id-ID',{maximumFractionDigits:1})+' Jt';
+    return p+Math.round(a).toLocaleString('id-ID');}
+  const tgl=iso=>{if(!iso)return '-';const p=iso.split('-');return (+p[2])+' '+MON[+p[1]-1];};
+  const store={get(k,d){try{const v=sessionStorage.getItem(k);return v===null?d:JSON.parse(v);}catch(e){return d;}},set(k,v){try{sessionStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
+
+  let log=store.get(KEY_LOG,[]);
+  const WELCOME='<div class="asw-msg-bot asw-welcome">Halo! Ketik <b>dealer</b>, <b>produk</b>, <b>tanggal</b>, atau <b>No SO</b>. Contoh:<div class="asw-ex">'+
+    ['biseang 17 pro 256 silver','18 promax burgundy','plaza cell oktober','zefanya kemarin'].map(q=>'<button type="button" class="asw-chip" data-asw-q="'+esc(q)+'">'+esc(q)+'</button>').join('')+'</div></div>';
+
+  function paint(){body.innerHTML=WELCOME+log.map(m=>m.html).join('');const u=body.querySelectorAll('.asw-msg-user');const last=u[u.length-1];body.scrollTop=last?Math.max(0,last.offsetTop-body.offsetTop-10):0;}
+  function push(html){log.push({html});log=log.slice(-MAX_LOG*2);store.set(KEY_LOG,log);paint();}
+  function setOpen(open){if(open){try{localStorage.setItem('asw_seen','1');}catch(e){}const t=document.getElementById('aswTip');if(t)t.remove();}root.classList.toggle('asw-open',open);fab.setAttribute('aria-expanded',String(open));store.set(KEY_OPEN,open);if(open){paint();setTimeout(()=>input.focus(),50);}}
+
+  function tags(d){
+    let h=(d.filters||[]).filter(f=>f.label!=='Dealer').map(f=>'<span class="asw-tag">'+esc(f.label)+': '+esc(f.value.replace(' (default bulan ini)',''))+'</span>').join('');
+    (d.corrections||[]).forEach(c=>h+='<span class="asw-tag info">'+esc(c)+'</span>');
+    if((d.unknown||[]).length)h+='<span class="asw-tag warn">Diabaikan: '+esc(d.unknown.join(', '))+'</span>';
+    return h?'<div class="asw-tags">'+h+'</div>':'';
+  }
+  function waText(d){
+    const s=d.summary,lines=[],per=(d.filters||[]).find(f=>f.label==='Periode');
+    const perTxt=per?per.value.replace(' (default bulan ini)',''):'';
+    if(d.view==='dealer'){
+      const prod=(d.filters||[]).find(f=>f.label==='Produk');
+      lines.push('*'+(prod?prod.value.toUpperCase():'Hasil pencarian')+'*');
+      if(perTxt)lines.push('Periode: '+perTxt);
+      lines.push('Total: '+num(s.qty)+' unit · '+rp(s.value)+' (non-PPN) · '+s.dealer_count+' dealer','');
+      d.dealers.forEach((x,i)=>{lines.push((i+1)+'. *'+x.dealer+'* — '+num(x.qty)+' unit');x.orders.forEach(o=>lines.push('   • '+tgl(o.date)+' · '+(o.so?'SO '+o.so:'tanpa No SO')+' ('+num(o.qty)+')'));});
+    }else{
+      const one=s.dealer_count===1&&d.so_groups.length;
+      if(one)lines.push('*'+d.so_groups[0].dealer+'* (BP '+d.so_groups[0].bp+')');
+      if(perTxt)lines.push('Periode: '+perTxt);
+      lines.push('Total: '+num(s.qty)+' unit · '+rp(s.value)+' (non-PPN) · '+s.so_count+' SO','');
+      d.so_groups.forEach(g=>{lines.push('*'+tgl(g.date)+' · '+(g.so?'SO '+g.so:'tanpa No SO')+'*'+(one?'':' — '+g.dealer));g.items.forEach(i=>lines.push('• '+i.article+' × '+num(i.qty)+' = '+rp(i.value)));lines.push('');});
+    }
+    return lines.join('\n').trim();
+  }
+  function answerHtml(q,d){
+    const full=URL_FULL+'?q='+encodeURIComponent(d.query||q);
+    if(d.status==='choose'){
+      return '<div class="asw-msg-bot">'+esc(d.message)+d.choices.slice(0,8).map(c=>'<button type="button" class="asw-choice" data-asw-q="'+esc(c.query)+'">'+esc(c.name)+'<small>BP '+esc(c.bp)+'</small></button>').join('')+
+        ((d.choices.length>8||d.more)?'<div class="asw-more">Dealer lain tidak ditampilkan. Ketik nama lebih lengkap.</div>':'')+
+        '<button type="button" class="asw-choice" data-asw-q="'+esc(d.all_query)+'"><b>Semua dealer yang cocok</b></button></div>';
+    }
+    if(d.status!=='ok')return '<div class="asw-msg-bot'+(d.status==='error'?' err':'')+'">'+tags(d)+esc(d.message||'Tidak ada hasil.')+'</div>';
+    const s=d.summary;let h='<div class="asw-msg-bot">';
+    if(d.view==='dealer'){
+      const prod=(d.filters||[]).find(f=>f.label==='Produk');
+      h+='<div class="asw-title">'+esc(prod?prod.value:'Hasil')+'</div><div class="asw-sub">'+num(s.qty)+' unit · '+rpS(s.value)+' · '+s.dealer_count+' dealer</div>'+tags(d)+'<ul class="asw-list">'+
+        d.dealers.slice(0,MAX_ROWS).map(x=>'<li><span><b>'+esc(x.dealer)+'</b><small>'+x.orders.slice(0,3).map(o=>tgl(o.date)+' · '+(o.so?'SO '+esc(o.so):'tanpa SO')).join('<br>')+(x.orders.length>3?'<br>+'+(x.orders.length-3)+' SO lagi':'')+'</small></span><span class="r">'+num(x.qty)+' unit</span></li>').join('')+'</ul>';
+      if(d.dealers.length>MAX_ROWS)h+='<div class="asw-more">+'+(d.dealers.length-MAX_ROWS)+' dealer lagi di halaman lengkap.</div>';
+    }else{
+      const one=s.dealer_count===1&&d.so_groups.length;
+      h+='<div class="asw-title">'+esc(one?d.so_groups[0].dealer:'Hasil pencarian')+'</div><div class="asw-sub">'+num(s.qty)+' unit · '+rpS(s.value)+' · '+s.so_count+' SO'+(one?'':' · '+s.dealer_count+' dealer')+'</div>'+tags(d)+'<ul class="asw-list">'+
+        d.so_groups.slice(0,MAX_ROWS).map(g=>{
+          const items=g.items.length===1?esc(g.items[0].article):g.items.length+' artikel';
+          return '<li><span><b>'+tgl(g.date)+' · '+(g.so?'SO '+esc(g.so):'tanpa SO')+'</b><small>'+(one?'':esc(g.dealer)+' · ')+items+'</small></span><span class="r">'+num(g.qty)+' unit<small>'+rpS(g.value)+'</small></span></li>';
+        }).join('')+'</ul>';
+      if(d.so_groups.length>MAX_ROWS)h+='<div class="asw-more">+'+(d.so_groups.length-MAX_ROWS)+' SO lagi di halaman lengkap.</div>';
+    }
+    if(d.missing_so)h+='<div class="asw-note">'+num(d.missing_so)+' baris belum punya No SO (data lama). Upload ulang lewat Backfill.</div>';
+    h+='<div class="asw-actions"><button type="button" data-asw-wa="'+esc(waText(d))+'">⧉ Salin WA</button><a href="'+esc(full)+'">Detail lengkap →</a></div></div>';
+    return h;
+  }
+
+  async function ask(q){
+    q=(q||'').trim();if(!q)return;
+    input.value='';push('<div class="asw-msg-user">'+esc(q)+'</div>');
+    const typing=document.createElement('div');typing.className='asw-msg-bot asw-typing';typing.textContent='Mencari…';body.appendChild(typing);body.scrollTop=body.scrollHeight;
+    send.disabled=true;
+    let html;
+    try{
+      const res=await fetch(URL_CARI+'?q='+encodeURIComponent(q),{headers:{'Accept':'application/json'}});
+      if(res.redirected||res.status===401||res.status===403){html='<div class="asw-msg-bot err">Sesi login habis. Muat ulang halaman lalu login lagi.</div>';}
+      else{const d=await res.json().catch(()=>({status:'error',message:'Jawaban server tidak terbaca (HTTP '+res.status+').'}));html=answerHtml(q,d);}
+    }catch(e){html='<div class="asw-msg-bot err">Koneksi gagal. Coba lagi.</div>';}
+    send.disabled=false;push(html);input.focus();
+  }
+  async function copy(text,btn){
+    try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(text);}else{throw new Error();}}
+    catch(e){const a=document.createElement('textarea');a.value=text;a.style.position='fixed';a.style.opacity='0';document.body.appendChild(a);a.select();document.execCommand('copy');a.remove();}
+    const old=btn.textContent;btn.textContent='✓ Tersalin';btn.classList.add('copied');setTimeout(()=>{btn.textContent=old;btn.classList.remove('copied');},1500);
+  }
+
+  fab.addEventListener('click',()=>setOpen(true));
+  document.getElementById('aswClose').addEventListener('click',()=>setOpen(false));
+  document.getElementById('aswClear').addEventListener('click',()=>{log=[];store.set(KEY_LOG,log);paint();input.focus();});
+  form.addEventListener('submit',e=>{e.preventDefault();ask(input.value);});
+  body.addEventListener('click',e=>{
+    const q=e.target.closest('[data-asw-q]');if(q){ask(q.dataset.aswQ);return;}
+    const w=e.target.closest('[data-asw-wa]');if(w)copy(w.dataset.aswWa,w);
+  });
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&root.classList.contains('asw-open')&&!document.querySelector('dialog[open]'))setOpen(false);});
+  try{if(localStorage.getItem('asw_seen')){const t=document.getElementById('aswTip');if(t)t.remove();}}catch(e){}
+  if(store.get(KEY_OPEN,false))setOpen(true);
+})();
+</script>
