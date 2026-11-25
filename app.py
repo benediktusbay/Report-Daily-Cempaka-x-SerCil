@@ -980,16 +980,27 @@ def sku_from_article(article, item_group):
     if group in ACC_GROUPS:
         cleaned = s.upper()
 
-        # Watch S11 SKU follows series + case size. Colour, material and band
-        # variants do not create additional SKU records.
+        # Watch SKU = series/version + case size (sama seperti Type di Power BI).
+        # Warna case, material, jenis/warna strap dan ukuran strap (SM/ML)
+        # tidak membuat SKU baru. Berlaku umum untuk seri baru, contoh:
+        #   APP WATCH S12 42 DB AL OL SB SM GPS  -> APP WATCH 12 42MM
+        #   APP WATCH 11 46 JB AL BK SB SM GPS   -> APP WATCH 11 46MM
+        #   APP WATCH ULTRA3 49 BK TI BK ALP S   -> APP WATCH ULTRA 3 49MM
+        #   APP WATCH ULTRA 2 49 TI ORANGE OB    -> APP WATCH ULTRA 2 49MM
+        # Ultra 2/3/4 dan SE tetap SKU terpisah per versi. Format yang tidak
+        # cocok pola ini jatuh ke aturan lama di bawah (hapus warna).
         if group == 'wearable':
-            watch_s11 = re.search(
-                r'\b(?:APP(?:LE)?\s+)?WATCH\s+S?\s*11\s+(42|46)(?:\s*MM)?\b',
+            watch = re.search(
+                r'\bWATCH\s+(ULTRA\s*\d+|SE\s*\d*|S?\s*\d+)\s+(\d{2})(?:\s*MM)?\b',
                 cleaned,
                 flags=re.I,
             )
-            if watch_s11:
-                return f'APP WATCH 11 {watch_s11.group(1)}MM'
+            if watch:
+                series = re.sub(r'\s+', '', watch.group(1).upper())
+                series = re.sub(r'^ULTRA(\d+)$', r'ULTRA \1', series)
+                series = re.sub(r'^SE(\d+)$', r'SE \1', series)
+                series = re.sub(r'^S(\d+)$', r'\1', series)
+                return f'APP WATCH {series} {watch.group(2)}MM'
 
         # Remove known multi-word accessory colour names first.
         for phrase in ACC_COLOR_PHRASES:
